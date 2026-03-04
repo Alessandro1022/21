@@ -4,6 +4,7 @@ import { useEmpire } from "@/contexts/EmpireContext";
 import { formatYear } from "@/data/empires";
 import { AppLayout } from "@/components/AppLayout";
 import { useChat } from "@/hooks/useChat";
+import { LeaderDetailModal } from "@/components/LeaderDetailModal";
 import { Crown, ChevronDown, ChevronRight, ExternalLink, Calendar, Sword, BookOpen, X } from "lucide-react";
 
 interface TreeNode {
@@ -70,11 +71,12 @@ function getDynastyLabel(generation: number, empireId: string, lang: string): st
 }
 
 function TreeNodeComponent({
-  node, language, empireId, profiles, expanded, toggleExpand, selectedId, setSelectedId,
+  node, language, empireId, profiles, expanded, toggleExpand, selectedId, setSelectedId, onOpenModal,
 }: {
   node: TreeNode; language: string; empireId: string; profiles: any[];
   expanded: Set<string>; toggleExpand: (id: string) => void;
   selectedId: string | null; setSelectedId: (id: string | null) => void;
+  onOpenModal: (leader: any) => void;
 }) {
   const l = node.leader;
   const isExpanded = expanded.has(l.id);
@@ -91,11 +93,11 @@ function TreeNodeComponent({
       )}
 
       <div className="relative group">
-        <button
-          onClick={() => {
-            if (hasChildren) toggleExpand(l.id);
-            setSelectedId(isSelected ? null : l.id);
-          }}
+          <button
+            onClick={() => {
+              if (hasChildren) toggleExpand(l.id);
+              setSelectedId(isSelected ? null : l.id);
+            }}
           className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${
             isSelected ? "bg-card/80 ottoman-border ottoman-glow" : "hover:bg-card/40"
           }`}
@@ -162,15 +164,24 @@ function TreeNodeComponent({
               </div>
             </div>
 
-            {hasProfile && (
-              <Link
-                to={`/profiles/${l.profileId}`}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); onOpenModal(l); }}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-sans gold-gradient text-primary-foreground hover:opacity-90 transition-opacity"
               >
-                {language === "sv" ? "Se fullständig profil" : language === "tr" ? "Tam profili gör" : "View full profile"}
-                <ExternalLink className="w-3 h-3" />
-              </Link>
-            )}
+                {language === "sv" ? "Visa detaljer" : language === "tr" ? "Detayları gör" : "View details"}
+                <Crown className="w-3 h-3" />
+              </button>
+              {hasProfile && (
+                <Link
+                  to={`/profiles/${l.profileId}`}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-sans bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                >
+                  {language === "sv" ? "Se profil" : language === "tr" ? "Profili gör" : "View profile"}
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -181,7 +192,7 @@ function TreeNodeComponent({
             <TreeNodeComponent
               key={child.leader.id} node={child} language={language} empireId={empireId}
               profiles={profiles} expanded={expanded} toggleExpand={toggleExpand}
-              selectedId={selectedId} setSelectedId={setSelectedId}
+              selectedId={selectedId} setSelectedId={setSelectedId} onOpenModal={onOpenModal}
             />
           ))}
         </div>
@@ -195,6 +206,7 @@ export default function Lineage() {
   const { config, empireId } = useEmpire();
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [modalLeader, setModalLeader] = useState<any>(null);
 
   const leaders = config?.leaders || [];
   const profiles = config?.profiles || [];
@@ -254,12 +266,19 @@ export default function Lineage() {
               <TreeNodeComponent
                 key={node.leader.id} node={node} language={language} empireId={empireId || "ottoman"}
                 profiles={profiles} expanded={expanded} toggleExpand={toggleExpand}
-                selectedId={selectedId} setSelectedId={setSelectedId}
+                selectedId={selectedId} setSelectedId={setSelectedId} onOpenModal={(l) => setModalLeader(l)}
               />
             ))}
           </div>
         </div>
       </div>
+      <LeaderDetailModal
+        leader={modalLeader}
+        open={!!modalLeader}
+        onClose={() => setModalLeader(null)}
+        language={language}
+        empireId={empireId || "ottoman"}
+      />
     </AppLayout>
   );
 }
