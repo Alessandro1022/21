@@ -1,3 +1,4 @@
+import type { LatLngExpression } from "leaflet";
 import type { EmpireConfig, TimelineEvent, Sultan, QuizQuestion, Badge, HistoricalProfile, TerritoryPeriod, TradeRouteGeo } from "./types";
 import { romanFigures } from "@/data/figures";
 import romanEagle from "@/assets/roman-eagle.jpg";
@@ -226,46 +227,154 @@ const romanProfiles: HistoricalProfile[] = [
   },
 ];
 
+// ===========================================
+// ROMAN TERRITORIES – Shared border vertices
+// Adjacent provinces share exact coordinates
+// ===========================================
+
+// Shared border points
+const ROME: LatLngExpression = [41.9, 12.5];
+const NAPLES: LatLngExpression = [40.8, 14.3];
+const BRINDISI: LatLngExpression = [40.6, 17.9];
+const RIMINI: LatLngExpression = [44.1, 12.6];
+const GENOA: LatLngExpression = [44.4, 8.9];
+const NICE: LatLngExpression = [43.7, 7.3];
+const MASSILIA: LatLngExpression = [43.3, 5.4];
+const NARBONNE: LatLngExpression = [43.2, 3.0];
+const LUGDUNUM: LatLngExpression = [45.8, 4.8];
+const LUTETIA: LatLngExpression = [48.9, 2.3];
+const COLONIA: LatLngExpression = [50.9, 6.9];
+const LONDINIUM: LatLngExpression = [51.5, -0.1];
+const EBURACUM: LatLngExpression = [53.9, -1.1];
+const TARRACO: LatLngExpression = [41.1, 1.2];
+const CARTHAGO_NOVA: LatLngExpression = [37.6, -1.0];
+const GADES: LatLngExpression = [36.5, -6.3];
+const EMERITA: LatLngExpression = [38.9, -6.3];
+const OLISIPO: LatLngExpression = [38.7, -9.1];
+const R_THESSALONIKI: LatLngExpression = [40.6, 22.9];
+const R_ATHENS: LatLngExpression = [38.0, 23.7];
+const CORINTH: LatLngExpression = [37.9, 22.9];
+const DYRRACHIUM: LatLngExpression = [41.3, 19.5];
+const EPHESUS: LatLngExpression = [38.0, 27.3];
+const ANCYRA: LatLngExpression = [39.9, 32.9];
+const ANTIOCH: LatLngExpression = [36.2, 36.2];
+const TARSUS: LatLngExpression = [37.0, 34.9];
+const R_DAMASCUS: LatLngExpression = [33.5, 36.3];
+const R_JERUSALEM: LatLngExpression = [31.8, 35.2];
+const PETRA: LatLngExpression = [30.3, 35.5];
+const ALEXANDRIA: LatLngExpression = [31.2, 29.9];
+const MEMPHIS: LatLngExpression = [29.9, 31.2];
+const R_ASWAN: LatLngExpression = [24.0, 32.9];
+const CARTHAGE: LatLngExpression = [36.9, 10.3];
+const LEPTIS: LatLngExpression = [32.6, 14.3];
+const SARMIZEGETUSA: LatLngExpression = [45.5, 23.3];
+const SINGIDUNUM: LatLngExpression = [44.8, 20.5];
+const AQUINCUM: LatLngExpression = [47.5, 19.0];
+
 const romanTerritories: TerritoryPeriod[] = [
+  // Italia – connects to Gallia at Nice/Genoa, to Graecia via Adriatic coast
   {
     yearStart: -753, yearEnd: 476, label: { sv: "Italia", en: "Italia", tr: "İtalya" }, color: "#8b0000",
-    polygon: [[[42, 12], [44, 11], [46, 13], [45.5, 14], [44, 15], [42, 16], [40, 16], [38, 16], [37, 15], [39, 13], [40, 12]]],
+    polygon: [[
+      GENOA, NICE, [44.0, 8.0], RIMINI,
+      [43.5, 13.6], [42.5, 14.0], NAPLES, [39.5, 16.5],
+      [38.1, 15.6], [37.5, 15.1], [38.0, 13.0],
+      [38.5, 12.5], [40.0, 12.0], ROME, [43.0, 10.0],
+    ]],
   },
+  // Hispania – connects to Gallia at Narbonne/Pyrenees
   {
     yearStart: -218, yearEnd: 476, label: { sv: "Hispanien", en: "Hispania", tr: "Hispanya" }, color: "#a52a2a",
-    polygon: [[[43, -9], [43.5, -3], [42, 0], [40, 0], [37, -2], [36, -6], [37, -9], [40, -9]]],
+    polygon: [[
+      NARBONNE, TARRACO, [41.5, 2.0], [42.8, 3.0],
+      [43.3, 0.0], [43.5, -1.8], [43.3, -3.5], [43.5, -8.0],
+      OLISIPO, [37.0, -9.0], GADES,
+      [36.0, -5.5], [36.7, -2.5], CARTHAGO_NOVA,
+      [38.0, 0.0], [39.5, 0.0],
+    ]],
   },
+  // Gallia – connects to Italia at Nice, to Hispania at Narbonne, to Britannia via channel
   {
     yearStart: -50, yearEnd: 476, label: { sv: "Gallien", en: "Gallia", tr: "Galya" }, color: "#cd5c5c",
-    polygon: [[[43, 0], [44, 3], [46, 5], [48, 2], [50, 2], [49, 7], [47, 7], [45, 7], [43, 5]]],
+    polygon: [[
+      NARBONNE, MASSILIA, NICE, GENOA,
+      [46.0, 6.5], [47.0, 7.5], COLONIA,
+      [50.5, 4.0], [50.0, 1.5], [48.5, -1.5],
+      [47.5, -3.0], [46.0, -1.5], [45.0, -1.0],
+      [43.3, -1.8], [43.3, 0.0], [42.8, 3.0],
+    ]],
   },
+  // Britannia – island
   {
     yearStart: 43, yearEnd: 410, label: { sv: "Britannien", en: "Britannia", tr: "Britanya" }, color: "#b22222",
-    polygon: [[[51, -4], [52, -1], [54, -1], [55, -3], [54, -5], [52, -5]]],
+    polygon: [[
+      LONDINIUM, [51.0, 1.3], [52.5, 1.7], [53.0, 0.0],
+      EBURACUM, [55.0, -2.0], [55.5, -4.5],
+      [54.0, -5.5], [53.0, -4.5], [52.0, -5.0],
+      [51.5, -5.0], [51.0, -3.5], [50.5, -1.5], [50.8, 0.0],
+    ]],
   },
+  // Graecia – connects to Asia Minor at Bosporus area, to Dacia at north, to Italia via Adriatic
   {
-    yearStart: -146, yearEnd: 476, label: { sv: "Grekland", en: "Graecia", tr: "Yunanistan" }, color: "#dc143c",
-    polygon: [[[41, 20], [40.5, 23.5], [39, 23], [38, 24], [37, 22.5], [38, 20], [39.5, 20]]],
+    yearStart: -146, yearEnd: 476, label: { sv: "Grekland & Illyrien", en: "Graecia & Illyricum", tr: "Yunanistan & İllirya" }, color: "#dc143c",
+    polygon: [[
+      DYRRACHIUM, SINGIDUNUM, [44.5, 22.0],
+      [43.5, 23.5], R_THESSALONIKI, [40.5, 24.0],
+      [39.5, 25.5], R_ATHENS, CORINTH,
+      [36.4, 22.8], [37.8, 21.0], [38.5, 20.5],
+      [40.0, 19.0],
+    ]],
   },
+  // Asia Minor – connects to Graecia at Aegean, to Syria at Antioch
   {
     yearStart: -133, yearEnd: 476, label: { sv: "Mindre Asien", en: "Asia Minor", tr: "Küçük Asya" }, color: "#a52a2a",
-    polygon: [[[40, 27], [41, 30], [41.5, 33], [40.5, 36], [38.5, 36], [37, 33], [37, 30], [38, 27]]],
+    polygon: [[
+      [40.5, 24.0], [41.0, 27.0], [41.5, 29.0],
+      [42.0, 31.0], [42.0, 35.0], [41.0, 39.5],
+      [40.0, 40.0], ANCYRA, TARSUS, ANTIOCH,
+      [36.2, 34.0], [36.8, 30.5], EPHESUS, [39.5, 25.5],
+    ]],
   },
-  {
-    yearStart: -30, yearEnd: 476, label: { sv: "Egypten", en: "Aegyptus", tr: "Mısır" }, color: "#8b0000",
-    polygon: [[[31.5, 25], [31, 30], [30, 32.5], [28, 33.5], [25, 35], [22, 36], [22, 31], [25, 29], [28, 26], [29.5, 25]]],
-  },
+  // Syria & Judea – connects to Asia Minor at Antioch, to Egypt at Sinai
   {
     yearStart: -63, yearEnd: 476, label: { sv: "Syrien & Judéen", en: "Syria & Judea", tr: "Suriye & Yahudiye" }, color: "#cd5c5c",
-    polygon: [[[37, 35.5], [36.5, 37], [35, 36.5], [33, 35.5], [31.5, 34.5], [31.5, 33], [33, 34], [35, 35]]],
+    polygon: [[
+      ANTIOCH, [36.5, 38.0], [35.5, 40.0],
+      [34.5, 40.5], [33.0, 38.0], R_DAMASCUS,
+      R_JERUSALEM, PETRA, [29.5, 35.0],
+      [28.0, 33.8], [30.0, 32.5], [31.5, 34.0],
+      [32.5, 34.5], [34.0, 35.0], TARSUS, [36.2, 34.0],
+    ]],
   },
+  // Aegyptus – connects to Syria at Sinai
+  {
+    yearStart: -30, yearEnd: 476, label: { sv: "Egypten", en: "Aegyptus", tr: "Mısır" }, color: "#8b0000",
+    polygon: [[
+      [30.0, 32.5], [28.0, 33.8],
+      [27.0, 34.5], [25.0, 35.0], R_ASWAN, [22.0, 36.5],
+      [22.0, 31.0], [24.5, 29.0], [27.0, 26.0],
+      [29.5, 25.0], [31.5, 25.0], ALEXANDRIA, MEMPHIS,
+    ]],
+  },
+  // Africa – connects to nothing directly (separated by sea), but close to Italia
   {
     yearStart: -146, yearEnd: 439, label: { sv: "Afrika", en: "Africa", tr: "Afrika" }, color: "#b22222",
-    polygon: [[[37, 8.5], [35, 8], [33, 8], [32, 10], [33, 12], [35, 11], [36.5, 10]]],
+    polygon: [[
+      CARTHAGE, [37.0, 10.0], [36.5, 8.5],
+      [35.0, 8.0], [33.0, 8.0], [32.0, 9.5],
+      [31.5, 11.0], LEPTIS, [33.0, 16.0],
+      [33.5, 12.0], [34.5, 11.0], [35.5, 10.5],
+    ]],
   },
+  // Dacia – connects to Graecia/Illyricum at Singidunum
   {
     yearStart: 106, yearEnd: 275, label: { sv: "Dacien", en: "Dacia", tr: "Dacia" }, color: "#dc143c",
-    polygon: [[[44, 22], [45, 24], [46, 26], [45, 28], [44, 27], [43, 24]]],
+    polygon: [[
+      SINGIDUNUM, [44.5, 22.0], [43.5, 23.5],
+      [44.0, 25.0], [45.0, 26.5], SARMIZEGETUSA,
+      [46.5, 25.0], [47.0, 23.0], [46.5, 21.0],
+      AQUINCUM,
+    ]],
   },
 ];
 

@@ -14,22 +14,10 @@ function MapUpdater({ center, zoom }: { center: LatLngExpression; zoom: number }
   return null;
 }
 
-// Period-based color shift
-function getPeriodColor(baseColor: string, year: number, yearStart: number, yearEnd: number): string {
-  const progress = (year - yearStart) / (yearEnd - yearStart);
-  // Shift opacity based on how close we are to the period edges
-  const edgeFade = Math.min(
-    (year - yearStart) / 50, // fade in
-    (yearEnd - year) / 50,  // fade out
-    1
-  );
-  return baseColor;
-}
-
 function getPeriodOpacity(year: number, t: { yearStart: number; yearEnd: number }): number {
   const fadeIn = Math.min((year - t.yearStart) / 30, 1);
   const fadeOut = Math.min((t.yearEnd - year) / 30, 1);
-  return Math.max(0.15, Math.min(fadeIn, fadeOut) * 0.45);
+  return Math.max(0.2, Math.min(fadeIn, fadeOut) * 0.5);
 }
 
 export default function MapPage() {
@@ -56,7 +44,6 @@ export default function MapPage() {
     [year, showRoutes, tradeRoutes]
   );
 
-  // Expansion glow: territories acquired recently
   const recentlyAcquired = useMemo(
     () => visibleTerritories.filter((t) => year - t.yearStart < 50),
     [year, visibleTerritories]
@@ -65,12 +52,14 @@ export default function MapPage() {
   const l = config?.mapTitle || { sv: "Territorium", en: "Territory", tr: "Topraklar" };
   const routeLabel = { sv: "Handelsvägar", en: "Trade Routes", tr: "Ticaret Yolları" };
 
-  const outlineColor = empireId === "roman" ? "#dc143c" : "#daa520";
+  // Empire-specific colors
+  const outlineColor = empireId === "roman" ? "#8b0000" : "#b8860b";
+  const fillBase = empireId === "roman" ? "#dc143c" : "#daa520";
   const routeColor = empireId === "roman" ? "#ffa500" : "#ffd700";
+  // Thin internal border color (subtle, same hue but lighter)
+  const internalBorderColor = empireId === "roman" ? "rgba(220,20,60,0.3)" : "rgba(218,165,32,0.3)";
 
-  // Count stats
   const territoryCount = visibleTerritories.length;
-  const routeCount = visibleRoutes.length;
 
   const handleYearChange = (newYear: number) => {
     setIsAnimating(true);
@@ -81,24 +70,24 @@ export default function MapPage() {
   return (
     <AppLayout language={language} setLanguage={setLanguage}>
       <div className="h-full flex flex-col">
-        <div className="flex-shrink-0 px-4 py-3 border-b border-border bg-background/40 backdrop-blur-sm z-[500] relative">
-          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center gap-3">
+        <div className="flex-shrink-0 px-4 py-2.5 border-b border-border bg-background/40 backdrop-blur-sm z-[500] relative">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
             <h2 className="text-sm font-serif text-primary">{l[language] || l.en}</h2>
-            <div className="flex-1 flex items-center gap-3">
-              <span className="text-xs text-muted-foreground font-sans">{formatYear(yearRange[0], language)}</span>
+            <div className="flex-1 flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              <span className="text-[10px] text-muted-foreground font-sans whitespace-nowrap">{formatYear(yearRange[0], language)}</span>
               <input type="range" min={yearRange[0]} max={yearRange[1]} value={year}
-                onChange={(e) => handleYearChange(Number(e.target.value))} className="flex-1 h-1.5 accent-primary cursor-pointer" />
-              <span className="text-xs text-muted-foreground font-sans">{formatYear(yearRange[1], language)}</span>
+                onChange={(e) => handleYearChange(Number(e.target.value))}
+                className="flex-1 h-1.5 accent-primary cursor-pointer touch-none" />
+              <span className="text-[10px] text-muted-foreground font-sans whitespace-nowrap">{formatYear(yearRange[1], language)}</span>
             </div>
-            <span className={`text-lg font-serif text-primary font-bold min-w-[80px] text-center transition-all duration-300 ${isAnimating ? "scale-110 ottoman-glow" : ""}`}>
+            <span className={`text-base sm:text-lg font-serif text-primary font-bold min-w-[70px] text-center transition-all duration-300 ${isAnimating ? "scale-110 ottoman-glow" : ""}`}>
               {formatYear(year, language)}
             </span>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button onClick={() => setShowRoutes(!showRoutes)}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-sans transition-colors ${showRoutes ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] sm:text-xs font-sans transition-colors ${showRoutes ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 <Route className="w-3 h-3" /> {routeLabel[language as keyof typeof routeLabel] || routeLabel.en}
               </button>
-              {/* Stats */}
               <div className="hidden sm:flex items-center gap-2 text-[10px] font-sans text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Layers className="w-3 h-3" /> {territoryCount}
@@ -120,11 +109,11 @@ export default function MapPage() {
               return (
                 <Polygon key={`${t.label.en}-${i}`} positions={t.polygon}
                   pathOptions={{
-                    color: outlineColor,
+                    color: internalBorderColor,
                     fillColor: t.color,
                     fillOpacity: opacity,
-                    weight: isRecent ? 2.5 : 1.5,
-                    opacity: isRecent ? 0.9 : 0.6,
+                    weight: 1,
+                    opacity: 0.5,
                   }}>
                   <Tooltip direction="top" className="ottoman-tooltip">
                     <div className="text-xs font-sans">
