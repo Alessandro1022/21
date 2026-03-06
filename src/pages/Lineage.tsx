@@ -113,7 +113,7 @@ function TreeNodeComponent({
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className={`text-sm font-serif truncate transition-colors duration-200 ${isSelected ? "text-primary" : "text-foreground"}`}>{l.name}</span>
+              <span className={`text-sm font-serif truncate transition-colors duration-200 ${isSelected ? "text-primary" : "text-foreground drop-shadow-sm"}`}>{l.name}</span>
               {hasProfile && <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
             </div>
             <div className="flex items-center gap-2 text-[10px] font-sans text-muted-foreground">
@@ -232,8 +232,9 @@ export default function Lineage() {
 
   return (
     <AppLayout language={language} setLanguage={setLanguage}>
-      <div className="h-full overflow-y-auto p-4">
+      <div className="h-full overflow-y-auto p-4 pb-8">
         <div className="max-w-3xl mx-auto animate-fade-in">
+          {/* Page title with dark overlay for readability */}
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-2xl font-serif text-primary flex items-center gap-2">

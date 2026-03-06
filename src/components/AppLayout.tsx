@@ -4,6 +4,7 @@ import { useEmpire } from "@/contexts/EmpireContext";
 import { MessageSquare, Clock, Map, Brain, Users, Shield, LogOut, Menu, X, Globe, Crown, BookOpen } from "lucide-react";
 import { useState } from "react";
 import { FlagSelector } from "@/components/FlagSelector";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -38,12 +39,12 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
       <div className="absolute inset-0 bg-background/88 z-0" />
 
       {/* Header */}
-      <header className="relative z-20 flex-shrink-0 border-b border-border px-4 py-3 bg-background/60 backdrop-blur-md">
+      <header className="relative z-20 flex-shrink-0 border-b border-border px-4 py-2.5 bg-background/60 backdrop-blur-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center gap-2">
-              {crestImage && <img src={crestImage} alt="Empire crest" className="w-8 h-8 rounded-lg object-cover" />}
-              <span className="text-base font-serif text-primary hidden sm:block">{appTitle}</span>
+              {crestImage && <img src={crestImage} alt="Empire crest" className="w-7 h-7 rounded-lg object-cover" />}
+              <span className="text-sm font-serif text-primary hidden sm:block">{appTitle}</span>
             </Link>
           </div>
 
@@ -83,45 +84,21 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
             </button>
             <FlagSelector language={language} setLanguage={setLanguage} />
             {user && (
-              <button onClick={signOut} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Logga ut">
+              <button onClick={signOut} className="p-2 rounded-lg hover:bg-muted transition-colors hidden md:block" title="Logga ut">
                 <LogOut className="w-4 h-4 text-muted-foreground" />
-              </button>
-            )}
-            {!hideNav && (
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 rounded-lg hover:bg-muted transition-colors">
-                {mobileMenuOpen ? <X className="w-4 h-4 text-foreground" /> : <Menu className="w-4 h-4 text-foreground" />}
               </button>
             )}
           </div>
         </div>
-
-        {/* Mobile nav */}
-        {mobileMenuOpen && !hideNav && (
-          <nav className="md:hidden mt-2 pt-2 border-t border-border flex flex-wrap gap-1">
-            {NAV_ITEMS.map((item) => {
-              const active = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-sans transition-colors ${
-                    active ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <item.icon className="w-3.5 h-3.5" />
-                  {item.label[language as keyof typeof item.label] || item.label.en}
-                </Link>
-              );
-            })}
-          </nav>
-        )}
       </header>
 
-      {/* Content */}
-      <main className="relative z-10 flex-1 overflow-hidden">
+      {/* Content - add bottom padding for mobile nav */}
+      <main className="relative z-10 flex-1 overflow-hidden pb-[68px] md:pb-0">
         {children}
       </main>
+
+      {/* Mobile bottom navigation */}
+      {!hideNav && <MobileBottomNav language={language} />}
     </div>
   );
 }

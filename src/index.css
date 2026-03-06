@@ -7,17 +7,17 @@
 @layer base {
   :root {
     --background: 220 20% 10%;
-    --foreground: 40 30% 90%;
+    --foreground: 45 20% 82%;
     --card: 220 18% 14%;
-    --card-foreground: 40 30% 90%;
+    --card-foreground: 45 20% 82%;
     --popover: 220 18% 14%;
-    --popover-foreground: 40 30% 90%;
+    --popover-foreground: 45 20% 82%;
     --primary: 40 70% 50%;
     --primary-foreground: 220 20% 10%;
     --secondary: 220 15% 20%;
-    --secondary-foreground: 40 30% 85%;
+    --secondary-foreground: 40 20% 78%;
     --muted: 220 15% 18%;
-    --muted-foreground: 220 10% 55%;
+    --muted-foreground: 220 10% 60%;
     --accent: 40 60% 45%;
     --accent-foreground: 220 20% 10%;
     --destructive: 0 70% 50%;
@@ -27,11 +27,11 @@
     --ring: 40 70% 50%;
     --radius: 0.75rem;
     --sidebar-background: 220 18% 12%;
-    --sidebar-foreground: 40 30% 85%;
+    --sidebar-foreground: 40 20% 78%;
     --sidebar-primary: 40 70% 50%;
     --sidebar-primary-foreground: 220 20% 10%;
     --sidebar-accent: 220 15% 18%;
-    --sidebar-accent-foreground: 40 30% 85%;
+    --sidebar-accent-foreground: 40 20% 78%;
     --sidebar-border: 220 15% 22%;
     --sidebar-ring: 40 70% 50%;
     --gold-glow: 40 80% 55%;
@@ -42,28 +42,28 @@
   /* Roman Empire theme */
   [data-empire="roman"] {
     --background: 0 18% 9%;
-    --foreground: 35 25% 90%;
+    --foreground: 35 18% 82%;
     --card: 0 14% 13%;
-    --card-foreground: 35 25% 90%;
+    --card-foreground: 35 18% 82%;
     --popover: 0 14% 13%;
-    --popover-foreground: 35 25% 90%;
+    --popover-foreground: 35 18% 82%;
     --primary: 0 62% 42%;
     --primary-foreground: 0 10% 95%;
     --secondary: 0 12% 18%;
-    --secondary-foreground: 35 25% 85%;
+    --secondary-foreground: 35 18% 78%;
     --muted: 0 12% 16%;
-    --muted-foreground: 0 8% 50%;
+    --muted-foreground: 0 8% 55%;
     --accent: 40 55% 45%;
     --accent-foreground: 0 18% 9%;
     --border: 0 12% 20%;
     --input: 0 12% 20%;
     --ring: 0 62% 42%;
     --sidebar-background: 0 14% 11%;
-    --sidebar-foreground: 35 25% 85%;
+    --sidebar-foreground: 35 18% 78%;
     --sidebar-primary: 0 62% 42%;
     --sidebar-primary-foreground: 0 10% 95%;
     --sidebar-accent: 0 12% 16%;
-    --sidebar-accent-foreground: 35 25% 85%;
+    --sidebar-accent-foreground: 35 18% 78%;
     --sidebar-border: 0 12% 20%;
     --sidebar-ring: 0 62% 42%;
     --gold-glow: 0 70% 50%;
@@ -73,17 +73,17 @@
 
   .dark {
     --background: 220 20% 10%;
-    --foreground: 40 30% 90%;
+    --foreground: 45 20% 82%;
     --card: 220 18% 14%;
-    --card-foreground: 40 30% 90%;
+    --card-foreground: 45 20% 82%;
     --popover: 220 18% 14%;
-    --popover-foreground: 40 30% 90%;
+    --popover-foreground: 45 20% 82%;
     --primary: 40 70% 50%;
     --primary-foreground: 220 20% 10%;
     --secondary: 220 15% 20%;
-    --secondary-foreground: 40 30% 85%;
+    --secondary-foreground: 40 20% 78%;
     --muted: 220 15% 18%;
-    --muted-foreground: 220 10% 55%;
+    --muted-foreground: 220 10% 60%;
     --accent: 40 60% 45%;
     --accent-foreground: 220 20% 10%;
     --destructive: 0 70% 50%;
@@ -92,11 +92,11 @@
     --input: 220 15% 22%;
     --ring: 40 70% 50%;
     --sidebar-background: 220 18% 12%;
-    --sidebar-foreground: 40 30% 85%;
+    --sidebar-foreground: 40 20% 78%;
     --sidebar-primary: 40 70% 50%;
     --sidebar-primary-foreground: 220 20% 10%;
     --sidebar-accent: 220 15% 18%;
-    --sidebar-accent-foreground: 40 30% 85%;
+    --sidebar-accent-foreground: 40 20% 78%;
     --sidebar-border: 220 15% 22%;
     --sidebar-ring: 40 70% 50%;
   }
@@ -150,6 +150,10 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: hsl(var(--primary) / 0.3);
     border-radius: 2px;
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .animate-scale-in {

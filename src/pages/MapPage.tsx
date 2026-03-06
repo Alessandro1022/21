@@ -110,7 +110,9 @@ export default function MapPage() {
 
         <div className="flex-1 relative z-0">
           <MapContainer center={mapCenter} zoom={mapZoom} className="h-full w-full"
-            style={{ background: "#0a0a0f" }} zoomControl={false} attributionControl={false}>
+            style={{ background: "#0a0a0f" }} zoomControl={false} attributionControl={false}
+            dragging={true} touchZoom={true} scrollWheelZoom={true} doubleClickZoom={true}
+            minZoom={2} maxZoom={10}>
             <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution="" />
             {visibleTerritories.map((t, i) => {
               const isRecent = recentlyAcquired.includes(t);
