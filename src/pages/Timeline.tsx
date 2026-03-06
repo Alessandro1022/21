@@ -4,7 +4,7 @@ import { useChat } from "@/hooks/useChat";
 import { useEmpire } from "@/contexts/EmpireContext";
 import { formatYear } from "@/data/empires";
 import { ChatMessage } from "@/components/ChatMessage";
-import { Sparkles, ChevronLeft, Clock, Sword, Landmark, Palette, BookOpen, Filter, Users, Calendar, TrendingUp, Crown } from "lucide-react";
+import { Sparkles, ChevronLeft, Clock, Sword, Landmark, Palette, BookOpen, Filter, Users, Calendar, TrendingUp, Crown, ChevronDown } from "lucide-react";
 
 type Category = "all" | "military" | "politics" | "culture" | "religion";
 
@@ -61,18 +61,11 @@ export default function Timeline() {
   };
 
   const labels = {
-    sv: { figures: "Nyckelpersoner", consequences: "Politiska konsekvenser", impact: "Långsiktigt inflytande", aiBtn: "AI-djupanalys", back: "Tillbaka", all: "Alla", military: "Militär", politics: "Politik", culture: "Kultur", religion: "Religion", select: "Välj ett år", selectDesc: "Scrolla och klicka på ett år i tidslinjen." },
-    en: { figures: "Key Figures", consequences: "Political Consequences", impact: "Long-term Impact", aiBtn: "AI Deep Analysis", back: "Back", all: "All", military: "Military", politics: "Politics", culture: "Culture", religion: "Religion", select: "Select a year", selectDesc: "Scroll and click on a year in the timeline." },
-    tr: { figures: "Anahtar Kişiler", consequences: "Siyasi Sonuçlar", impact: "Uzun Vadeli Etki", aiBtn: "AI Derinlemesine Analiz", back: "Geri", all: "Tümü", military: "Askeri", politics: "Siyaset", culture: "Kültür", religion: "Din", select: "Bir yıl seçin", selectDesc: "Zaman çizelgesinde kaydırın ve bir yıla tıklayın." },
+    sv: { figures: "Nyckelpersoner", consequences: "Politiska konsekvenser", impact: "Långsiktigt inflytande", aiBtn: "AI-djupanalys", back: "Tillbaka", all: "Alla", military: "Militär", politics: "Politik", culture: "Kultur", religion: "Religion", select: "Välj en händelse", selectDesc: "Scrolla och klicka på en händelse i tidslinjen." },
+    en: { figures: "Key Figures", consequences: "Political Consequences", impact: "Long-term Impact", aiBtn: "AI Deep Analysis", back: "Back", all: "All", military: "Military", politics: "Politics", culture: "Culture", religion: "Religion", select: "Select an event", selectDesc: "Scroll and tap on an event in the timeline." },
+    tr: { figures: "Anahtar Kişiler", consequences: "Siyasi Sonuçlar", impact: "Uzun Vadeli Etki", aiBtn: "AI Derinlemesine Analiz", back: "Geri", all: "Tümü", military: "Askeri", politics: "Siyaset", culture: "Kültür", religion: "Din", select: "Bir olay seçin", selectDesc: "Zaman çizelgesinde kaydırın ve bir olaya tıklayın." },
   };
   const l = labels[language as keyof typeof labels] || labels.en;
-
-  useEffect(() => {
-    if (selectedYear && scrollRef.current) {
-      const btn = scrollRef.current.querySelector(`[data-year="${selectedYear}"]`);
-      btn?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-    }
-  }, [selectedYear]);
 
   const categoryOptions: { value: Category; label: string }[] = [
     { value: "all", label: l.all },
@@ -86,104 +79,63 @@ export default function Timeline() {
     <AppLayout language={language} setLanguage={setLanguage}>
       <div className="h-full flex flex-col">
         {/* Filter bar */}
-        <div className="flex-shrink-0 border-b border-border bg-background/40 backdrop-blur-sm">
-          <div className="px-4 pt-3 pb-1">
-            <div className="max-w-5xl mx-auto flex items-center gap-2 overflow-x-auto scrollbar-thin">
-              {categoryOptions.map((opt) => {
-                const Icon = CATEGORY_ICONS[opt.value];
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => setCategory(opt.value)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans whitespace-nowrap transition-all duration-200 ${
-                      category === opt.value
-                        ? "bg-primary/20 text-primary ottoman-border"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <Icon className="w-3 h-3" /> {opt.label}
-                  </button>
-                );
-              })}
-              <span className="text-[10px] font-sans text-muted-foreground ml-auto">
-                {filteredEvents.length} {language === "sv" ? "händelser" : language === "tr" ? "olay" : "events"}
-              </span>
-            </div>
+        <div className="flex-shrink-0 border-b border-border bg-background/40 backdrop-blur-sm px-4 py-2.5">
+          <div className="max-w-3xl mx-auto flex items-center gap-2 overflow-x-auto scrollbar-thin">
+            {categoryOptions.map((opt) => {
+              const Icon = CATEGORY_ICONS[opt.value];
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setCategory(opt.value)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans whitespace-nowrap transition-all duration-200 ${
+                    category === opt.value
+                      ? "bg-primary/20 text-primary ottoman-border"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Icon className="w-3 h-3" /> {opt.label}
+                </button>
+              );
+            })}
+            <span className="text-[10px] font-sans text-muted-foreground ml-auto whitespace-nowrap">
+              {filteredEvents.length} {language === "sv" ? "händelser" : language === "tr" ? "olay" : "events"}
+            </span>
           </div>
 
           {/* Progress indicator */}
           {selectedYear !== null && (
-            <div className="px-4 pb-1">
-              <div className="max-w-5xl mx-auto">
-                <div className="h-1 bg-secondary rounded-full overflow-hidden">
-                  <div className="h-full gold-gradient rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%` }} />
-                </div>
+            <div className="max-w-3xl mx-auto mt-2">
+              <div className="h-1 bg-secondary rounded-full overflow-hidden">
+                <div className="h-full gold-gradient rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%` }} />
               </div>
             </div>
           )}
-
-          {/* Timeline strip */}
-          <div ref={scrollRef} className="overflow-x-auto scrollbar-thin py-4 px-4">
-            <div className="flex items-end gap-0.5 min-w-max relative">
-              <div className="absolute bottom-[22px] left-0 right-0 h-px bg-border" />
-              {filteredEvents.map((event, idx) => {
-                const active = selectedYear === event.year;
-                const cat = inferCategory(event);
-                const CatIcon = CATEGORY_ICONS[cat];
-                return (
-                  <button
-                    key={event.year}
-                    data-year={event.year}
-                    onClick={() => setSelectedYear(active ? null : event.year)}
-                    className="relative z-10 flex flex-col items-center gap-1 px-1.5 sm:px-2 transition-all duration-300 group"
-                  >
-                    <span className={`text-[8px] sm:text-[9px] font-sans max-w-[50px] sm:max-w-[60px] text-center leading-tight transition-all duration-300 ${active ? "text-primary opacity-100" : "text-muted-foreground opacity-0 group-hover:opacity-100"}`}>
-                      {event.title[language] || event.title.en}
-                    </span>
-                    <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
-                      active
-                        ? "gold-gradient text-primary-foreground ottoman-glow scale-110"
-                        : "bg-secondary text-secondary-foreground hover:bg-muted border border-border hover:scale-105 group-hover:border-primary/40"
-                    }`}>
-                      {active ? (
-                        <CatIcon className="w-3.5 h-3.5" />
-                      ) : (
-                        <span className="text-[9px] sm:text-[10px] font-serif font-bold">{formatYear(event.year, language)}</span>
-                      )}
-                    </div>
-                    <span className={`text-[8px] font-sans transition-colors duration-200 ${active ? "text-primary font-medium" : "text-muted-foreground"}`}>
-                      {formatYear(event.year, language)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-6 pt-4">
+        {/* Vertical timeline */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-6 pt-4">
           {selected ? (
+            /* Detail view */
             <div className="max-w-3xl mx-auto animate-fade-in">
-              <div className="bg-card/80 backdrop-blur-sm rounded-2xl ottoman-border p-6 space-y-5">
+              <div className="bg-card/80 backdrop-blur-sm rounded-2xl ottoman-border p-5 sm:p-6 space-y-4">
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-3 mb-1">
-                      <span className="text-primary font-serif text-3xl font-bold">{formatYear(selected.year, language)}</span>
+                      <span className="text-primary font-serif text-2xl sm:text-3xl font-bold">{formatYear(selected.year, language)}</span>
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-sans ${CATEGORY_COLORS[inferCategory(selected)]}`}>
                         {React.createElement(CATEGORY_ICONS[inferCategory(selected)], { className: "w-2.5 h-2.5" })}
                         {l[inferCategory(selected) as keyof typeof l]}
                       </span>
                     </div>
-                    <h2 className="text-xl font-serif text-foreground">{selected.title[language] || selected.title.en}</h2>
+                    <h2 className="text-lg sm:text-xl font-serif text-foreground">{selected.title[language] || selected.title.en}</h2>
                   </div>
-                  <button onClick={() => setSelectedYear(null)} className="text-xs text-muted-foreground hover:text-foreground font-sans flex items-center gap-1">
+                  <button onClick={() => setSelectedYear(null)} className="text-xs text-muted-foreground hover:text-foreground font-sans flex items-center gap-1 flex-shrink-0">
                     <ChevronLeft className="w-3 h-3" /> {l.back}
                   </button>
                 </div>
 
                 <p className="text-sm font-sans text-foreground/90 leading-relaxed">{selected.summary[language] || selected.summary.en}</p>
 
-                {/* Key Figures */}
                 <div className="animate-fade-in" style={{ animationDelay: "50ms" }}>
                   <h3 className="text-sm font-serif text-primary mb-2 flex items-center gap-2">
                     <Users className="w-4 h-4" /> {l.figures}
@@ -197,7 +149,6 @@ export default function Timeline() {
                   </div>
                 </div>
 
-                {/* Consequences */}
                 <div className="animate-fade-in" style={{ animationDelay: "150ms" }}>
                   <h3 className="text-sm font-serif text-primary mb-2 flex items-center gap-2">
                     <Calendar className="w-4 h-4" /> {l.consequences}
@@ -207,7 +158,6 @@ export default function Timeline() {
                   </div>
                 </div>
 
-                {/* Long-term Impact */}
                 <div className="animate-fade-in" style={{ animationDelay: "250ms" }}>
                   <h3 className="text-sm font-serif text-primary mb-2 flex items-center gap-2">
                     <TrendingUp className="w-4 h-4" /> {l.impact}
@@ -232,10 +182,60 @@ export default function Timeline() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center px-4">
-              <Clock className="w-16 h-16 text-primary/30 mb-4" />
-              <h2 className="text-xl font-serif text-primary mb-2">{l.select}</h2>
-              <p className="text-muted-foreground text-sm font-sans max-w-md">{l.selectDesc}</p>
+            /* Vertical timeline list */
+            <div className="max-w-3xl mx-auto">
+              {filteredEvents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center px-4 py-20">
+                  <Clock className="w-16 h-16 text-primary/30 mb-4" />
+                  <h2 className="text-xl font-serif text-primary mb-2">{l.select}</h2>
+                  <p className="text-muted-foreground text-sm font-sans max-w-md">{l.selectDesc}</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  {/* Vertical line */}
+                  <div className="absolute left-4 sm:left-6 top-0 bottom-0 w-px bg-border" />
+
+                  <div className="space-y-1">
+                    {filteredEvents.map((event, idx) => {
+                      const cat = inferCategory(event);
+                      const CatIcon = CATEGORY_ICONS[cat];
+                      const isActive = selectedYear === event.year;
+
+                      return (
+                        <button
+                          key={event.year}
+                          onClick={() => setSelectedYear(event.year)}
+                          className="relative w-full text-left pl-10 sm:pl-14 pr-3 py-3 rounded-xl hover:bg-card/60 transition-all duration-200 group animate-fade-in"
+                          style={{ animationDelay: `${Math.min(idx * 30, 500)}ms` }}
+                        >
+                          {/* Timeline dot */}
+                          <div className={`absolute left-2.5 sm:left-4.5 top-4 w-3 h-3 rounded-full ring-2 ring-background transition-all duration-300 ${
+                            isActive ? "gold-gradient scale-125 ottoman-glow" : "bg-secondary group-hover:bg-primary/50"
+                          }`} style={{ left: "calc(1rem - 6px)" }} />
+
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-sm font-serif text-primary font-bold">{formatYear(event.year, language)}</span>
+                                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-sans ${CATEGORY_COLORS[cat]}`}>
+                                  <CatIcon className="w-2.5 h-2.5" />
+                                </span>
+                              </div>
+                              <h3 className="text-sm font-serif text-foreground group-hover:text-primary transition-colors truncate">
+                                {event.title[language] || event.title.en}
+                              </h3>
+                              <p className="text-xs font-sans text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
+                                {event.summary[language] || event.summary.en}
+                              </p>
+                            </div>
+                            <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1 -rotate-90 group-hover:text-primary transition-colors" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

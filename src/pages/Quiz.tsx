@@ -58,7 +58,7 @@ export default function Quiz() {
   const [xpGain, setXpGain] = useState(0);
   const [showXpAnim, setShowXpAnim] = useState(false);
   const [unlockedBadge, setUnlockedBadge] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   const quizQuestions = config?.quizQuestions || [];
   const badges = config?.badges || [];
