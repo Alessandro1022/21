@@ -127,7 +127,7 @@ export default function Timeline() {
                         {l[inferCategory(selected) as keyof typeof l]}
                       </span>
                     </div>
-                    <h2 className="text-lg sm:text-xl font-serif text-foreground">{selected.title[language] || selected.title.en}</h2>
+                    <h2 className="text-lg sm:text-xl font-serif text-[#111111] dark:text-foreground">{selected.title[language] || selected.title.en}</h2>
                   </div>
                   <button onClick={() => setSelectedYear(null)} className="text-xs text-muted-foreground hover:text-foreground font-sans flex items-center gap-1 flex-shrink-0">
                     <ChevronLeft className="w-3 h-3" /> {l.back}
