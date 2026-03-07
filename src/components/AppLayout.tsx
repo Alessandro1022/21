@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEmpire } from "@/contexts/EmpireContext";
-import { MessageSquare, Clock, Map, Brain, Users, Shield, LogOut, Menu, X, Globe, Crown, BookOpen } from "lucide-react";
+import { MessageSquare, Clock, Map, Brain, Users, Shield, LogOut, Menu, X, Globe, Crown, BookOpen, Settings } from "lucide-react";
 import { useState } from "react";
 import { FlagSelector } from "@/components/FlagSelector";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
