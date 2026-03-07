@@ -134,7 +134,7 @@ export default function Timeline() {
                   </button>
                 </div>
 
-                <p className="text-sm font-sans text-foreground/90 leading-relaxed">{selected.summary[language] || selected.summary.en}</p>
+                <p className="text-sm font-sans text-[#222222] dark:text-foreground/90 leading-relaxed">{selected.summary[language] || selected.summary.en}</p>
 
                 <div className="animate-fade-in" style={{ animationDelay: "50ms" }}>
                   <h3 className="text-sm font-serif text-primary mb-2 flex items-center gap-2">
