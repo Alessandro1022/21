@@ -163,7 +163,7 @@ export default function Timeline() {
                     <TrendingUp className="w-4 h-4" /> {l.impact}
                   </h3>
                   <div className="bg-primary/5 rounded-xl p-4 ottoman-border">
-                    <p className="text-sm font-sans text-foreground/80 leading-relaxed">{selected.impact[language] || selected.impact.en}</p>
+                    <p className="text-sm font-sans text-[#222222] dark:text-foreground/80 leading-relaxed">{selected.impact[language] || selected.impact.en}</p>
                   </div>
                 </div>
 
