@@ -16,6 +16,7 @@ import ProfileDetail from "./pages/ProfileDetail";
 import Lineage from "./pages/Lineage";
 import StoryMode from "./pages/StoryMode";
 import EmpireSelect from "./pages/EmpireSelect";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/profiles/:id" element={<ProtectedRoute><ProfileDetail /></ProtectedRoute>} />
             <Route path="/lineage" element={<ProtectedRoute><Lineage /></ProtectedRoute>} />
             <Route path="/story" element={<ProtectedRoute><StoryMode /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute skipEmpireCheck><Settings /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute skipEmpireCheck><Admin /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -66,6 +66,15 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
                   </Link>
                 );
               })}
+              <Link
+                to="/settings"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans transition-colors ${
+                  location.pathname === "/settings" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5" />
+                {language === "sv" ? "Inställningar" : language === "tr" ? "Ayarlar" : "Settings"}
+              </Link>
               {isAdmin && (
                 <Link to="/admin" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans text-muted-foreground hover:text-foreground hover:bg-muted">
                   <Shield className="w-3.5 h-3.5" /> Admin
