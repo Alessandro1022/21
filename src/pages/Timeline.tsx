@@ -127,14 +127,14 @@ export default function Timeline() {
                         {l[inferCategory(selected) as keyof typeof l]}
                       </span>
                     </div>
-                    <h2 className="text-lg sm:text-xl font-serif text-foreground">{selected.title[language] || selected.title.en}</h2>
+                    <h2 className="text-lg sm:text-xl font-serif text-[#111111] dark:text-foreground">{selected.title[language] || selected.title.en}</h2>
                   </div>
                   <button onClick={() => setSelectedYear(null)} className="text-xs text-muted-foreground hover:text-foreground font-sans flex items-center gap-1 flex-shrink-0">
                     <ChevronLeft className="w-3 h-3" /> {l.back}
                   </button>
                 </div>
 
-                <p className="text-sm font-sans text-foreground/90 leading-relaxed">{selected.summary[language] || selected.summary.en}</p>
+                <p className="text-sm font-sans text-[#222222] dark:text-foreground/90 leading-relaxed">{selected.summary[language] || selected.summary.en}</p>
 
                 <div className="animate-fade-in" style={{ animationDelay: "50ms" }}>
                   <h3 className="text-sm font-serif text-primary mb-2 flex items-center gap-2">
@@ -154,7 +154,7 @@ export default function Timeline() {
                     <Calendar className="w-4 h-4" /> {l.consequences}
                   </h3>
                   <div className="bg-secondary/50 rounded-xl p-4 ottoman-border">
-                    <p className="text-sm font-sans text-foreground/80 leading-relaxed">{selected.consequences[language] || selected.consequences.en}</p>
+                    <p className="text-sm font-sans text-[#222222] dark:text-foreground/80 leading-relaxed">{selected.consequences[language] || selected.consequences.en}</p>
                   </div>
                 </div>
 
@@ -163,7 +163,7 @@ export default function Timeline() {
                     <TrendingUp className="w-4 h-4" /> {l.impact}
                   </h3>
                   <div className="bg-primary/5 rounded-xl p-4 ottoman-border">
-                    <p className="text-sm font-sans text-foreground/80 leading-relaxed">{selected.impact[language] || selected.impact.en}</p>
+                    <p className="text-sm font-sans text-[#222222] dark:text-foreground/80 leading-relaxed">{selected.impact[language] || selected.impact.en}</p>
                   </div>
                 </div>
 
@@ -221,10 +221,10 @@ export default function Timeline() {
                                   <CatIcon className="w-2.5 h-2.5" />
                                 </span>
                               </div>
-                              <h3 className="text-sm font-serif text-foreground group-hover:text-primary transition-colors truncate">
+                              <h3 className="text-sm font-serif text-[#111111] dark:text-foreground group-hover:text-primary transition-colors truncate">
                                 {event.title[language] || event.title.en}
                               </h3>
-                              <p className="text-xs font-sans text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
+                              <p className="text-xs font-sans text-[#333333] dark:text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
                                 {event.summary[language] || event.summary.en}
                               </p>
                             </div>

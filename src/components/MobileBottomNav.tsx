@@ -15,6 +15,7 @@ const MORE_ITEMS = [
   { path: "/profiles", icon: Users, label: { sv: "Profiler", en: "Profiles", tr: "Profiller" } },
   { path: "/lineage", icon: Crown, label: { sv: "Stamtavla", en: "Lineage", tr: "Soy Ağacı" } },
   { path: "/story", icon: BookOpen, label: { sv: "Berättelse", en: "Story", tr: "Hikaye" } },
+  { path: "/settings", icon: Settings, label: { sv: "Inställningar", en: "Settings", tr: "Ayarlar" } },
 ];
 
 interface Props {

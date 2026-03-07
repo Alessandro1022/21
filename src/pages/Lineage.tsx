@@ -113,10 +113,10 @@ function TreeNodeComponent({
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className={`text-sm font-serif truncate transition-colors duration-200 ${isSelected ? "text-primary" : "text-foreground drop-shadow-sm"}`}>{l.name}</span>
+              <span className={`text-sm font-serif truncate transition-colors duration-200 ${isSelected ? "text-primary" : "text-[#111111] dark:text-foreground drop-shadow-sm"}`}>{l.name}</span>
               {hasProfile && <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
             </div>
-            <div className="flex items-center gap-2 text-[10px] font-sans text-muted-foreground">
+            <div className="flex items-center gap-2 text-[10px] font-sans text-[#333333] dark:text-muted-foreground">
               <span>{formatYear(l.reignStart, language)}–{formatYear(l.reignEnd, language)}</span>
               <span className="text-primary/40">·</span>
               <span className="truncate">{l.title[language] || l.title.en}</span>
@@ -150,7 +150,7 @@ function TreeNodeComponent({
                 <Calendar className="w-3.5 h-3.5" />
                 {formatYear(l.reignStart, language)}–{formatYear(l.reignEnd, language)} ({reignLength} {language === "sv" ? "år" : language === "tr" ? "yıl" : "years"})
               </div>
-              <p className="text-xs font-sans text-foreground/80">{l.title[language] || l.title.en}</p>
+              <p className="text-xs font-sans text-[#222222] dark:text-foreground/80">{l.title[language] || l.title.en}</p>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: dynastyColor }} />
                 <span className="text-[10px] font-sans text-muted-foreground">{getDynastyLabel(l.generation, empireId, language)}</span>
