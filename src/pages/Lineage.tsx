@@ -116,7 +116,7 @@ function TreeNodeComponent({
               <span className={`text-sm font-serif truncate transition-colors duration-200 ${isSelected ? "text-primary" : "text-[#111111] dark:text-foreground drop-shadow-sm"}`}>{l.name}</span>
               {hasProfile && <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
             </div>
-            <div className="flex items-center gap-2 text-[10px] font-sans text-muted-foreground">
+            <div className="flex items-center gap-2 text-[10px] font-sans text-[#333333] dark:text-muted-foreground">
               <span>{formatYear(l.reignStart, language)}–{formatYear(l.reignEnd, language)}</span>
               <span className="text-primary/40">·</span>
               <span className="truncate">{l.title[language] || l.title.en}</span>
