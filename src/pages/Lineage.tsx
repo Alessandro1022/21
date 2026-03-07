@@ -113,7 +113,7 @@ function TreeNodeComponent({
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className={`text-sm font-serif truncate transition-colors duration-200 ${isSelected ? "text-primary" : "text-foreground drop-shadow-sm"}`}>{l.name}</span>
+              <span className={`text-sm font-serif truncate transition-colors duration-200 ${isSelected ? "text-primary" : "text-[#111111] dark:text-foreground drop-shadow-sm"}`}>{l.name}</span>
               {hasProfile && <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
             </div>
             <div className="flex items-center gap-2 text-[10px] font-sans text-muted-foreground">
