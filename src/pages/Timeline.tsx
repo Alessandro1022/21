@@ -154,7 +154,7 @@ export default function Timeline() {
                     <Calendar className="w-4 h-4" /> {l.consequences}
                   </h3>
                   <div className="bg-secondary/50 rounded-xl p-4 ottoman-border">
-                    <p className="text-sm font-sans text-foreground/80 leading-relaxed">{selected.consequences[language] || selected.consequences.en}</p>
+                    <p className="text-sm font-sans text-[#222222] dark:text-foreground/80 leading-relaxed">{selected.consequences[language] || selected.consequences.en}</p>
                   </div>
                 </div>
 
