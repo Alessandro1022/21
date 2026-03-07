@@ -221,10 +221,10 @@ export default function Timeline() {
                                   <CatIcon className="w-2.5 h-2.5" />
                                 </span>
                               </div>
-                              <h3 className="text-sm font-serif text-foreground group-hover:text-primary transition-colors truncate">
+                              <h3 className="text-sm font-serif text-[#111111] dark:text-foreground group-hover:text-primary transition-colors truncate">
                                 {event.title[language] || event.title.en}
                               </h3>
-                              <p className="text-xs font-sans text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
+                              <p className="text-xs font-sans text-[#333333] dark:text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
                                 {event.summary[language] || event.summary.en}
                               </p>
                             </div>

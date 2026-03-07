@@ -150,7 +150,7 @@ function TreeNodeComponent({
                 <Calendar className="w-3.5 h-3.5" />
                 {formatYear(l.reignStart, language)}–{formatYear(l.reignEnd, language)} ({reignLength} {language === "sv" ? "år" : language === "tr" ? "yıl" : "years"})
               </div>
-              <p className="text-xs font-sans text-foreground/80">{l.title[language] || l.title.en}</p>
+              <p className="text-xs font-sans text-[#222222] dark:text-foreground/80">{l.title[language] || l.title.en}</p>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: dynastyColor }} />
                 <span className="text-[10px] font-sans text-muted-foreground">{getDynastyLabel(l.generation, empireId, language)}</span>
