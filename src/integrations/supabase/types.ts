@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          earned_at: string
+          id: string
+          medal_icon: string
+          medal_name: string
+          user_id: string
+        }
+        Insert: {
+          earned_at?: string
+          id?: string
+          medal_icon?: string
+          medal_name: string
+          user_id: string
+        }
+        Update: {
+          earned_at?: string
+          id?: string
+          medal_icon?: string
+          medal_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_conversations: {
         Row: {
           created_at: string
@@ -133,6 +157,120 @@ export type Database = {
           total_answered?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      quiz_questions: {
+        Row: {
+          active: boolean
+          correct_index: number
+          created_at: string
+          difficulty: string
+          empire_id: string
+          explanation_en: string
+          explanation_sv: string
+          explanation_tr: string
+          id: string
+          options_en: string[]
+          options_sv: string[]
+          options_tr: string[]
+          question_en: string
+          question_sv: string
+          question_tr: string
+          topic: string
+        }
+        Insert: {
+          active?: boolean
+          correct_index: number
+          created_at?: string
+          difficulty?: string
+          empire_id?: string
+          explanation_en?: string
+          explanation_sv?: string
+          explanation_tr?: string
+          id?: string
+          options_en: string[]
+          options_sv: string[]
+          options_tr?: string[]
+          question_en: string
+          question_sv: string
+          question_tr?: string
+          topic?: string
+        }
+        Update: {
+          active?: boolean
+          correct_index?: number
+          created_at?: string
+          difficulty?: string
+          empire_id?: string
+          explanation_en?: string
+          explanation_sv?: string
+          explanation_tr?: string
+          id?: string
+          options_en?: string[]
+          options_sv?: string[]
+          options_tr?: string[]
+          question_en?: string
+          question_sv?: string
+          question_tr?: string
+          topic?: string
+        }
+        Relationships: []
+      }
+      quiz_results: {
+        Row: {
+          created_at: string
+          empire_id: string
+          id: string
+          score: number
+          total_questions: number
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          created_at?: string
+          empire_id?: string
+          id?: string
+          score?: number
+          total_questions?: number
+          user_id: string
+          xp_earned?: number
+        }
+        Update: {
+          created_at?: string
+          empire_id?: string
+          id?: string
+          score?: number
+          total_questions?: number
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: []
+      }
+      user_progress: {
+        Row: {
+          created_at: string
+          id: string
+          level: number
+          updated_at: string
+          user_id: string
+          xp: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level?: number
+          updated_at?: string
+          user_id: string
+          xp?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level?: number
+          updated_at?: string
+          user_id?: string
+          xp?: number
         }
         Relationships: []
       }
