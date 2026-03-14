@@ -1,28 +1,50 @@
-const CACHE_NAME = 'empire-ai-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
+import { createRoot } from "react-dom/client";
+import App from "./App.tsx";
+import "./index.css";
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
-  );
-  self.skipWaiting();
-});
+createRoot(document.getElementById("root")!).render(<App />);
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
+// ---------------------------
+// PWA: Service Worker & Background funktioner
+// ---------------------------
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    // Registrera service worker
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        console.log("Service Worker registrerad:", reg);
 
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
-  );
-});
+        // ---------- Periodic Sync ----------
+        if ("periodicSync" in reg) {
+          reg.periodicSync
+            .register("fetch-latest-data", {
+              minInterval: 24 * 60 * 60 * 1000, // 1 dag
+            })
+            .then(() => console.log("Periodic Sync registrerad"))
+            .catch(console.error);
+        }
+
+        // ---------- Background Sync ----------
+        if ("sync" in reg) {
+          reg.sync
+            .register("sync-queued-actions")
+            .then(() => console.log("Background Sync registrerad"))
+            .catch(console.error);
+        }
+      })
+      .catch((err) =>
+        console.error("Service Worker registrering misslyckades:", err)
+      );
+  });
+}
+
+// ---------- Push Notifications ----------
+if ("Notification" in window) {
+  Notification.requestPermission().then((permission) => {
+    if (permission === "granted") {
+      console.log("Användaren tillåter push-notiser!");
+      // Här kan du lägga till logik för PushManager prenumeration
+    }
+  });
+}
