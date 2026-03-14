@@ -3,11 +3,33 @@
   "name": "Empire AI",
   "short_name": "Empire AI",
   "description": "Historisk intelligens. Driven av AI.",
+  "lang": "sv",
+  "dir": "ltr",
+
   "start_url": "/",
+  "scope": "/",
+
   "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+
+  "orientation": "portrait",
+
   "background_color": "#8B0000",
   "theme_color": "#8B0000",
-  "orientation": "portrait",
+
+  "categories": [
+    "education",
+    "productivity",
+    "utilities",
+    "history"
+  ],
+
+  "prefer_related_applications": false,
+
   "icons": [
     {
       "src": "/icon-192.png",
@@ -20,6 +42,42 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    }
+  ],
+
+  "shortcuts": [
+    {
+      "name": "Quiz",
+      "short_name": "Quiz",
+      "url": "/quiz",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Roman Timeline",
+      "short_name": "Rome",
+      "url": "/roman-timeline",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Ottoman Timeline",
+      "short_name": "Ottoman",
+      "url": "/ottoman-timeline",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
