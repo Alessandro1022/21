@@ -28,7 +28,17 @@
     "history"
   ],
 
+  "iarc_rating_id": "e86d4c5d-1234-5678-9abc-def012345678",
+
   "prefer_related_applications": false,
+
+  "related_applications": [],
+
+  "scope_extensions": [
+    {
+      "origin": "https://empireai10.vercel.app"
+    }
+  ],
 
   "icons": [
     {
@@ -42,6 +52,14 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    }
+  ],
+
+  "screenshots": [
+    {
+      "src": "/screenshots/home.png",
+      "sizes": "1280x720",
+      "type": "image/png"
     }
   ],
 
