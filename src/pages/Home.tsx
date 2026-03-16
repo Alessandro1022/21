@@ -42,11 +42,12 @@ export default function Home() {
   const modulesLabel = language === "sv" ? "Tillgängliga moduler" : language === "tr" ? "Mevcut Modüller" : "Available Modules";
 
   return (
-<div
-  className="min-h-screen flex flex-col relative bg-center bg-no-repeat bg-cover"
-  style={bgImage ? { backgroundImage: `url(${bgImage})` } : undefined}
->
-  <div className="absolute inset-0 bg-background/60" />      <div className="absolute inset-0 bg-background/85" />
+    <div
+      className="min-h-screen flex flex-col relative bg-center bg-no-repeat bg-cover"
+      style={bgImage ? { backgroundImage: `url(${bgImage})` } : undefined}
+    >
+      {/* Gradient overlay för läsbarhet */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/70" />
 
       <header className="relative z-10 flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-3">
