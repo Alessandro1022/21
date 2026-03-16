@@ -42,7 +42,15 @@ export default function Home() {
   const modulesLabel = language === "sv" ? "Tillgängliga moduler" : language === "tr" ? "Mevcut Modüller" : "Available Modules";
 
   return (
-    <div className="min-h-screen flex flex-col relative" style={bgImage ? { backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
+    <div
+className="min-h-[100dvh] flex flex-col relative"
+style={bgImage ? {
+  backgroundImage: `url(${bgImage})`,
+  backgroundSize: "cover",
+  backgroundPosition: "center",
+  backgroundRepeat: "no-repeat"
+} : undefined}
+>
       <div className="absolute inset-0 bg-background/85" />
 
       <header className="relative z-10 flex items-center justify-between px-6 py-4">
