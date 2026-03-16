@@ -1,3 +1,26 @@
+import { useState } from "react";
+import { Link, Navigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { useEmpire } from "@/contexts/EmpireContext";
+import { MessageSquare, LogIn, Shield, Clock, Map, Brain, Users, Crown, BookOpen, Sparkles, Globe, ChevronRight, Zap } from "lucide-react";
+import { FlagSelector } from "@/components/FlagSelector";
+
+const MODULES = [
+  { path: "/chat", icon: MessageSquare, label: { sv: "AI-chatt", en: "AI Chat", tr: "AI Sohbet" }, desc: { sv: "Intelligenta samtal", en: "Intelligent conversations", tr: "Akıllı sohbetler" } },
+  { path: "/timeline", icon: Clock, label: { sv: "Tidslinje", en: "Timeline", tr: "Zaman Çizelgesi" }, desc: { sv: "Interaktiv historik", en: "Interactive history", tr: "İnteraktif tarih" } },
+  { path: "/map", icon: Map, label: { sv: "Karta", en: "Map", tr: "Harita" }, desc: { sv: "Territoriell expansion", en: "Territorial expansion", tr: "Toprak genişlemesi" } },
+  { path: "/quiz", icon: Brain, label: { sv: "Quiz", en: "Quiz", tr: "Quiz" }, desc: { sv: "Testa din kunskap", en: "Test your knowledge", tr: "Bilginizi test edin" } },
+  { path: "/profiles", icon: Users, label: { sv: "Profiler", en: "Profiles", tr: "Profiller" }, desc: { sv: "Historiska ledare", en: "Historical leaders", tr: "Tarihi liderler" } },
+  { path: "/lineage", icon: Crown, label: { sv: "Stamtavla", en: "Lineage", tr: "Soy Ağacı" }, desc: { sv: "Dynastisk linje", en: "Dynastic line", tr: "Hanedan çizgisi" } },
+  { path: "/story", icon: BookOpen, label: { sv: "Berättelse", en: "Story", tr: "Hikaye" }, desc: { sv: "Guidad resa", en: "Guided journey", tr: "Rehberli yolculuk" } },
+];
+
+const FEATURES = [
+  { icon: Sparkles, title: { sv: "AI-driven analys", en: "AI-Powered Analysis", tr: "AI Destekli Analiz" }, desc: { sv: "Djupgående historisk analys med streaming AI", en: "Deep historical analysis with streaming AI", tr: "Streaming AI ile derinlemesine tarihsel analiz" } },
+  { icon: Globe, title: { sv: "Multi-imperium", en: "Multi-Empire", tr: "Çoklu İmparatorluk" }, desc: { sv: "Utforska flera civilisationer", en: "Explore multiple civilizations", tr: "Birden fazla uygarlığı keşfedin" } },
+  { icon: Zap, title: { sv: "Interaktivt lärande", en: "Interactive Learning", tr: "İnteraktif Öğrenme" }, desc: { sv: "Quiz, kartor och tidslinje", en: "Quiz, maps, and timeline", tr: "Quiz, haritalar ve zaman çizelgesi" } },
+];
+
 export default function Home() {
   const { user, isAdmin, signOut } = useAuth();
   const { config, empireId } = useEmpire();
@@ -19,24 +42,10 @@ export default function Home() {
   const modulesLabel = language === "sv" ? "Tillgängliga moduler" : language === "tr" ? "Mevcut Modüller" : "Available Modules";
 
   return (
-    <div
-      className="relative flex flex-col min-h-screen w-full"
-      style={
-        bgImage
-          ? {
-              backgroundImage: `url(${bgImage})`,
-              backgroundSize: "contain", // hela bilden syns, inte beskuren
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }
-          : undefined
-      }
-    >
-      {/* overlay */}
+    <div className="min-h-screen flex flex-col relative" style={bgImage ? { backgroundImage: `url(${bgImage})`, backgroundSize: "contain", backgroundPosition: "center" } : undefined}>
       <div className="absolute inset-0 bg-background/85" />
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-4 w-full">
+      <header className="relative z-10 flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-3">
           {crestImage && <img src={crestImage} alt="Empire crest" className="w-10 h-10 rounded-lg object-cover" />}
           <h1 className="text-xl font-serif text-primary">{appTitle}</h1>
@@ -63,10 +72,9 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main */}
-      <main className="relative z-10 flex-1 flex flex-col items-center px-6 py-12 overflow-y-auto w-full max-w-screen-xl mx-auto">
-        {/* Hero */}
-        <div className="flex flex-col items-center text-center mb-12">
+      <main className="relative z-10 flex-1 flex flex-col items-center px-6 overflow-y-auto">
+        {/* Hero section */}
+        <div className="flex flex-col items-center text-center pt-12 pb-8 max-w-2xl animate-fade-in">
           {crestImage && (
             <div className="relative w-24 h-24 mb-6 rounded-full overflow-hidden ottoman-glow">
               <img src={crestImage} alt="Empire crest" className="w-full h-full object-cover" />
@@ -92,40 +100,41 @@ export default function Home() {
         </div>
 
         {/* Features */}
-        <div className="w-full max-w-4xl mb-12 grid sm:grid-cols-3 gap-4">
-          {FEATURES.map((f, i) => (
-            <div
-              key={i}
-              className="bg-card/60 backdrop-blur-sm rounded-2xl ottoman-border p-6 text-center animate-fade-in"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              <f.icon className="w-8 h-8 text-primary mx-auto mb-3" />
-              <h4 className="text-sm font-serif text-foreground mb-1">{f.title[language as keyof typeof f.title] || f.title.en}</h4>
-              <p className="text-xs font-sans text-muted-foreground">{f.desc[language as keyof typeof f.desc] || f.desc.en}</p>
-            </div>
-          ))}
+        <div className="max-w-4xl w-full pb-8">
+          <h3 className="text-center text-xs font-sans text-muted-foreground uppercase tracking-widest mb-4">{featuresLabel}</h3>
+          <div className="grid sm:grid-cols-3 gap-4 mb-12">
+            {FEATURES.map((f, i) => (
+              <div key={i} className="bg-card/60 backdrop-blur-sm rounded-2xl ottoman-border p-6 text-center animate-fade-in" style={{ animationDelay: `${i * 100}ms` }}>
+                <f.icon className="w-8 h-8 text-primary mx-auto mb-3" />
+                <h4 className="text-sm font-serif text-foreground mb-1">{f.title[language as keyof typeof f.title] || f.title.en}</h4>
+                <p className="text-xs font-sans text-muted-foreground">{f.desc[language as keyof typeof f.desc] || f.desc.en}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Modules */}
+        {/* Modules grid (for logged-in users) */}
         {user && (
-          <div className="w-full max-w-4xl grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {MODULES.map((m, i) => (
-              <Link
-                key={m.path}
-                to={m.path}
-                className="bg-card/70 backdrop-blur-sm rounded-xl ottoman-border p-5 flex flex-col items-center text-center hover:bg-muted/50 transition-all duration-300 group animate-fade-in"
-                style={{ animationDelay: `${i * 50}ms` }}
-              >
-                <m.icon className="w-8 h-8 text-primary mb-2 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-serif text-foreground mb-0.5">{m.label[language as keyof typeof m.label] || m.label.en}</span>
-                <span className="text-[10px] font-sans text-muted-foreground">{m.desc[language as keyof typeof m.desc] || m.desc.en}</span>
-              </Link>
-            ))}
+          <div className="max-w-4xl w-full pb-12">
+            <h3 className="text-center text-xs font-sans text-muted-foreground uppercase tracking-widest mb-4">{modulesLabel}</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {MODULES.map((m, i) => (
+                <Link
+                  key={m.path}
+                  to={m.path}
+                  className="bg-card/70 backdrop-blur-sm rounded-xl ottoman-border p-5 flex flex-col items-center text-center hover:bg-muted/50 transition-all duration-300 group animate-fade-in"
+                  style={{ animationDelay: `${i * 50}ms` }}
+                >
+                  <m.icon className="w-8 h-8 text-primary mb-2 group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-serif text-foreground mb-0.5">{m.label[language as keyof typeof m.label] || m.label.en}</span>
+                  <span className="text-[10px] font-sans text-muted-foreground">{m.desc[language as keyof typeof m.desc] || m.desc.en}</span>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
       </main>
 
-      {/* Footer */}
       <footer className="relative z-10 text-center py-4 text-muted-foreground text-xs font-sans">
         {language === "sv" ? "AI-driven historisk analys" : language === "tr" ? "AI destekli tarihsel analiz" : "AI-driven historical analysis"}
       </footer>
