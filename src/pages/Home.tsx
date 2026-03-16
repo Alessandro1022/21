@@ -31,7 +31,7 @@ export default function Home() {
   const crestImage = config?.crestImage;
   const bgImage = config?.backgroundImage;
   const appTitle = config?.appTitle || "Empire Intelligence";
-  const desc = config?.homeDescription?.[language] || config?.homeDescription?.en || "Explore history with AI-driven analysis.";
+  const descText = config?.homeDescription?.[language] || config?.homeDescription?.en || "Explore history with AI-driven analysis.";
 
   const logoutLabel = language === "sv" ? "Logga ut" : language === "tr" ? "Çıkış yap" : "Log out";
   const loginLabel = language === "sv" ? "Logga in" : language === "tr" ? "Giriş yap" : "Log in";
@@ -42,18 +42,18 @@ export default function Home() {
   const modulesLabel = language === "sv" ? "Tillgängliga moduler" : language === "tr" ? "Mevcut Modüller" : "Available Modules";
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* Bakgrundsbild */}
+    <div className="min-h-screen flex flex-col relative w-full h-full">
+      {/* Background image */}
       {bgImage && (
         <div
-          className="absolute inset-0 bg-cover bg-center"
+          className="absolute inset-0 w-full h-full bg-no-repeat bg-center bg-contain"
           style={{ backgroundImage: `url(${bgImage})` }}
         />
       )}
-      {/* Gradient-overlay så text alltid syns */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/70" />
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-background/85" />
 
-      <header className="relative z-10 flex items-center justify-between px-6 py-4">
+      <header className="relative z-10 flex items-center justify-between px-6 py-4 w-full">
         <div className="flex items-center gap-3">
           {crestImage && <img src={crestImage} alt="Empire crest" className="w-10 h-10 rounded-lg object-cover" />}
           <h1 className="text-xl font-serif text-primary">{appTitle}</h1>
@@ -63,24 +63,33 @@ export default function Home() {
           {user ? (
             <>
               {isAdmin && (
-                <Link to="/admin" className="px-4 py-2 rounded-lg bg-accent/20 text-accent font-sans text-sm flex items-center gap-2 hover:bg-accent/30 transition-colors">
+                <Link
+                  to="/admin"
+                  className="px-4 py-2 rounded-lg bg-accent/20 text-accent font-sans text-sm flex items-center gap-2 hover:bg-accent/30 transition-colors"
+                >
                   <Shield className="w-4 h-4" /> Admin
                 </Link>
               )}
               <span className="text-muted-foreground text-sm font-sans hidden sm:block">{user.email}</span>
-              <button onClick={signOut} className="px-4 py-2 rounded-lg bg-secondary text-secondary-foreground font-sans text-sm hover:bg-muted transition-colors">
+              <button
+                onClick={signOut}
+                className="px-4 py-2 rounded-lg bg-secondary text-secondary-foreground font-sans text-sm hover:bg-muted transition-colors"
+              >
                 {logoutLabel}
               </button>
             </>
           ) : (
-            <Link to="/auth" className="px-4 py-2 rounded-lg gold-gradient text-primary-foreground font-sans text-sm flex items-center gap-2">
+            <Link
+              to="/auth"
+              className="px-4 py-2 rounded-lg gold-gradient text-primary-foreground font-sans text-sm flex items-center gap-2"
+            >
               <LogIn className="w-4 h-4" /> {loginLabel}
             </Link>
           )}
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 flex flex-col items-center px-6 overflow-y-auto">
+      <main className="relative z-10 flex-1 flex flex-col items-center px-6 overflow-y-auto w-full">
         {/* Hero section */}
         <div className="flex flex-col items-center text-center pt-12 pb-8 max-w-2xl animate-fade-in">
           {crestImage && (
@@ -89,19 +98,28 @@ export default function Home() {
             </div>
           )}
           <h2 className="text-3xl sm:text-5xl font-serif text-primary mb-3 leading-tight">{heroTitle}</h2>
-          <p className="text-muted-foreground font-sans max-w-lg mb-8 text-sm leading-relaxed">{desc}</p>
+          <p className="text-muted-foreground font-sans max-w-lg mb-8 text-sm leading-relaxed">{descText}</p>
 
           {user ? (
             <div className="flex flex-wrap gap-3 justify-center">
-              <Link to="/chat" className="px-8 py-3 rounded-xl gold-gradient text-primary-foreground font-sans text-base font-medium flex items-center gap-2 hover:opacity-90 transition-opacity ottoman-glow">
+              <Link
+                to="/chat"
+                className="px-8 py-3 rounded-xl gold-gradient text-primary-foreground font-sans text-base font-medium flex items-center gap-2 hover:opacity-90 transition-opacity ottoman-glow"
+              >
                 <MessageSquare className="w-5 h-5" /> {startLabel} <ChevronRight className="w-4 h-4" />
               </Link>
-              <Link to="/select-empire" className="px-6 py-3 rounded-xl bg-secondary text-secondary-foreground font-sans text-base flex items-center gap-2 hover:bg-muted transition-colors ottoman-border">
+              <Link
+                to="/select-empire"
+                className="px-6 py-3 rounded-xl bg-secondary text-secondary-foreground font-sans text-base flex items-center gap-2 hover:bg-muted transition-colors ottoman-border"
+              >
                 <Globe className="w-5 h-5" /> {chooseLabel}
               </Link>
             </div>
           ) : (
-            <Link to="/auth" className="px-8 py-4 rounded-xl gold-gradient text-primary-foreground font-sans text-lg font-medium flex items-center gap-3 hover:opacity-90 transition-opacity ottoman-glow">
+            <Link
+              to="/auth"
+              className="px-8 py-4 rounded-xl gold-gradient text-primary-foreground font-sans text-lg font-medium flex items-center gap-3 hover:opacity-90 transition-opacity ottoman-glow"
+            >
               <LogIn className="w-5 h-5" /> {startLabel}
             </Link>
           )}
@@ -121,7 +139,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Modules grid (for logged-in users) */}
+        {/* Modules */}
         {user && (
           <div className="max-w-4xl w-full pb-12">
             <h3 className="text-center text-xs font-sans text-muted-foreground uppercase tracking-widest mb-4">{modulesLabel}</h3>
