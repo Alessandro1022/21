@@ -6,6 +6,19 @@
 
 @layer base {
   :root {
+    html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  display: flex;
+  justify-content: center;  /* centrerar horisontellt */
+  align-items: flex-start;  /* ändra till center om du vill centrera vertikalt */
+  background-color: hsl(var(--background));
+}
     --background: 220 20% 10%;
     --foreground: 45 20% 82%;
     --card: 220 18% 14%;
