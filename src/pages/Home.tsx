@@ -43,7 +43,7 @@ export default function Home() {
 
   return (
     <div
-className="min-h-[100dvh] flex flex-col relative" style={bgImage ? {  backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat"} : undefined}
+<div className="min-h-screen flex flex-col relative"  style={bgImage ? {  backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat"} : undefined}
     >
       <div className="absolute inset-0 bg-background/85" />
 
