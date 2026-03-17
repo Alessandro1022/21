@@ -39,7 +39,7 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
       <div className="absolute inset-0 bg-background/88 z-0" />
 
       {/* Header */}
-      <header className="relative z-20 flex-shrink-0 border-b border-border px-4 py-2.5 bg-background/60 backdrop-blur-md">
+      <header className="relative z-20 flex-shrink-0 border-b border-border px-4 py-2.5 bg-background/60 backdrop-blur-md pt-safe">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center gap-2">
