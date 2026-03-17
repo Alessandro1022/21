@@ -9,226 +9,258 @@ export interface TerritoryPeriod {
 }
 
 // ===========================================
-// SHARED BORDER VERTICES
-// Adjacent provinces share exact coordinates
-// to eliminate gaps between territories
+// FÖRBÄTTRADE KOORDINATER MED KORREKTA GRÄNSER
 // ===========================================
 
-// Key shared points (used by multiple provinces)
-const ISTANBUL: LatLngExpression = [41.0, 29.0];
-const SINOP: LatLngExpression = [42.0, 35.0];
-const TRABZON: LatLngExpression = [41.0, 39.5];
-const SIVAS: LatLngExpression = [39.7, 37.0];
-const ADANA: LatLngExpression = [37.0, 35.5];
-const ANTAKYA: LatLngExpression = [36.2, 36.2];
-const ANTALYA: LatLngExpression = [36.8, 30.5];
-const IZMIR: LatLngExpression = [38.4, 27.0];
-const CANAKKALE: LatLngExpression = [40.2, 26.4];
-const EDIRNE: LatLngExpression = [41.7, 26.6];
-const SOFIA: LatLngExpression = [42.7, 23.3];
-const BELGRADE: LatLngExpression = [44.8, 20.5];
-const BUDAPEST: LatLngExpression = [47.5, 19.0];
-const SKOPJE: LatLngExpression = [42.0, 21.4];
-const THESSALONIKI: LatLngExpression = [40.6, 22.9];
-const ATHENS: LatLngExpression = [38.0, 23.7];
-const PLOVDIV: LatLngExpression = [42.1, 24.7];
-const VARNA: LatLngExpression = [43.2, 27.9];
-const BUCHAREST_S: LatLngExpression = [43.8, 25.9]; // south of Bucharest
-const ALEPPO: LatLngExpression = [36.2, 37.2];
-const DAMASCUS: LatLngExpression = [33.5, 36.3];
-const JERUSALEM: LatLngExpression = [31.8, 35.2];
-const AQABA: LatLngExpression = [29.5, 35.0];
-const CAIRO: LatLngExpression = [30.0, 31.2];
-const SUEZ: LatLngExpression = [30.0, 32.5];
-const SINAI_S: LatLngExpression = [28.0, 33.8];
-const ASWAN: LatLngExpression = [24.0, 32.9];
-const BAGHDAD: LatLngExpression = [33.3, 44.4];
-const MOSUL: LatLngExpression = [36.3, 43.1];
-const BASRA: LatLngExpression = [30.5, 47.8];
-const TRIPOLI_LY: LatLngExpression = [32.9, 13.2];
-const TUNIS: LatLngExpression = [36.8, 10.2];
-const ALGIERS: LatLngExpression = [36.8, 3.1];
-const BENGHAZI: LatLngExpression = [32.1, 20.1];
-const MECCA: LatLngExpression = [21.4, 39.8];
-const MEDINA: LatLngExpression = [24.5, 39.6];
-const SEVASTOPOL: LatLngExpression = [44.6, 33.5];
-const KERCH: LatLngExpression = [45.3, 36.6];
-const SIMFEROPOL: LatLngExpression = [44.9, 34.1];
-const SARAJEVO: LatLngExpression = [43.8, 18.4];
-const NISH: LatLngExpression = [43.3, 21.9];
-const BURSA: LatLngExpression = [40.2, 29.0];
-
-// Anatolia – the heartland, shares borders with Thrace, Black Sea Coast, Levant
 export const territoryPeriods: TerritoryPeriod[] = [
+  // ANATOLIEN - Kärnan
   {
     yearStart: 1299,
     yearEnd: 1923,
     label: { sv: "Anatolien (kärna)", en: "Anatolia (core)", tr: "Anadolu (çekirdek)" },
     color: "#b8860b",
     polygon: [[
-      CANAKKALE, ISTANBUL, [41.2, 31.0], SINOP, [41.8, 37.0], TRABZON,
-      SIVAS, [38.0, 38.0], ADANA, ANTAKYA,
-      [36.2, 34.0], ANTALYA, [37.5, 28.0], IZMIR, [39.5, 26.5],
+      [42.1, 27.5], [41.7, 26.6], [41.0, 26.3], [40.7, 26.8],
+      [40.2, 26.4], [39.8, 26.0], [39.2, 26.3], [38.4, 26.7],
+      [37.8, 27.0], [37.0, 27.2], [36.8, 28.0], [36.5, 29.0],
+      [36.3, 30.0], [36.0, 30.5], [36.2, 31.5], [36.5, 32.5],
+      [36.8, 34.0], [36.5, 35.0], [36.2, 35.8], [36.2, 36.2],
+      [36.8, 36.5], [37.2, 36.8], [37.5, 37.5], [38.0, 38.5],
+      [38.5, 39.5], [39.0, 40.5], [39.5, 40.8], [40.2, 40.5],
+      [40.8, 40.0], [41.0, 39.5], [41.1, 38.5], [41.3, 37.5],
+      [41.5, 36.5], [41.8, 36.0], [42.0, 35.0], [41.8, 34.0],
+      [41.5, 33.0], [41.5, 32.0], [41.2, 31.0], [41.0, 30.0],
+      [41.0, 29.0], [40.9, 28.5], [40.5, 28.0], [40.2, 29.0],
+      [39.8, 29.5], [39.5, 30.0], [39.0, 30.5], [38.5, 30.0],
+      [38.0, 29.5], [37.5, 29.0], [37.0, 28.5], [36.8, 28.0],
     ]],
   },
-  // Thrace & Marmara – shares border with Anatolia at Istanbul-Canakkale, with Bulgaria at Edirne
+
+  // THRAKIEN
   {
     yearStart: 1354,
     yearEnd: 1913,
-    label: { sv: "Thrakien & Marmara", en: "Thrace & Marmara", tr: "Trakya & Marmara" },
+    label: { sv: "Thrakien", en: "Thrace", tr: "Trakya" },
     color: "#cd853f",
     polygon: [[
-      CANAKKALE, [39.5, 26.5], IZMIR, // western coast shared
-      [39.8, 25.5], [40.5, 24.0], THESSALONIKI,
-      PLOVDIV, EDIRNE, ISTANBUL,
+      [41.7, 26.6], [42.1, 27.5], [42.5, 27.9], [43.2, 27.9],
+      [43.5, 27.0], [43.2, 26.0], [42.7, 25.5], [42.7, 24.5],
+      [42.5, 23.5], [42.1, 23.0], [41.5, 22.5], [41.0, 22.8],
+      [40.8, 23.5], [40.6, 22.9], [40.2, 23.5], [40.5, 24.5],
+      [40.8, 25.0], [41.2, 25.5], [41.5, 26.0],
     ]],
   },
-  // Bulgaria – shares border with Thrace at Plovdiv-Edirne, with Serbia at Nish
+
+  // BULGARIEN
   {
     yearStart: 1393,
     yearEnd: 1878,
     label: { sv: "Bulgarien", en: "Bulgaria", tr: "Bulgaristan" },
     color: "#cd853f",
     polygon: [[
-      PLOVDIV, THESSALONIKI, [40.5, 24.0],
-      SOFIA, NISH, BUCHAREST_S, VARNA, [42.5, 27.0], EDIRNE,
+      [42.1, 23.0], [42.5, 23.5], [42.7, 24.5], [42.7, 25.5],
+      [43.2, 26.0], [43.5, 27.0], [43.8, 27.5], [44.0, 27.0],
+      [43.8, 26.0], [43.8, 25.0], [43.5, 24.0], [43.8, 23.0],
+      [43.5, 22.5], [43.2, 22.0], [42.8, 22.0], [42.5, 22.5],
+      [42.2, 22.3], [42.0, 21.4], [41.5, 21.0], [41.0, 21.5],
+      [40.6, 22.9], [40.8, 23.5], [41.0, 22.8], [41.5, 22.5],
     ]],
   },
-  // Serbia & Bosnia – shares border with Bulgaria at Nish, with Hungary at Belgrade
+
+  // SERBIEN & BOSNIEN
   {
     yearStart: 1389,
     yearEnd: 1878,
     label: { sv: "Serbien & Bosnien", en: "Serbia & Bosnia", tr: "Sırbistan & Bosna" },
     color: "#daa520",
     polygon: [[
-      SARAJEVO, [44.0, 16.5], [45.5, 17.0], [45.8, 18.5],
-      BELGRADE, [44.5, 22.0], NISH, SOFIA, SKOPJE, [42.5, 19.0],
+      [44.8, 20.5], [45.2, 19.5], [45.5, 18.0], [45.2, 17.0],
+      [44.5, 16.5], [43.8, 16.5], [43.5, 17.5], [43.8, 18.4],
+      [43.5, 19.5], [43.0, 20.0], [42.5, 19.5], [42.0, 21.4],
+      [42.2, 22.3], [42.5, 22.5], [42.8, 22.0], [43.2, 22.0],
+      [43.5, 22.5], [43.8, 23.0], [43.5, 24.0], [43.8, 25.0],
+      [44.0, 24.5], [44.5, 23.5], [44.8, 22.5], [45.0, 21.5],
     ]],
   },
-  // Greece – shares border with Thrace/Bulgaria
+
+  // GREKLAND
   {
     yearStart: 1460,
     yearEnd: 1830,
     label: { sv: "Grekland", en: "Greece", tr: "Yunanistan" },
     color: "#8b6914",
     polygon: [[
-      THESSALONIKI, [40.5, 24.0], [39.8, 25.5],
-      [39.0, 25.0], ATHENS, [37.0, 22.5], [36.4, 22.8],
-      [37.8, 21.0], [38.5, 20.5], SKOPJE,
+      [40.6, 22.9], [41.0, 21.5], [41.5, 21.0], [42.0, 21.4],
+      [41.5, 20.5], [41.0, 20.0], [40.5, 19.5], [40.0, 19.8],
+      [39.5, 20.0], [39.0, 20.5], [38.5, 20.5], [38.0, 21.0],
+      [37.5, 21.5], [37.0, 22.0], [36.8, 22.5], [37.0, 23.0],
+      [37.5, 23.5], [37.8, 24.0], [37.5, 25.0], [37.0, 25.5],
+      [36.5, 26.0], [36.8, 26.5], [37.5, 26.5], [38.0, 26.0],
+      [38.5, 26.5], [39.0, 26.0], [39.5, 26.0], [40.0, 25.5],
+      [40.5, 24.5], [40.2, 23.5], [40.6, 22.9],
     ]],
   },
-  // Hungary – shares border with Serbia at Belgrade
+
+  // UNGERN
   {
     yearStart: 1526,
     yearEnd: 1699,
     label: { sv: "Ungern", en: "Hungary", tr: "Macaristan" },
     color: "#cd853f",
     polygon: [[
-      [45.8, 18.5], BUDAPEST, [48.0, 20.0], [47.5, 22.0],
-      [46.0, 21.0], [44.5, 22.0], BELGRADE,
+      [44.8, 20.5], [45.0, 21.5], [44.8, 22.5], [44.5, 23.5],
+      [45.0, 24.0], [45.5, 24.5], [46.0, 24.0], [46.5, 23.5],
+      [47.0, 22.5], [47.5, 22.0], [48.0, 21.0], [48.5, 20.5],
+      [48.0, 19.5], [47.5, 19.0], [47.0, 18.5], [46.5, 18.0],
+      [46.0, 17.5], [45.5, 17.0], [45.2, 17.5], [45.5, 18.0],
+      [45.2, 19.5],
     ]],
   },
-  // Constantinople – small zone within Thrace/Anatolia overlap
+
+  // KONSTANTINOPEL
   {
     yearStart: 1453,
     yearEnd: 1923,
     label: { sv: "Konstantinopel", en: "Constantinople", tr: "İstanbul" },
     color: "#ffd700",
     polygon: [[
-      [41.2, 28.7], [41.2, 29.3], [40.9, 29.3], [40.9, 28.7],
+      [41.3, 28.5], [41.3, 29.5], [40.8, 29.5], [40.8, 28.5],
     ]],
   },
-  // Black Sea Coast – shares border with Anatolia at Sinop-Trabzon
-  {
-    yearStart: 1461,
-    yearEnd: 1923,
-    label: { sv: "Svarta havskusten", en: "Black Sea Coast", tr: "Karadeniz Kıyısı" },
-    color: "#b8860b",
-    polygon: [[
-      SINOP, [41.2, 31.0], ISTANBUL, EDIRNE, VARNA,
-      [43.5, 28.5], [43.8, 31.0], [43.0, 34.0],
-      [42.3, 36.0], [41.8, 37.0],
-    ]],
-  },
-  // Crimea – separate peninsula
+
+  // KRIM
   {
     yearStart: 1475,
     yearEnd: 1783,
     label: { sv: "Krim", en: "Crimea", tr: "Kırım" },
     color: "#8b6914",
     polygon: [[
-      [46.2, 33.0], [46.0, 34.0], SEVASTOPOL, SIMFEROPOL, KERCH,
-      [45.0, 36.0], [44.4, 34.0], [45.0, 32.8],
+      [46.5, 32.5], [46.2, 33.5], [45.8, 34.5], [45.3, 35.5],
+      [45.0, 36.5], [45.3, 36.6], [45.8, 36.0], [46.0, 35.0],
+      [46.3, 34.5], [44.6, 33.5], [44.9, 34.1], [45.0, 35.0],
+      [44.5, 35.5], [44.2, 34.0], [44.5, 33.0], [45.0, 32.5],
+      [45.8, 32.0], [46.2, 32.0],
     ]],
   },
-  // Levant – shares border with Anatolia at Antakya, with Egypt at Sinai, with Mesopotamia, with Hejaz at Aqaba
+
+  // LEVANTEN - Nu med korrekta gränser
   {
     yearStart: 1516,
     yearEnd: 1918,
     label: { sv: "Levanten", en: "Levant", tr: "Şam" },
     color: "#cd853f",
     polygon: [[
-      ANTAKYA, ALEPPO, [36.5, 38.0], [35.8, 40.0],
-      [34.5, 40.5], [33.0, 38.0], DAMASCUS,
-      JERUSALEM, AQABA, SINAI_S, SUEZ, CAIRO,
-      [31.5, 34.0], [32.5, 34.5], [34.0, 35.0], ADANA, [36.2, 34.0],
+      [36.2, 36.2], [36.5, 36.8], [36.8, 37.0], [37.2, 37.5],
+      [37.0, 38.5], [36.5, 39.5], [35.8, 40.5], [35.0, 40.8],
+      [34.5, 40.5], [34.0, 39.5], [33.5, 38.5], [33.5, 37.5],
+      [33.5, 36.3], [33.0, 35.5], [32.5, 35.0], [32.0, 35.0],
+      [31.8, 35.2], [31.5, 35.5], [31.0, 35.5], [30.5, 35.0],
+      [30.0, 34.5], [29.5, 35.0], [29.0, 35.5], [28.5, 34.5],
+      [28.0, 33.8], [29.0, 33.5], [30.0, 32.5], [30.5, 32.0],
+      [31.0, 32.5], [31.5, 34.0], [32.0, 34.5], [32.5, 34.5],
+      [33.0, 35.0], [33.5, 35.5], [34.0, 35.8], [34.5, 36.0],
+      [35.0, 36.2], [35.5, 36.5], [36.0, 36.5],
     ]],
   },
-  // Mesopotamia – shares border with Levant at Aleppo-east, with Anatolia
+
+  // MESOPOTAMIEN
   {
     yearStart: 1534,
     yearEnd: 1918,
     label: { sv: "Mesopotamien", en: "Mesopotamia", tr: "Irak" },
     color: "#daa520",
     polygon: [[
-      SIVAS, [38.0, 38.0], ANTAKYA, ALEPPO, [36.5, 38.0],
-      [35.8, 40.0], MOSUL, BAGHDAD,
-      [32.0, 46.0], BASRA, [30.0, 48.5],
-      [30.5, 44.0], [33.0, 42.0], [34.5, 40.5],
+      [37.2, 37.5], [37.5, 38.5], [38.0, 39.0], [38.5, 39.5],
+      [39.0, 40.5], [38.5, 41.0], [38.0, 42.0], [37.5, 42.5],
+      [37.0, 43.0], [36.5, 43.5], [36.3, 43.1], [36.0, 44.0],
+      [35.5, 44.5], [35.0, 45.0], [34.5, 45.5], [34.0, 45.8],
+      [33.3, 44.4], [33.0, 45.0], [32.5, 46.0], [32.0, 46.5],
+      [31.5, 47.0], [31.0, 47.5], [30.5, 47.8], [30.0, 48.5],
+      [30.5, 47.0], [31.0, 46.0], [31.5, 45.0], [32.0, 44.0],
+      [32.5, 43.0], [33.0, 42.0], [33.5, 41.0], [34.0, 40.5],
+      [34.5, 40.5], [35.0, 40.8], [35.8, 40.5], [36.5, 39.5],
+      [37.0, 38.5], [36.8, 37.5],
     ]],
   },
-  // Egypt – shares border with Levant at Cairo-Suez-Sinai
+
+  // EGYPTEN - Nu med Kairo korrekt inkluderat
   {
     yearStart: 1517,
     yearEnd: 1882,
     label: { sv: "Egypten", en: "Egypt", tr: "Mısır" },
     color: "#b8860b",
     polygon: [[
-      CAIRO, SUEZ, SINAI_S,
-      [27.0, 34.5], [25.0, 35.0], ASWAN, [22.0, 36.5],
-      [22.0, 31.0], [24.5, 29.0], [27.0, 26.0], [29.5, 25.0],
-      [31.5, 25.0], [31.2, 29.0],
+      [31.5, 34.0], [31.2, 32.5], [31.0, 31.5],
+      [30.5, 31.0], [30.0, 31.2], [29.5, 31.0], // Kairo-området
+      [29.0, 30.5], [28.5, 30.0], [28.0, 30.5],
+      [27.5, 30.0], [27.0, 28.5], [26.5, 27.5],
+      [26.0, 26.5], [25.5, 26.0], [25.0, 25.5],
+      [24.5, 25.0], [24.0, 25.0], [23.5, 25.0],
+      [23.0, 25.0], [22.5, 25.0], [22.0, 25.0],
+      [22.0, 28.0], [22.0, 31.0], [22.5, 32.0],
+      [23.0, 32.5], [23.5, 32.8], [24.0, 32.9],
+      [24.5, 33.0], [25.0, 33.5], [25.5, 33.8],
+      [26.0, 34.0], [26.5, 34.5], [27.0, 34.5],
+      [27.5, 34.0], [28.0, 33.8], [28.5, 33.5],
+      [29.0, 33.5], [29.5, 33.0], [30.0, 32.5],
+      [30.5, 32.8], [31.0, 32.5], [31.5, 32.8],
+      [32.0, 32.5], [32.5, 31.5], [31.5, 31.0],
+      [31.0, 30.5], [30.5, 30.0], [30.0, 30.5],
+      [30.5, 31.5], [31.0, 31.8], [31.5, 32.0],
+      [32.0, 32.0], [32.5, 32.5], [32.0, 33.0],
+      [31.5, 33.5],
     ]],
   },
-  // North Africa – shares border with Egypt at western edge
+
+  // NORDAFRIKA
   {
     yearStart: 1551,
     yearEnd: 1912,
     label: { sv: "Nordafrika", en: "North Africa", tr: "Kuzey Afrika" },
     color: "#8b6914",
     polygon: [[
-      ALGIERS, [35.0, 1.5], [33.5, 3.0],
-      [32.0, 5.0], [31.0, 8.0], [30.5, 10.0],
-      [31.0, 13.0], TRIPOLI_LY, BENGHAZI,
-      [31.0, 22.0], [31.5, 25.0], [29.5, 25.0],
-      [27.0, 26.0], [24.5, 29.0], [22.0, 31.0],
-      [22.0, 25.0], [25.0, 20.0], [28.0, 15.0],
-      [30.0, 12.0], [30.5, 10.0],
-      [33.0, 5.0], [35.5, 2.0], TUNIS, [37.0, 10.0],
+      [37.5, 9.5], [37.0, 10.2], [36.8, 10.2], [36.5, 9.5],
+      [36.8, 8.5], [36.5, 8.0], [36.0, 7.5], [35.5, 7.0],
+      [35.0, 6.5], [34.5, 6.0], [34.0, 5.5], [33.5, 5.0],
+      [33.0, 5.0], [32.5, 4.5], [32.0, 4.0], [31.5, 3.5],
+      [31.0, 3.0], [30.5, 3.0], [36.8, 3.1], [36.5, 2.0],
+      [36.0, 1.5], [35.5, 1.0], [35.0, 1.0], [34.5, 0.5],
+      [33.5, 0.0], [33.0, 0.5], [32.5, 1.0], [32.0, 2.0],
+      [31.5, 3.0], [31.0, 4.0], [30.5, 5.0], [30.0, 6.0],
+      [29.5, 7.0], [29.0, 8.0], [28.5, 9.0], [28.0, 10.0],
+      [28.0, 12.0], [29.0, 13.0], [30.0, 13.5], [31.0, 13.0],
+      [32.0, 13.5], [32.9, 13.2], [33.0, 14.0], [32.5, 15.0],
+      [32.0, 16.0], [31.5, 17.0], [31.0, 18.0], [31.0, 20.0],
+      [31.0, 22.0], [31.5, 23.0], [32.1, 20.1], [32.5, 21.0],
+      [31.5, 25.0], [29.5, 25.0], [27.0, 26.0], [25.0, 26.0],
+      [24.5, 25.0], [23.0, 25.0], [22.0, 25.0], [22.0, 20.0],
+      [23.0, 18.0], [24.0, 16.0], [25.0, 14.0], [26.0, 13.0],
+      [27.0, 12.0], [28.0, 11.0], [29.0, 10.5], [30.0, 10.0],
+      [30.5, 10.0], [31.0, 11.0], [32.0, 11.5], [33.0, 11.0],
+      [33.5, 11.5], [34.0, 11.0], [35.0, 11.0], [36.0, 11.5],
+      [36.5, 11.0], [37.0, 11.5], [37.5, 11.0], [38.0, 10.5],
+      [37.5, 10.0],
     ]],
   },
-  // Hejaz – shares border with Levant at Aqaba, with Egypt via Red Sea coast
+
+  // HEJAZ
   {
     yearStart: 1517,
     yearEnd: 1916,
     label: { sv: "Hejaz", en: "Hejaz", tr: "Hicaz" },
     color: "#daa520",
     polygon: [[
-      AQABA, SINAI_S, [27.0, 34.5],
-      [25.0, 35.0], [24.0, 37.0], MECCA,
-      [19.0, 41.5], [18.0, 42.5], [19.5, 44.0],
-      [22.0, 42.0], MEDINA, [26.0, 38.5],
-      [28.0, 37.0], [29.5, 35.5],
+      [29.5, 35.0], [29.0, 35.5], [28.5, 36.0], [28.0, 37.0],
+      [27.5, 37.5], [27.0, 38.0], [26.5, 38.5], [26.0, 39.0],
+      [25.5, 39.5], [25.0, 39.5], [24.5, 39.6], [24.0, 40.0],
+      [23.0, 40.5], [22.0, 41.0], [21.4, 39.8], [21.0, 40.5],
+      [20.5, 41.0], [20.0, 41.5], [19.5, 42.0], [19.0, 42.5],
+      [18.5, 43.0], [19.0, 43.5], [19.5, 44.0], [20.0, 44.5],
+      [20.5, 44.0], [21.0, 43.5], [22.0, 43.0], [22.5, 42.5],
+      [23.0, 42.0], [23.5, 41.5], [24.0, 41.0], [24.5, 40.5],
+      [25.0, 40.0], [25.5, 40.0], [26.0, 39.5], [26.5, 39.0],
+      [27.0, 38.5], [27.5, 38.0], [28.0, 37.5], [28.5, 37.0],
+      [29.0, 36.5], [29.5, 36.0], [30.0, 35.5],
     ]],
   },
 ];
@@ -245,18 +277,30 @@ export const tradeRoutesGeo: TradeRouteGeo[] = [
     id: "silk-road",
     name: { sv: "Sidenvägen", en: "Silk Road", tr: "İpek Yolu" },
     yearActive: 1453,
-    path: [[41.0, 29.0], [39.9, 32.9], [38.5, 36.0], [37.0, 40.0], [35.0, 44.0]],
+    path: [
+      [41.0, 29.0], [40.5, 31.0], [40.0, 33.0], [39.5, 35.0],
+      [38.5, 37.0], [37.5, 39.0], [37.0, 41.0], [36.0, 43.0],
+      [35.0, 44.4],
+    ],
   },
   {
     id: "spice-route",
     name: { sv: "Kryddvägen", en: "Spice Route", tr: "Baharat Yolu" },
     yearActive: 1517,
-    path: [[30.0, 32.5], [33.5, 35.0], [36.0, 36.0], [38.5, 34.0], [41.0, 29.0]],
+    path: [
+      [30.0, 32.5], [30.5, 33.5], [31.5, 34.5],
+      [32.5, 35.0], [33.5, 35.5], [35.0, 36.0],
+      [36.5, 36.5], [38.0, 35.5], [39.5, 34.0], [41.0, 29.0],
+    ],
   },
   {
     id: "mediterranean-trade",
     name: { sv: "Medelhavshandeln", en: "Mediterranean Trade", tr: "Akdeniz Ticareti" },
     yearActive: 1453,
-    path: [[36.0, 10.0], [35.0, 15.0], [34.0, 24.0], [35.5, 28.0], [41.0, 29.0]],
+    path: [
+      [36.8, 10.2], [35.5, 12.0], [34.5, 15.0],
+      [34.0, 18.0], [34.0, 21.0], [34.5, 24.0],
+      [35.5, 27.0], [37.0, 28.5], [39.0, 29.0], [41.0, 29.0],
+    ],
   },
 ];
