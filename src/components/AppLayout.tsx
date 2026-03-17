@@ -36,8 +36,12 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
 
   return (
     <div
-      className="flex flex-col h-screen relative"
-      style={bgImage ? { backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+  className="flex flex-col relative"
+  style={{
+    minHeight: "100dvh",
+    ...(bgImage ? { backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {})
+  }}
+>
     >
       <div className="absolute inset-0 bg-background/88 z-0" />
 
