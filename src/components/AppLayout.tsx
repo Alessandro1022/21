@@ -36,16 +36,15 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
 
   return (
     <div
-  className="flex flex-col relative"
-  style={{
-    minHeight: "100dvh",
-    ...(bgImage ? { backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {})
-  }}
->
+      className="flex flex-col relative"
+      style={{
+        minHeight: "100dvh",
+        ...(bgImage ? { backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {})
+      }}
     >
       <div className="absolute inset-0 bg-background/88 z-0" />
 
-      {/* Header - safe area fix för iPhone statusbar */}
+      {/* Header */}
       <header
         className="relative z-20 flex-shrink-0 border-b border-border px-4 bg-background/60 backdrop-blur-md"
         style={{
@@ -61,7 +60,6 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
             </Link>
           </div>
 
-          {/* Desktop nav */}
           {!hideNav && (
             <nav className="hidden md:flex items-center gap-1">
               {NAV_ITEMS.map((item) => {
@@ -114,12 +112,10 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
         </div>
       </header>
 
-      {/* Content */}
       <main className="relative z-10 flex-1 overflow-hidden pb-[68px] md:pb-0">
         {children}
       </main>
 
-      {/* Mobile bottom navigation */}
       {!hideNav && <MobileBottomNav language={language} />}
     </div>
   );
