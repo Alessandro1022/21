@@ -79,18 +79,33 @@ export default function Index() {
 
       {/* Header */}
       <header className="relative z-10 flex-shrink-0 border-b border-border px-4 py-3 bg-background/60 backdrop-blur-md">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img
-              src={ottomanCrest}
-              alt="Ottoman coat of arms"
-              className="w-9 h-9 rounded-lg object-cover"
-            />
-            <div>
-              <h1 className="text-lg font-serif text-primary leading-tight">Ottoman Intelligence</h1>
-              <p className="text-xs text-muted-foreground font-sans">1299–1922</p>
+        <div className="max-w-3xl mx-auto flex flex-col gap-2">
+          
+          {/* Rad 1: Logo + Trash */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src={ottomanCrest}
+                alt="Ottoman coat of arms"
+                className="w-9 h-9 rounded-lg object-cover"
+              />
+              <div>
+                <h1 className="text-lg font-serif text-primary leading-tight">Ottoman Intelligence</h1>
+                <p className="text-xs text-muted-foreground font-sans">1299–1922</p>
+              </div>
             </div>
+            {messages.length > 0 && (
+              <button
+                onClick={clearMessages}
+                className="p-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                title="Clear chat"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
+
+          {/* Rad 2: Språk + Nivå */}
           <div className="flex items-center gap-2">
             <div className="flex rounded-lg overflow-hidden ottoman-border">
               {LANGUAGES.map((lang) => (
@@ -122,22 +137,13 @@ export default function Index() {
                 </button>
               ))}
             </div>
-            {messages.length > 0 && (
-              <button
-                onClick={clearMessages}
-                className="p-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
-                title="Clear chat"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
           </div>
+
         </div>
       </header>
 
       {/* Chat area */}
       <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto">
-        {/* Welcome section - always visible when no messages */}
         {isEmpty && (
           <div className="flex flex-col items-center justify-center h-full px-4">
             <div className="relative w-32 h-32 mb-6 rounded-full overflow-hidden ottoman-glow">
@@ -167,7 +173,6 @@ export default function Index() {
           </div>
         )}
 
-        {/* Messages */}
         {!isEmpty && (
           <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
             {messages.map((msg, i) => (
@@ -195,7 +200,7 @@ export default function Index() {
         )}
       </div>
 
-      {/* Suggestions bar when there are messages */}
+      {/* Suggestions bar */}
       {!isEmpty && !isLoading && (
         <div className="relative z-10 border-t border-border px-4 py-2 bg-background/60 backdrop-blur-md">
           <div className="max-w-3xl mx-auto flex gap-2 overflow-x-auto">
