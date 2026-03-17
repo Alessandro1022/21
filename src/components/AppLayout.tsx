@@ -35,23 +35,11 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
   const appTitle = config?.appTitle || "Empire AI";
 
   return (
-    <div
-      className="flex flex-col relative"
-      style={{
-        minHeight: "100dvh",
-        ...(bgImage ? { backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {})
-      }}
-    >
+    <div className="flex flex-col h-screen relative" style={bgImage ? { backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
       <div className="absolute inset-0 bg-background/88 z-0" />
 
       {/* Header */}
-      <header
-        className="relative z-20 flex-shrink-0 border-b border-border px-4 bg-background/60 backdrop-blur-md"
-        style={{
-          paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)",
-          paddingBottom: "0.625rem",
-        }}
-      >
+      <header className="relative z-20 flex-shrink-0 border-b border-border px-4 py-2.5 bg-background/60 backdrop-blur-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center gap-2">
