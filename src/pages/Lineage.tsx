@@ -8,7 +8,8 @@ import { LeaderDetailModal } from "@/components/LeaderDetailModal";
 import { Crown, ExternalLink, Calendar, X } from "lucide-react";
  
 // ── Helpers ──────────────────────────────────────────────────────────────────
- 
+
+
 function getDynastyColor(generation: number, empireId: string): string {
   if (empireId === "roman") {
     if (generation <= 2) return "hsl(0 62% 42%)";
