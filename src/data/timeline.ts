@@ -36,9 +36,9 @@ export const timelineEvents: TimelineEvent[] = [
     year: 1354,
     title: { sv: "Osmaner i Europa", en: "Ottomans in Europe", tr: "Osmanlılar Avrupa'da" },
     summary: {
-      sv: "Osmanerna fick sitt första fäste i Europa genom erövringen av Gallipoli, vilket öppnade vägen för expansion på Balkan.",
-      en: "The Ottomans gained their first foothold in Europe with the conquest of Gallipoli, opening the way for Balkan expansion.",
-      tr: "Osmanlılar Gelibolu'nun fethiyle Avrupa'daki ilk dayanaklarını kazandı ve Balkan genişlemesinin yolunu açtı.",
+      sv: "Osmanerna började sin expansion i Europa under 1300-talet och fick sitt första fäste genom erövringen av Gallipoli. Detta strategiska fotfäste vid Dardanellerna gjorde det möjligt att säkra försörjningsvägar och stärka närvaron på Balkan. Efter detta utvidgade Osmanerna långsamt men säkert sitt territorium i regionen. De erövrade viktiga städer och fästningar, vilket gav både militär och politisk makt. Denna expansion lade grunden för senare erövringar i Europa och påverkade Balkanregionens historia under flera hundra år.",
+      en: "The Ottomans began their expansion into Europe in the 14th century and gained their first foothold with the conquest of Gallipoli. This strategic foothold at the Dardanelles allowed them to secure supply routes and strengthen their presence in the Balkans. After this, the Ottomans gradually but steadily expanded their territory in the region. They captured key towns and fortresses, gaining both military and political power. This expansion laid the groundwork for later European conquests and affected the history of the Balkans for several centuries.",
+      tr: "Osmanlılar 14. yüzyılda Avrupa’ya genişlemeye başladı ve Gelibolu’nun fethiyle ilk dayanaklarını kazandı. Çanakkale Boğazı’ndaki bu stratejik dayanak, ikmal yollarını güvence altına almalarını ve Balkanlar’daki varlıklarını güçlendirmelerini sağladı. Bundan sonra Osmanlılar bölgedeki topraklarını yavaş ama emin adımlarla genişlettiler. Önemli şehirleri ve kaleleri ele geçirerek hem askeri hem de siyasi güç kazandılar. Bu genişleme, sonraki Avrupa fetihleri için zemin hazırladı ve Balkanlar’ın tarihini yüzyıllar boyunca etkiledi.",
     },
     figures: ["Süleyman Paşa", "Orhan I"],
     consequences: { sv: "Europeisk expansion blev möjlig.", en: "European expansion became possible.", tr: "Avrupa'ya genişleme mümkün hale geldi." },
