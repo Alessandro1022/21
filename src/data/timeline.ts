@@ -41,9 +41,8 @@ export const timelineEvents: TimelineEvent[] = [
         "sv": "Lade grunden för ett imperium som skulle vara i 600 år och kontrollera stora delar av sydöstra Europa, västra Asien och Nordafrika. Den osmanska staten skulle bli en av islams främsta makter och en dominerande kraft i Medelhavsområdet. Riket skulle komma att forma historien för otaliga folk under flera århundraden.",
         "en": "Laid the foundation for an empire lasting 600 years, controlling large parts of southeastern Europe, western Asia, and North Africa. The Ottoman state would become one of Islam's foremost powers and a dominant force in the Mediterranean region. The empire would shape the history of countless peoples for several centuries.",
         "tr": "Güneydoğu Avrupa, batı Asya ve Kuzey Afrika'nın büyük bölümünü kontrol edecek 600 yıl sürecek bir imparatorluğun temelini attı. Osmanlı devleti İslam'ın önde gelen güçlerinden biri ve Akdeniz bölgesinde baskın bir güç haline gelecekti. İmparatorluk yüzyıllar boyunca sayısız halkın tarihini şekillendirecekti."
-    }
-}
-  {
+   },
+   {
     year: 1326,
     title: { sv: "Erövringen av Bursa", en: "Conquest of Bursa", tr: "Bursa'nın Fethi" },
     summary: {
