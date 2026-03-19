@@ -9,7 +9,7 @@ import "leaflet/dist/leaflet.css";
 import type { LatLngExpression } from "leaflet";
  
 // ── Snapshot-år som finns i public/geojson/ ──────────────────────────────────
-const ROMAN_SNAPSHOTS   = [-500, -400, -323, -300, -200, -100, 1, 100, 200, 300, 400, 500];
+const ROMAN_SNAPSHOTS   = [-500, -400, -323, -300, -200, -100, 0, 100, 200, 300, 400, 500];
 const OTTOMAN_SNAPSHOTS = [100, 200, 300, 400, 500, 1500, 1600, 1700, 1800];
  
 // Välj närmaste snapshot
@@ -19,9 +19,11 @@ function closestSnapshot(year: number, snapshots: number[]): number {
   );
 }
  
-// Bygg filnamn baserat på år — matchar dina uppladdade filer
+// Bygg filnamn baserat på år — matchar dina uppladdade filer exakt
+// Filer: world_bc500, world_bc400, world_bc323, world_bc300, world_bc200, world_bc100, world_bc1
+//        world_100, world_200, world_300, world_400, world_500
 function geojsonFilename(year: number): string {
-  if (year < 0) return `/geojson/world_bc${Math.abs(year)}.geojson`;
+  if (year <= 0) return `/geojson/world_bc${Math.abs(year) || 1}.geojson`;
   return `/geojson/world_${year}.geojson`;
 }
  
@@ -214,3 +216,4 @@ export default function MapPage() {
     </AppLayout>
   );
 }
+ 
