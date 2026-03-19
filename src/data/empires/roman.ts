@@ -5,128 +5,218 @@ import romanEagle from "@/assets/roman-eagle.jpg";
 import colosseum from "@/assets/colosseum.jpg";
 
 const romanTimeline: TimelineEvent[] = [
-  // TIDIGT ROM
   {
     year: -753,
     title: { sv: "Roms grundande", en: "Founding of Rome", tr: "Roma'nın Kuruluşu" },
-    summary: { sv: "Enligt legenden grundade Romulus Rom.", en: "Romulus founded Rome according to legend.", tr: "Efsaneye göre Romulus Roma'yı kurdu." },
+    summary: { sv: "Enligt legenden grundade Romulus staden Rom.", en: "According to legend, Romulus founded Rome.", tr: "Efsaneye göre Romulus Roma'yı kurdu." },
     figures: ["Romulus", "Remus"],
+    consequences: { sv: "En stadsstat bildas.", en: "A city-state is formed.", tr: "Bir şehir devleti kuruldu." },
+    impact: { sv: "Starten på romersk civilisation.", en: "Start of Roman civilization.", tr: "Roma uygarlığının başlangıcı." },
   },
-
+  {
+    year: -700,
+    title: { sv: "Tidiga kungadömet", en: "Early Kingdom", tr: "Erken Krallık" },
+    summary: { sv: "Rom styrs av kungar.", en: "Rome is ruled by kings.", tr: "Roma krallar tarafından yönetildi." },
+    figures: ["Romerska kungar"],
+    consequences: { sv: "Centraliserad makt.", en: "Centralized power.", tr: "Merkezi güç." },
+    impact: { sv: "Lägger politisk grund.", en: "Sets political foundation.", tr: "Siyasi temel oluşturdu." },
+  },
   {
     year: -509,
     title: { sv: "Republiken grundas", en: "Republic Founded", tr: "Cumhuriyet Kuruldu" },
-    summary: { sv: "Monarkin störtas och republiken införs.", en: "Monarchy overthrown, republic established.", tr: "Monarşi yıkıldı, cumhuriyet kuruldu." },
+    summary: { sv: "Kungarna störtas.", en: "Kings are overthrown.", tr: "Krallar devrildi." },
+    figures: ["Brutus"],
+    consequences: { sv: "Konsuler styr.", en: "Consuls govern.", tr: "Konsüller yönetir." },
+    impact: { sv: "Demokratisk modell skapas.", en: "Democratic model formed.", tr: "Demokrasi modeli oluştu." },
   },
-
-  // EXPANSION
+  {
+    year: -450,
+    title: { sv: "Tolv tavlornas lag", en: "Twelve Tables", tr: "On İki Levha" },
+    summary: { sv: "Romersk lag skrivs ned.", en: "Roman law is codified.", tr: "Roma hukuku yazıldı." },
+    figures: [],
+    consequences: { sv: "Lagar blir offentliga.", en: "Laws become public.", tr: "Yasalar halka açık oldu." },
+    impact: { sv: "Grund för juridik.", en: "Foundation of law.", tr: "Hukukun temeli." },
+  },
   {
     year: -264,
     title: { sv: "Första puniska kriget", en: "First Punic War", tr: "Birinci Pön Savaşı" },
+    summary: { sv: "Rom slåss mot Kartago.", en: "Rome fights Carthage.", tr: "Roma Kartaca ile savaşır." },
+    figures: ["Hamilcar Barca"],
+    consequences: { sv: "Rom vinner Sicilien.", en: "Rome gains Sicily.", tr: "Roma Sicilya'yı kazandı." },
+    impact: { sv: "Rom blir sjömakt.", en: "Rome becomes naval power.", tr: "Roma deniz gücü olur." },
   },
-
+  {
+    year: -218,
+    title: { sv: "Andra puniska kriget", en: "Second Punic War", tr: "İkinci Pön Savaşı" },
+    summary: { sv: "Hannibal invaderar Italien.", en: "Hannibal invades Italy.", tr: "Hannibal İtalya'yı işgal etti." },
+    figures: ["Hannibal"],
+    consequences: { sv: "Stora förluster.", en: "Heavy losses.", tr: "Büyük kayıplar." },
+    impact: { sv: "Rom blir starkare.", en: "Rome emerges stronger.", tr: "Roma güçlenir." },
+  },
   {
     year: -146,
-    title: { sv: "Kartago förstörs", en: "Destruction of Carthage", tr: "Kartaca'nın Yıkımı" },
-    summary: { sv: "Rom förstör Kartago och dominerar Medelhavet.", en: "Rome destroys Carthage.", tr: "Roma Kartaca'yı yok etti." },
+    title: { sv: "Kartago förstörs", en: "Carthage Destroyed", tr: "Kartaca Yok Edildi" },
+    summary: { sv: "Kartago förstörs helt.", en: "Carthage destroyed.", tr: "Kartaca yok edildi." },
+    figures: [],
+    consequences: { sv: "Rom dominerar.", en: "Rome dominates.", tr: "Roma hakim olur." },
+    impact: { sv: "Medelhavet kontrolleras.", en: "Mediterranean controlled.", tr: "Akdeniz kontrol edilir." },
   },
-
-  // SLUTET AV REPUBLIKEN
+  {
+    year: -133,
+    title: { sv: "Gracchus reformer", en: "Gracchi Reforms", tr: "Gracchus Reformları" },
+    summary: { sv: "Jordreformer försöks.", en: "Land reforms attempted.", tr: "Toprak reformu denendi." },
+    figures: ["Tiberius Gracchus"],
+    consequences: { sv: "Politiska konflikter.", en: "Political conflict.", tr: "Siyasi çatışma." },
+    impact: { sv: "Instabilitet ökar.", en: "Instability rises.", tr: "İstikrarsızlık artar." },
+  },
+  {
+    year: -49,
+    title: { sv: "Caesar korsar Rubicon", en: "Caesar Crosses Rubicon", tr: "Caesar Rubicon'u Geçti" },
+    summary: { sv: "Inbördeskrig börjar.", en: "Civil war begins.", tr: "İç savaş başlar." },
+    figures: ["Julius Caesar"],
+    consequences: { sv: "Republiken hotas.", en: "Republic threatened.", tr: "Cumhuriyet tehdit altında." },
+    impact: { sv: "Maktcentralisering.", en: "Power centralizes.", tr: "Güç merkezileşir." },
+  },
   {
     year: -44,
     title: { sv: "Caesar mördas", en: "Caesar Assassinated", tr: "Caesar Öldürüldü" },
+    summary: { sv: "Senatorer mördar Caesar.", en: "Senators kill Caesar.", tr: "Senatörler Caesar'ı öldürdü." },
+    figures: ["Brutus"],
+    consequences: { sv: "Krig bryter ut.", en: "War erupts.", tr: "Savaş çıkar." },
+    impact: { sv: "Republiken faller.", en: "Republic collapses.", tr: "Cumhuriyet çöker." },
   },
-
   {
     year: -27,
-    title: { sv: "Kejsardömet börjar", en: "Empire Begins", tr: "İmparatorluk Başladı" },
+    title: { sv: "Augustus blir kejsare", en: "Augustus Emperor", tr: "Augustus İmparator" },
+    summary: { sv: "Imperiet börjar.", en: "Empire begins.", tr: "İmparatorluk başlar." },
+    figures: ["Augustus"],
+    consequences: { sv: "En ledare.", en: "One ruler.", tr: "Tek lider." },
+    impact: { sv: "Stabilitet.", en: "Stability.", tr: "İstikrar." },
   },
 
-  // IMPERIETS HÖJD
+  // --- MASSOR AV EXTRA EVENTS (alla med samma struktur) ---
+
+  {
+    year: 64,
+    title: { sv: "Rom brinner", en: "Great Fire of Rome", tr: "Roma Yangını" },
+    summary: { sv: "Stor brand i Rom.", en: "Massive fire in Rome.", tr: "Roma'da büyük yangın." },
+    figures: ["Nero"],
+    consequences: { sv: "Staden förstörs.", en: "City damaged.", tr: "Şehir zarar gördü." },
+    impact: { sv: "Ombyggnad.", en: "Rebuilding.", tr: "Yeniden inşa." },
+  },
+  {
+    year: 79,
+    title: { sv: "Vesuvius utbrott", en: "Vesuvius Eruption", tr: "Vezüv Patlaması" },
+    summary: { sv: "Städer begravs.", en: "Cities buried.", tr: "Şehirler gömüldü." },
+    figures: [],
+    consequences: { sv: "Förstörelse.", en: "Destruction.", tr: "Yıkım." },
+    impact: { sv: "Historiskt bevarande.", en: "Preservation.", tr: "Koruma." },
+  },
   {
     year: 117,
-    title: { sv: "Maximal utsträckning", en: "Greatest Extent", tr: "En Geniş Sınırlar" },
+    title: { sv: "Maximal utsträckning", en: "Max Expansion", tr: "En Geniş" },
+    summary: { sv: "Riket som störst.", en: "Empire largest.", tr: "İmparatorluk en büyük." },
+    figures: ["Trajan"],
+    consequences: { sv: "Tre kontinenter.", en: "Three continents.", tr: "Üç kıta." },
+    impact: { sv: "Höjdpunkt.", en: "Peak.", tr: "Zirve." },
   },
-
-  // KRIS + REFORM
   {
     year: 212,
-    title: { sv: "Alla blir romerska medborgare", en: "Citizenship for All", tr: "Herkese Vatandaşlık" },
-    summary: { sv: "Caracalla ger medborgarskap till alla fria män.", en: "Citizenship granted to all free men.", tr: "Tüm özgür erkeklere vatandaşlık verildi." },
+    title: { sv: "Medborgarskap till alla", en: "Citizenship for All", tr: "Herkese Vatandaşlık" },
+    summary: { sv: "Alla fria män blir medborgare.", en: "All free men gain citizenship.", tr: "Tüm özgür erkekler vatandaş olur." },
+    figures: ["Caracalla"],
+    consequences: { sv: "Enhet ökar.", en: "Unity rises.", tr: "Birlik artar." },
+    impact: { sv: "Integration.", en: "Integration.", tr: "Entegrasyon." },
   },
-
   {
     year: 284,
-    title: { sv: "Diocletianus reformer", en: "Diocletian Reforms", tr: "Diocletian Reformları" },
+    title: { sv: "Diocletianus reformer", en: "Diocletian Reforms", tr: "Reformlar" },
+    summary: { sv: "Imperiet delas administrativt.", en: "Empire reorganized.", tr: "İmparatorluk düzenlendi." },
+    figures: ["Diocletian"],
+    consequences: { sv: "Stabilitet.", en: "Stability.", tr: "İstikrar." },
+    impact: { sv: "Förbereder delning.", en: "Prepares split.", tr: "Bölünmeye hazırlar." },
   },
-
   {
     year: 313,
     title: { sv: "Kristendom tillåts", en: "Christianity Legalized", tr: "Hristiyanlık Serbest" },
+    summary: { sv: "Religion tillåts.", en: "Religion legalized.", tr: "Din serbest." },
+    figures: ["Constantine"],
+    consequences: { sv: "Förändring.", en: "Change.", tr: "Değişim." },
+    impact: { sv: "Europa påverkas.", en: "Europe shaped.", tr: "Avrupa etkilenir." },
   },
-
   {
     year: 330,
-    title: { sv: "Konstantinopel grundas", en: "Constantinople Founded", tr: "Konstantinopolis Kuruldu" },
+    title: { sv: "Konstantinopel grundas", en: "Constantinople Founded", tr: "Kuruldu" },
+    summary: { sv: "Ny huvudstad.", en: "New capital.", tr: "Yeni başkent." },
+    figures: ["Constantine"],
+    consequences: { sv: "Makt flyttas.", en: "Power shifts.", tr: "Güç kayar." },
+    impact: { sv: "Östrom stärks.", en: "East strengthens.", tr: "Doğu güçlenir." },
   },
-
-  // DELNING
   {
     year: 395,
-    title: { sv: "Rom delas", en: "Empire Divided", tr: "İmparatorluk Bölündü" },
+    title: { sv: "Rom delas", en: "Empire Divided", tr: "Bölündü" },
+    summary: { sv: "Öst och väst.", en: "East and West.", tr: "Doğu ve Batı." },
+    figures: [],
+    consequences: { sv: "Två delar.", en: "Two halves.", tr: "İki parça." },
+    impact: { sv: "Olika utveckling.", en: "Different paths.", tr: "Farklı gelişim." },
   },
-
-  // VÄST FALLER
-  {
-    year: 410,
-    title: { sv: "Rom plundras", en: "Sack of Rome", tr: "Roma Yağmalandı" },
-    summary: { sv: "Visigoterna plundrar Rom.", en: "Visigoths sack Rome.", tr: "Vizigotlar Roma'yı yağmaladı." },
-  },
-
   {
     year: 476,
-    title: { sv: "Västrom faller", en: "Western Empire Falls", tr: "Batı Roma Çöktü" },
+    title: { sv: "Västrom faller", en: "West Falls", tr: "Batı Çöktü" },
+    summary: { sv: "Kejsaren avsätts.", en: "Emperor deposed.", tr: "İmparator indirildi." },
+    figures: ["Odoacer"],
+    consequences: { sv: "Slut i väst.", en: "End in west.", tr: "Batı bitti." },
+    impact: { sv: "Medeltid börjar.", en: "Middle Ages begin.", tr: "Orta Çağ başlar." },
   },
 
-  // ÖSTROM / BYZANTIUM (DET DU SAKNADE)
+  // --- ÖSTROM (VIKTIGT) ---
   {
     year: 527,
-    title: { sv: "Justinianus blir kejsare", en: "Justinian Becomes Emperor", tr: "Justinian İmparator" },
+    title: { sv: "Justinianus", en: "Justinian Reign", tr: "Justinian" },
+    summary: { sv: "Stark kejsare.", en: "Powerful emperor.", tr: "Güçlü imparator." },
+    figures: ["Justinian"],
+    consequences: { sv: "Expansion.", en: "Expansion.", tr: "Genişleme." },
+    impact: { sv: "Återupplivning.", en: "Revival.", tr: "Canlanma." },
   },
-
   {
     year: 537,
-    title: { sv: "Hagia Sofia byggs", en: "Hagia Sophia Completed", tr: "Ayasofya Tamamlandı" },
+    title: { sv: "Hagia Sofia", en: "Hagia Sophia", tr: "Ayasofya" },
+    summary: { sv: "Stor kyrka byggs.", en: "Great church built.", tr: "Büyük kilise yapıldı." },
+    figures: [],
+    consequences: { sv: "Religiös symbol.", en: "Religious symbol.", tr: "Dini sembol." },
+    impact: { sv: "Arkitektur.", en: "Architecture.", tr: "Mimari." },
   },
-
-  {
-    year: 565,
-    title: { sv: "Rom återuppbyggs delvis", en: "Partial Roman Restoration", tr: "Roma Kısmen Geri Alındı" },
-  },
-
   {
     year: 717,
-    title: { sv: "Konstantinopel räddas", en: "Siege of Constantinople", tr: "Konstantinopolis Kuşatması" },
+    title: { sv: "Konstantinopel försvaras", en: "Siege Repelled", tr: "Kuşatma" },
+    summary: { sv: "Staden överlever.", en: "City survives.", tr: "Şehir kurtulur." },
+    figures: [],
+    consequences: { sv: "Fiender stoppas.", en: "Enemies stopped.", tr: "Düşman durduruldu." },
+    impact: { sv: "Europa skyddas.", en: "Europe protected.", tr: "Avrupa korunur." },
   },
-
-  {
-    year: 800,
-    title: { sv: "Nytt romerskt rike i väst", en: "Holy Roman Empire", tr: "Kutsal Roma İmparatorluğu" },
-  },
-
   {
     year: 1054,
-    title: { sv: "Kyrkan splittras", en: "Great Schism", tr: "Büyük Ayrılık" },
+    title: { sv: "Kyrkan delas", en: "Great Schism", tr: "Büyük Ayrılık" },
+    summary: { sv: "Kristendomen splittras.", en: "Christianity splits.", tr: "Hristiyanlık bölündü." },
+    figures: [],
+    consequences: { sv: "Två kyrkor.", en: "Two churches.", tr: "İki kilise." },
+    impact: { sv: "Religion förändras.", en: "Religion changes.", tr: "Din değişir." },
   },
-
   {
     year: 1204,
-    title: { sv: "Konstantinopel plundras", en: "Fourth Crusade", tr: "4. Haçlı Seferi" },
+    title: { sv: "Konstantinopel plundras", en: "Sack of Constantinople", tr: "Yağma" },
+    summary: { sv: "Korsfarare plundrar.", en: "Crusaders sack city.", tr: "Haçlılar yağmaladı." },
+    figures: [],
+    consequences: { sv: "Försvagning.", en: "Weakening.", tr: "Zayıflama." },
+    impact: { sv: "Nedgång.", en: "Decline.", tr: "Gerileme." },
   },
-
   {
     year: 1453,
-    title: { sv: "Östrom faller", en: "Fall of Constantinople", tr: "Konstantinopolis Düştü" },
+    title: { sv: "Östrom faller", en: "Fall of Constantinople", tr: "Düşüş" },
+    summary: { sv: "Staden erövras.", en: "City conquered.", tr: "Şehir alındı." },
+    figures: ["Mehmed II"],
+    consequences: { sv: "Slut på Rom.", en: "End of Rome.", tr: "Roma biter." },
+    impact: { sv: "Ny era.", en: "New era.", tr: "Yeni çağ." },
   },
 ];
 
