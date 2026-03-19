@@ -5,77 +5,128 @@ import romanEagle from "@/assets/roman-eagle.jpg";
 import colosseum from "@/assets/colosseum.jpg";
 
 const romanTimeline: TimelineEvent[] = [
+  // TIDIGT ROM
   {
-    year: -753, title: { sv: "Roms grundande", en: "Founding of Rome", tr: "Roma'nın Kuruluşu" },
-    summary: { sv: "Enligt legenden grundade Romulus staden Rom på Palatinen efter att ha dödat sin bror Remus.", en: "According to legend, Romulus founded the city of Rome on the Palatine Hill after killing his brother Remus.", tr: "Efsaneye göre Romulus, kardeşi Remus'u öldürdükten sonra Palatin Tepesi'nde Roma şehrini kurdu." },
-    figures: ["Romulus", "Remus"], consequences: { sv: "En ny stadsstat etablerades vid Tibern.", en: "A new city-state was established on the Tiber.", tr: "Tiber Nehri kıyısında yeni bir şehir devleti kuruldu." },
-    impact: { sv: "Lade grunden för världens mest inflytelserika civilisation.", en: "Laid the foundation for the world's most influential civilization.", tr: "Dünyanın en etkili uygarlığının temelini attı." },
+    year: -753,
+    title: { sv: "Roms grundande", en: "Founding of Rome", tr: "Roma'nın Kuruluşu" },
+    summary: { sv: "Enligt legenden grundade Romulus Rom.", en: "Romulus founded Rome according to legend.", tr: "Efsaneye göre Romulus Roma'yı kurdu." },
+    figures: ["Romulus", "Remus"],
   },
+
   {
-    year: -509, title: { sv: "Republikens grundande", en: "Founding of the Republic", tr: "Cumhuriyetin Kuruluşu" },
-    summary: { sv: "Romarna störtade den siste kungen Tarquinius Superbus och inrättade den Romerska republiken med valda konsuler.", en: "The Romans overthrew the last king Tarquinius Superbus and established the Roman Republic with elected consuls.", tr: "Romalılar son kral Tarquinius Superbus'u devirdi ve seçilmiş konsüllerle Roma Cumhuriyeti'ni kurdu." },
-    figures: ["Lucius Junius Brutus", "Tarquinius Superbus"], consequences: { sv: "Monarkin ersattes av ett komplext republikanskt system.", en: "Monarchy was replaced by a complex republican system.", tr: "Monarşi karmaşık bir cumhuriyet sistemiyle değiştirildi." },
-    impact: { sv: "Skapade modellen för västerländsk demokrati och konstitutionalism.", en: "Created the model for Western democracy and constitutionalism.", tr: "Batı demokrasisi ve anayasacılık modeli yarattı." },
+    year: -509,
+    title: { sv: "Republiken grundas", en: "Republic Founded", tr: "Cumhuriyet Kuruldu" },
+    summary: { sv: "Monarkin störtas och republiken införs.", en: "Monarchy overthrown, republic established.", tr: "Monarşi yıkıldı, cumhuriyet kuruldu." },
   },
+
+  // EXPANSION
   {
-    year: -264, title: { sv: "Första puniska kriget", en: "First Punic War", tr: "Birinci Pön Savaşı" },
-    summary: { sv: "Rom inledde den första av tre stora konflikter med Kartago om kontrollen över västra Medelhavet.", en: "Rome began the first of three major conflicts with Carthage over control of the western Mediterranean.", tr: "Roma, batı Akdeniz kontrolü için Kartaca ile üç büyük çatışmanın ilkini başlattı." },
-    figures: ["Gaius Duilius", "Hamilcar Barca"], consequences: { sv: "Rom vann Sicilien, sin första provins utanför Italien.", en: "Rome won Sicily, its first province outside Italy.", tr: "Roma, İtalya dışındaki ilk eyaleti Sicilya'yı kazandı." },
-    impact: { sv: "Förvandlade Rom från en landmakt till en sjömakt.", en: "Transformed Rome from a land power into a naval power.", tr: "Roma'yı kara gücünden deniz gücüne dönüştürdü." },
+    year: -264,
+    title: { sv: "Första puniska kriget", en: "First Punic War", tr: "Birinci Pön Savaşı" },
   },
+
   {
-    year: -44, title: { sv: "Julius Caesars mord", en: "Assassination of Julius Caesar", tr: "Julius Caesar'ın Öldürülmesi" },
-    summary: { sv: "Julius Caesar, diktator på livstid, mördades av en grupp senatorer på Idus Martiae (15 mars) i Pompejusteatern.", en: "Julius Caesar, dictator for life, was assassinated by a group of senators on the Ides of March (March 15) in the Theatre of Pompey.", tr: "Ömür boyu diktatör Julius Caesar, Mart'ın İdleri'nde (15 Mart) Pompeius Tiyatrosu'nda bir grup senatör tarafından öldürüldü." },
-    figures: ["Julius Caesar", "Marcus Brutus", "Gaius Cassius"], consequences: { sv: "Utlöste ett inbördeskrig som slutligen avslutade republiken.", en: "Triggered a civil war that ultimately ended the Republic.", tr: "Sonuçta Cumhuriyeti sona erdiren bir iç savaşı tetikledi." },
-    impact: { sv: "Markerade övergången från republik till kejsardöme.", en: "Marked the transition from Republic to Empire.", tr: "Cumhuriyetten İmparatorluğa geçişi işaret etti." },
+    year: -146,
+    title: { sv: "Kartago förstörs", en: "Destruction of Carthage", tr: "Kartaca'nın Yıkımı" },
+    summary: { sv: "Rom förstör Kartago och dominerar Medelhavet.", en: "Rome destroys Carthage.", tr: "Roma Kartaca'yı yok etti." },
   },
+
+  // SLUTET AV REPUBLIKEN
   {
-    year: -27, title: { sv: "Augustus blir kejsare", en: "Augustus Becomes Emperor", tr: "Augustus İmparator Olur" },
-    summary: { sv: "Octavianus tog titeln Augustus och blev Roms förste kejsare, vilket inledde Pax Romana — en 200-årig period av fred och stabilitet.", en: "Octavian took the title Augustus and became Rome's first emperor, beginning the Pax Romana — a 200-year period of peace and stability.", tr: "Octavianus, Augustus unvanını aldı ve Roma'nın ilk imparatoru oldu; 200 yıllık barış ve istikrar dönemi Pax Romana'yı başlattı." },
-    figures: ["Augustus", "Marcus Agrippa"], consequences: { sv: "Principatet etablerades som styrelsesystem.", en: "The Principate was established as the system of government.", tr: "Prensipat yönetim sistemi olarak kuruldu." },
-    impact: { sv: "Inledde Roms guldålder och imperiets största expansion.", en: "Began Rome's golden age and the empire's greatest expansion.", tr: "Roma'nın altın çağını ve imparatorluğun en büyük genişlemesini başlattı." },
+    year: -44,
+    title: { sv: "Caesar mördas", en: "Caesar Assassinated", tr: "Caesar Öldürüldü" },
   },
+
   {
-    year: 79, title: { sv: "Vesuvius utbrott", en: "Eruption of Vesuvius", tr: "Vezüv Yanardağı Patlaması" },
-    summary: { sv: "Vesuvius vulkanutbrott begravde städerna Pompeji och Herculaneum under aska och lava.", en: "The eruption of Mount Vesuvius buried the cities of Pompeii and Herculaneum under ash and lava.", tr: "Vezüv Yanardağı'nın patlaması Pompeii ve Herculaneum şehirlerini kül ve lav altında gömdü." },
-    figures: ["Plinius den äldre", "Titus"], consequences: { sv: "Två blomstrande städer förstördes fullständigt.", en: "Two thriving cities were completely destroyed.", tr: "İki gelişen şehir tamamen yok edildi." },
-    impact: { sv: "Bevarade en unik bild av romerskt vardagsliv för eftervärlden.", en: "Preserved a unique snapshot of Roman daily life for posterity.", tr: "Roma günlük yaşamının eşsiz bir kesitini gelecek nesiller için korudu." },
+    year: -27,
+    title: { sv: "Kejsardömet börjar", en: "Empire Begins", tr: "İmparatorluk Başladı" },
   },
+
+  // IMPERIETS HÖJD
   {
-    year: 117, title: { sv: "Rikets maximala utsträckning", en: "Empire at Maximum Extent", tr: "İmparatorluğun En Geniş Sınırları" },
-    summary: { sv: "Under kejsar Trajanus nådde Romerska riket sin maximala geografiska utsträckning, från Britannien till Mesopotamien.", en: "Under Emperor Trajan, the Roman Empire reached its maximum geographical extent, from Britain to Mesopotamia.", tr: "İmparator Traianus döneminde Roma İmparatorluğu, Britanya'dan Mezopotamya'ya en geniş coğrafi sınırlarına ulaştı." },
-    figures: ["Trajanus"], consequences: { sv: "Riket sträckte sig över tre kontinenter.", en: "The empire spanned three continents.", tr: "İmparatorluk üç kıtaya yayıldı." },
-    impact: { sv: "Definierade gränserna som efterföljande kejsare försökte försvara.", en: "Defined the borders that subsequent emperors tried to defend.", tr: "Sonraki imparatorların savunmaya çalıştığı sınırları belirledi." },
+    year: 117,
+    title: { sv: "Maximal utsträckning", en: "Greatest Extent", tr: "En Geniş Sınırlar" },
   },
+
+  // KRIS + REFORM
   {
-    year: 284, title: { sv: "Diocletianus reformer", en: "Diocletian's Reforms", tr: "Diocletianus Reformları" },
-    summary: { sv: "Diocletianus reformerade rikets administration genom att skapa Tetrarkiet — delningen av makten mellan fyra kejsare.", en: "Diocletian reformed the empire's administration by creating the Tetrarchy — dividing power among four emperors.", tr: "Diocletianus, Tetrarşi'yi kurarak imparatorluğun yönetimini reform etti — gücü dört imparator arasında böldü." },
-    figures: ["Diocletianus"], consequences: { sv: "Riket delades i administrativa regioner.", en: "The empire was divided into administrative regions.", tr: "İmparatorluk idari bölgelere ayrıldı." },
-    impact: { sv: "Lade grunden för den slutliga delningen i Väst- och Östrom.", en: "Laid the groundwork for the eventual East-West split.", tr: "Doğu-Batı ayrılığının temelini attı." },
+    year: 212,
+    title: { sv: "Alla blir romerska medborgare", en: "Citizenship for All", tr: "Herkese Vatandaşlık" },
+    summary: { sv: "Caracalla ger medborgarskap till alla fria män.", en: "Citizenship granted to all free men.", tr: "Tüm özgür erkeklere vatandaşlık verildi." },
   },
+
   {
-    year: 313, title: { sv: "Ediktet i Milano", en: "Edict of Milan", tr: "Milano Fermanı" },
-    summary: { sv: "Konstantin I och Licinius utfärdade Ediktet i Milano som garanterade religionsfrihet i hela riket, vilket legaliserade kristendomen.", en: "Constantine I and Licinius issued the Edict of Milan guaranteeing religious freedom throughout the empire, legalizing Christianity.", tr: "I. Konstantin ve Licinius, imparatorluk genelinde din özgürlüğünü garanti eden ve Hristiyanlığı yasallaştıran Milano Fermanı'nı yayınladı." },
-    figures: ["Konstantin I", "Licinius"], consequences: { sv: "Kristendomen gick från förföljd religion till statsreligion.", en: "Christianity went from persecuted religion to state religion.", tr: "Hristiyanlık zulüm gören dinden devlet dinine geçti." },
-    impact: { sv: "Förändrade Europas religiösa och kulturella landskap permanent.", en: "Permanently changed Europe's religious and cultural landscape.", tr: "Avrupa'nın dini ve kültürel manzarasını kalıcı olarak değiştirdi." },
+    year: 284,
+    title: { sv: "Diocletianus reformer", en: "Diocletian Reforms", tr: "Diocletian Reformları" },
   },
+
   {
-    year: 330, title: { sv: "Konstantinopels grundande", en: "Founding of Constantinople", tr: "Konstantinopolis'in Kuruluşu" },
-    summary: { sv: "Konstantin I grundade den nya huvudstaden Konstantinopel (det forna Byzantion) som östra rikets centrum.", en: "Constantine I founded the new capital Constantinople (formerly Byzantium) as the center of the eastern empire.", tr: "I. Konstantin, doğu imparatorluğunun merkezi olarak yeni başkent Konstantinopolis'i (eski Byzantion) kurdu." },
-    figures: ["Konstantin I"], consequences: { sv: "Maktens centrum flyttades österut.", en: "The center of power shifted eastward.", tr: "Güç merkezi doğuya kaydı." },
-    impact: { sv: "Konstantinopel överlevde Västrom med tusen år.", en: "Constantinople outlasted the Western Empire by a thousand years.", tr: "Konstantinopolis, Batı Roma'dan bin yıl daha uzun yaşadı." },
+    year: 313,
+    title: { sv: "Kristendom tillåts", en: "Christianity Legalized", tr: "Hristiyanlık Serbest" },
   },
+
   {
-    year: 395, title: { sv: "Rikets delning", en: "Division of the Empire", tr: "İmparatorluğun Bölünmesi" },
-    summary: { sv: "Efter Theodosius I:s död delades Romerska riket permanent i Västromska riket och Östromska riket (Bysans).", en: "After the death of Theodosius I, the Roman Empire was permanently divided into the Western and Eastern (Byzantine) Roman Empires.", tr: "I. Theodosius'un ölümünden sonra Roma İmparatorluğu kalıcı olarak Batı ve Doğu (Bizans) Roma İmparatorluklarına bölündü." },
-    figures: ["Theodosius I", "Honorius", "Arcadius"], consequences: { sv: "Två separata kejsardömen med egna arméer och administration.", en: "Two separate empires with their own armies and administration.", tr: "Kendi orduları ve yönetimleriyle iki ayrı imparatorluk." },
-    impact: { sv: "Västrom föll inom ett sekel; Östrom varade till 1453.", en: "The Western Empire fell within a century; the Eastern lasted until 1453.", tr: "Batı Roma bir yüzyıl içinde düştü; Doğu Roma 1453'e kadar sürdü." },
+    year: 330,
+    title: { sv: "Konstantinopel grundas", en: "Constantinople Founded", tr: "Konstantinopolis Kuruldu" },
   },
+
+  // DELNING
   {
-    year: 476, title: { sv: "Västromska rikets fall", en: "Fall of the Western Roman Empire", tr: "Batı Roma İmparatorluğu'nun Çöküşü" },
-    summary: { sv: "Den germanske ledaren Odoaker avsatte den siste västromerske kejsaren Romulus Augustulus, vilket markerade slutet på antiken.", en: "The Germanic leader Odoacer deposed the last Western Roman emperor Romulus Augustulus, marking the end of antiquity.", tr: "Germen lider Odoaker, son Batı Roma imparatoru Romulus Augustulus'u tahttan indirdi ve antik çağın sonunu işaret etti." },
-    figures: ["Romulus Augustulus", "Odoaker"], consequences: { sv: "Västeuropa fragmenterades i germanska kungariken.", en: "Western Europe fragmented into Germanic kingdoms.", tr: "Batı Avrupa Germen krallıklarına parçalandı." },
-    impact: { sv: "Inledde tidig medeltid i Europa. Romerskt arv levde vidare i lag, språk och kultur.", en: "Began the Early Middle Ages in Europe. Roman legacy lived on in law, language, and culture.", tr: "Avrupa'da Erken Orta Çağ'ı başlattı. Roma mirası hukuk, dil ve kültürde yaşamaya devam etti." },
+    year: 395,
+    title: { sv: "Rom delas", en: "Empire Divided", tr: "İmparatorluk Bölündü" },
+  },
+
+  // VÄST FALLER
+  {
+    year: 410,
+    title: { sv: "Rom plundras", en: "Sack of Rome", tr: "Roma Yağmalandı" },
+    summary: { sv: "Visigoterna plundrar Rom.", en: "Visigoths sack Rome.", tr: "Vizigotlar Roma'yı yağmaladı." },
+  },
+
+  {
+    year: 476,
+    title: { sv: "Västrom faller", en: "Western Empire Falls", tr: "Batı Roma Çöktü" },
+  },
+
+  // ÖSTROM / BYZANTIUM (DET DU SAKNADE)
+  {
+    year: 527,
+    title: { sv: "Justinianus blir kejsare", en: "Justinian Becomes Emperor", tr: "Justinian İmparator" },
+  },
+
+  {
+    year: 537,
+    title: { sv: "Hagia Sofia byggs", en: "Hagia Sophia Completed", tr: "Ayasofya Tamamlandı" },
+  },
+
+  {
+    year: 565,
+    title: { sv: "Rom återuppbyggs delvis", en: "Partial Roman Restoration", tr: "Roma Kısmen Geri Alındı" },
+  },
+
+  {
+    year: 717,
+    title: { sv: "Konstantinopel räddas", en: "Siege of Constantinople", tr: "Konstantinopolis Kuşatması" },
+  },
+
+  {
+    year: 800,
+    title: { sv: "Nytt romerskt rike i väst", en: "Holy Roman Empire", tr: "Kutsal Roma İmparatorluğu" },
+  },
+
+  {
+    year: 1054,
+    title: { sv: "Kyrkan splittras", en: "Great Schism", tr: "Büyük Ayrılık" },
+  },
+
+  {
+    year: 1204,
+    title: { sv: "Konstantinopel plundras", en: "Fourth Crusade", tr: "4. Haçlı Seferi" },
+  },
+
+  {
+    year: 1453,
+    title: { sv: "Östrom faller", en: "Fall of Constantinople", tr: "Konstantinopolis Düştü" },
   },
 ];
 
