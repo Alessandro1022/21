@@ -18,6 +18,7 @@ import StoryMode from "./pages/StoryMode";
 import EmpireSelect from "./pages/EmpireSelect";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import CreateAdmin from "./pages/CreateAdmin";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/timeline" element={<ProtectedRoute><Timeline /></ProtectedRoute>} />
             <Route path="/map" element={<ProtectedRoute><MapPage /></ProtectedRoute>} />
             <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
+            <Route path="/create-admin" element={<CreateAdmin />} />
             <Route path="/profiles" element={<ProtectedRoute><Profiles /></ProtectedRoute>} />
             <Route path="/profiles/:id" element={<ProtectedRoute><ProfileDetail /></ProtectedRoute>} />
             <Route path="/lineage" element={<ProtectedRoute><Lineage /></ProtectedRoute>} />
