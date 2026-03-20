@@ -23,12 +23,11 @@ import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { useUserRoles } from "@/hooks/useUserRoles";
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  const { isAdmin } = useUserRoles();
+  const { isAdmin } = useAuth();
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   return (
