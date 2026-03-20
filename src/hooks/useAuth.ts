@@ -1,77 +1,61 @@
-// src/hooks/useAuthRoles.ts
+// src/hooks/useAuth.ts
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-export function useAuthRoles() {
+export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [adminChecked, setAdminChecked] = useState(false);
 
-  // Hantera auth state
   useEffect(() => {
+    // Lyssna på ändringar i auth state
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRoles(session.user.id);
-      } else {
-        setRoles([]);
+      if (session?.user) checkAdmin(session.user.id);
+      else {
+        setIsAdmin(false);
         setAdminChecked(true);
       }
       setLoading(false);
     });
 
+    // Hämta nuvarande session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRoles(session.user.id);
-      } else {
-        setRoles([]);
-        setAdminChecked(true);
-      }
+      if (session?.user) checkAdmin(session.user.id);
+      else setAdminChecked(true);
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Hämta roller från user_roles
-  async function fetchRoles(userId: string) {
+  // Kontrollera admin-roll via Supabase RPC (has_role)
+  async function checkAdmin(userId: string) {
     try {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId);
-
-      if (error) {
-        console.error("Failed to fetch roles:", error);
-        setRoles([]);
-      } else {
-        setRoles(data.map((r: any) => r.role));
-      }
+      const { data } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+      setIsAdmin(!!data);
+    } catch (err) {
+      console.error("Admin check failed:", err);
+      setIsAdmin(false);
     } finally {
       setAdminChecked(true);
     }
   }
 
+  // Logga ut
   async function signOut() {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
-    setRoles([]);
+    setIsAdmin(false);
+    setAdminChecked(true);
   }
 
-  return {
-    user,
-    session,
-    roles,
-    loading,
-    isAdmin: roles.includes("admin"),
-    adminChecked,
-    signOut,
-  };
+  return { user, session, loading, isAdmin, adminChecked, signOut };
 }
