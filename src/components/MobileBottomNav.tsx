@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, MessageSquare, Clock, Map, Brain, Users, Crown, BookOpen, Settings, MoreHorizontal } from "lucide-react";
+import { Home, MessageSquare, Clock, Map, Brain, Users, Crown, BookOpen, Settings, MoreHorizontal, Shield } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 const MAIN_TABS = [
   { path: "/", icon: Home, label: { sv: "Hem", en: "Home", tr: "Ana" } },
@@ -18,6 +19,8 @@ const MORE_ITEMS = [
   { path: "/settings", icon: Settings, label: { sv: "Inställningar", en: "Settings", tr: "Ayarlar" } },
 ];
 
+const ADMIN_ITEM = { path: "/admin", icon: Shield, label: { sv: "Admin", en: "Admin", tr: "Admin" } };
+
 interface Props {
   language: string;
 }
@@ -25,12 +28,13 @@ interface Props {
 export function MobileBottomNav({ language }: Props) {
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { isAdmin } = useAuth();
 
-  const isMoreActive = MORE_ITEMS.some((item) => location.pathname === item.path);
+  const allMoreItems = isAdmin ? [...MORE_ITEMS, ADMIN_ITEM] : MORE_ITEMS;
+  const isMoreActive = allMoreItems.some((item) => location.pathname === item.path);
 
   return (
     <>
-      {/* More menu overlay */}
       {moreOpen && (
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMoreOpen(false)}>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
@@ -39,7 +43,7 @@ export function MobileBottomNav({ language }: Props) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="grid grid-cols-4 gap-2">
-              {MORE_ITEMS.map((item) => {
+              {allMoreItems.map((item) => {
                 const active = location.pathname === item.path;
                 return (
                   <Link
@@ -64,7 +68,6 @@ export function MobileBottomNav({ language }: Props) {
         </div>
       )}
 
-      {/* Bottom tab bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card/95 backdrop-blur-xl border-t border-border safe-area-bottom">
         <div className="flex items-center justify-around px-2 pt-1.5 pb-1">
           {MAIN_TABS.map((tab) => {
@@ -74,9 +77,7 @@ export function MobileBottomNav({ language }: Props) {
                   key="more"
                   onClick={() => setMoreOpen(!moreOpen)}
                   className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-all min-w-[56px] ${
-                    isMoreActive || moreOpen
-                      ? "text-primary"
-                      : "text-muted-foreground"
+                    isMoreActive || moreOpen ? "text-primary" : "text-muted-foreground"
                   }`}
                 >
                   <tab.icon className="w-5 h-5" />
@@ -94,9 +95,7 @@ export function MobileBottomNav({ language }: Props) {
                 to={tab.path}
                 onClick={() => setMoreOpen(false)}
                 className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-all min-w-[56px] ${
-                  active
-                    ? "text-primary"
-                    : "text-muted-foreground"
+                  active ? "text-primary" : "text-muted-foreground"
                 }`}
               >
                 <div className={`p-1 rounded-full transition-all ${active ? "bg-primary/15" : ""}`}>
