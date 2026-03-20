@@ -1,4 +1,3 @@
-// src/hooks/useAuth.ts
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
@@ -11,7 +10,6 @@ export function useAuth() {
   const [adminChecked, setAdminChecked] = useState(false);
 
   useEffect(() => {
-    // Lyssna på ändringar i auth state
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -23,7 +21,6 @@ export function useAuth() {
       setLoading(false);
     });
 
-    // Hämta nuvarande session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -35,10 +32,14 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Kontrollera admin-roll via Supabase RPC (has_role)
   async function checkAdmin(userId: string) {
     try {
-      const { data } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
       setIsAdmin(!!data);
     } catch (err) {
       console.error("Admin check failed:", err);
@@ -48,13 +49,14 @@ export function useAuth() {
     }
   }
 
-  // Logga ut
   async function signOut() {
+    localStorage.clear();
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setIsAdmin(false);
-    setAdminChecked(true);
+    setAdminChecked(false);
+    window.location.href = "/auth";
   }
 
   return { user, session, loading, isAdmin, adminChecked, signOut };
