@@ -1,6 +1,3 @@
-Settings · TSX
-Copy
-
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
