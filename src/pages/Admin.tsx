@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, adminSupabase } from "@/integrations/supabase/client";
 import {
   Trash2, Shield, Users, UserCheck, TrendingUp, Search,
   RefreshCw, Crown, Activity, Calendar, BarChart2, Star,
@@ -8,10 +7,6 @@ import {
   Mail, Key, AlertTriangle, ChevronUp, ChevronDown
 } from "lucide-react";
 
-const adminSupabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_SERVICE_KEY
-);
 
 interface UserProfile {
   id: string;
