@@ -7,6 +7,7 @@ import { EmpireProvider } from "@/contexts/EmpireContext";
 
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
+import Onboarding from "./Onboarding";
 import Chat from "./pages/Chat";
 import Timeline from "./pages/Timeline";
 import MapPage from "./pages/MapPage";
