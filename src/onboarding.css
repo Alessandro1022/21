@@ -1,0 +1,69 @@
+.onboarding {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 15, 30, 0.95);
+  backdrop-filter: blur(12px);
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+  text-align: center;
+  color: white;
+  z-index: 9998;
+}
+
+/* TEXT */
+.onboarding h1 {
+  font-size: 26px;
+  margin-bottom: 10px;
+}
+
+.onboarding p {
+  opacity: 0.7;
+}
+
+/* BUTTON */
+.nextBtn {
+  position: absolute;
+  bottom: 40px;
+  right: 30px;
+
+  background: linear-gradient(45deg, #00f0ff, #0066ff);
+  border: none;
+  padding: 16px;
+  border-radius: 50%;
+  color: white;
+  font-size: 18px;
+}
+
+/* DOTS */
+.dots {
+  position: absolute;
+  bottom: 20px;
+}
+
+.dot {
+  height: 8px;
+  width: 8px;
+  margin: 5px;
+  background: gray;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.active {
+  background: #00f0ff;
+}
+
+/* FADE */
+.fade {
+  animation: fade 0.4s ease;
+}
+
+@keyframes fade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
