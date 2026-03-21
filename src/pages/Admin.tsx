@@ -91,7 +91,7 @@ export default function Admin() {
     try {
       const { data: profiles, error } = await supabase
         .from("profiles")
-        .select("id, email, display_name, created_at");
+        .select("*");
 
       const { data: roles } = await supabase
         .from("user_roles")
