@@ -1,172 +1,426 @@
-import { useState } from "react";
+Settings · TSX
+Copy
+
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { useChat } from "@/hooks/useChat";
 import { useProgress } from "@/hooks/useProgress";
 import { supabase } from "@/integrations/supabase/client";
-import { Settings as SettingsIcon, User, LogOut, Trash2, Mail, Key, Calendar, Zap, Trophy, Star, Clock } from "lucide-react";
+import {
+  Settings as SettingsIcon, User, LogOut, Trash2, Mail, Key,
+  Calendar, Zap, Trophy, Clock, Globe, BookOpen, Camera,
+  ChevronRight, Check, Shield, Bell, Palette,
+} from "lucide-react";
 import { toast } from "sonner";
-
+ 
+const LANGUAGES = [
+  { code: "en", label: "English", flag: "🇬🇧" },
+  { code: "sv", label: "Svenska", flag: "🇸🇪" },
+  { code: "tr", label: "Türkçe", flag: "🇹🇷" },
+];
+ 
+const LEVELS = [
+  { code: "brief", en: "Brief", sv: "Kort", tr: "Kısa", desc_en: "Short answers, fast reading", desc_sv: "Korta svar, snabb läsning", desc_tr: "Kısa cevaplar" },
+  { code: "deep", en: "In-depth", sv: "Fördjupad", tr: "Derinlemesine", desc_en: "Detailed explanations", desc_sv: "Detaljerade förklaringar", desc_tr: "Detaylı açıklamalar" },
+  { code: "academic", en: "Academic", sv: "Gymnasienivå", tr: "Akademik", desc_en: "Scholarly level analysis", desc_sv: "Akademisk analys", desc_tr: "Akademik analiz" },
+];
+ 
 export default function Settings() {
   const { user, signOut } = useAuth();
-  const { language, setLanguage } = useChat();
-  const { xp, levelInfo, achievements, quizResults, loading: progressLoading } = useProgress();
+  const { language, setLanguage, level, setLevel } = useChat();
+  const { xp, levelInfo, achievements, quizResults } = useProgress();
   const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
-
+  const [displayName, setDisplayName] = useState(() => {
+    try { return localStorage.getItem("empireDisplayName") || ""; } catch { return ""; }
+  });
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(displayName);
+  const [avatarUrl, setAvatarUrl] = useState(() => {
+    try { return localStorage.getItem("empireAvatarUrl") || ""; } catch { return ""; }
+  });
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+ 
+  const l = language === "sv" ? {
+    settings: "Settings", profile: "Profile", language: "Language", level: "Answer level",
+    appearance: "Appearance", account: "Account", progress: "Progress",
+    email: "Email", member: "Member since", logout: "Log out", delete: "Delete account",
+    saveName: "Save", editName: "Edit name", namePlaceholder: "Your display name",
+    medals: "Medals", noMedals: "No medals yet", quizHistory: "Quiz history",
+    noHistory: "No quizzes yet", notifications: "Notifications", privacy: "Privacy",
+    xpLabel: "XP", toNext: "to next level", changePhoto: "Change photo",
+    levelLabel: "Level",
+  } : language === "tr" ? {
+    settings: "Ayarlar", profile: "Profil", language: "Dil", level: "Cevap seviyesi",
+    appearance: "Görünüm", account: "Hesap", progress: "İlerleme",
+    email: "E-posta", member: "Üyelik tarihi", logout: "Çıkış yap", delete: "Hesabı sil",
+    saveName: "Kaydet", editName: "İsim düzenle", namePlaceholder: "Görünen adın",
+    medals: "Madalyalar", noMedals: "Henüz madalya yok", quizHistory: "Quiz geçmişi",
+    noHistory: "Henüz quiz yok", notifications: "Bildirimler", privacy: "Gizlilik",
+    xpLabel: "XP", toNext: "sonraki seviyeye", changePhoto: "Fotoğraf değiştir",
+    levelLabel: "Seviye",
+  } : {
+    settings: "Settings", profile: "Profile", language: "Language", level: "Answer level",
+    appearance: "Appearance", account: "Account", progress: "Progress",
+    email: "Email", member: "Member since", logout: "Log out", delete: "Delete account",
+    saveName: "Save", editName: "Edit name", namePlaceholder: "Your display name",
+    medals: "Medals", noMedals: "No medals yet", quizHistory: "Quiz history",
+    noHistory: "No quizzes yet", notifications: "Notifications", privacy: "Privacy",
+    xpLabel: "XP", toNext: "to next level", changePhoto: "Change photo",
+    levelLabel: "Level",
+  };
+ 
+  const saveName = () => {
+    const trimmed = nameInput.trim();
+    setDisplayName(trimmed);
+    try { localStorage.setItem("empireDisplayName", trimmed); } catch {}
+    setEditingName(false);
+    toast.success("Name updated");
+  };
+ 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const url = ev.target?.result as string;
+        setAvatarUrl(url);
+        try { localStorage.setItem("empireAvatarUrl", url); } catch {}
+        setUploadingAvatar(false);
+        toast.success("Photo updated");
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      toast.error("Failed to update photo");
+      setUploadingAvatar(false);
+    }
+  };
+ 
   const handleLogout = async () => {
     await signOut();
     navigate("/auth");
   };
-
+ 
   const handleDeleteAccount = async () => {
-    if (!confirm(language === "sv" ? "Är du säker? Detta kan inte ångras." : "Are you sure? This cannot be undone.")) return;
+    if (!confirm("Are you sure? This cannot be undone.")) return;
     setDeleting(true);
     try {
       await supabase.auth.signOut();
-      toast.success(language === "sv" ? "Kontot har raderats" : "Account deleted");
+      toast.success("Account deleted");
       navigate("/auth");
     } catch {
-      toast.error(language === "sv" ? "Kunde inte radera kontot" : "Failed to delete account");
-    } finally {
+      toast.error("Failed to delete account");
       setDeleting(false);
     }
   };
-
-  const labels = {
-    sv: { title: "Inställningar", profile: "Profil", email: "E-post", userId: "Användar-ID", memberSince: "Medlem sedan", logout: "Logga ut", delete: "Radera konto", actions: "Åtgärder", progress: "Framsteg", level: "Nivå", xpLabel: "XP", toNext: "till nästa nivå", medals: "Medaljer", noMedals: "Inga medaljer ännu", quizHistory: "Quizhistorik", noHistory: "Inget quiz gjort ännu", score: "Poäng", earned: "Intjänat" },
-    en: { title: "Settings", profile: "Profile", email: "Email", userId: "User ID", memberSince: "Member since", logout: "Log out", delete: "Delete account", actions: "Actions", progress: "Progress", level: "Level", xpLabel: "XP", toNext: "to next level", medals: "Medals", noMedals: "No medals yet", quizHistory: "Quiz History", noHistory: "No quizzes taken yet", score: "Score", earned: "Earned" },
-    tr: { title: "Ayarlar", profile: "Profil", email: "E-posta", userId: "Kullanıcı ID", memberSince: "Üyelik tarihi", logout: "Çıkış yap", delete: "Hesabı sil", actions: "İşlemler", progress: "İlerleme", level: "Seviye", xpLabel: "XP", toNext: "sonraki seviyeye", medals: "Madalyalar", noMedals: "Henüz madalya yok", quizHistory: "Quiz Geçmişi", noHistory: "Henüz quiz yapılmadı", score: "Puan", earned: "Kazanıldı" },
-  };
-  const l = labels[language as keyof typeof labels] || labels.en;
-
+ 
+  const initials = displayName
+    ? displayName.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
+    : (user?.email?.[0] || "U").toUpperCase();
+ 
   const createdAt = user?.created_at ? new Date(user.created_at).toLocaleDateString() : "—";
-
+ 
+  const toggle = (section: string) =>
+    setActiveSection((prev) => (prev === section ? null : section));
+ 
   return (
     <AppLayout language={language} setLanguage={setLanguage}>
-      <div className="h-full overflow-y-auto p-4 pb-8">
-        <div className="max-w-xl mx-auto space-y-6 animate-fade-in">
-          <h1 className="text-2xl font-serif text-primary flex items-center gap-2">
-            <SettingsIcon className="w-6 h-6" /> {l.title}
+      <div className="h-full overflow-y-auto pb-12">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border px-4 py-3">
+          <h1 className="text-lg font-serif text-primary flex items-center gap-2">
+            <SettingsIcon className="w-5 h-5" /> {l.settings}
           </h1>
-
-          {/* Progress Dashboard */}
-          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border p-5 space-y-4">
-            <h2 className="text-sm font-serif text-primary flex items-center gap-2">
-              <Zap className="w-4 h-4" /> {l.progress}
-            </h2>
-
-            <div className="text-center py-2">
-              <p className="text-3xl font-serif text-primary">{l.level} {levelInfo.level}</p>
-              <p className="text-sm font-sans text-muted-foreground">{levelInfo.title}</p>
-              <p className="text-lg font-sans text-foreground mt-1">{xp} {l.xpLabel}</p>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-[10px] font-sans text-muted-foreground mb-1">
-                <span>{l.level} {levelInfo.level}</span>
-                <span>{levelInfo.nextLevel ? `${levelInfo.xpToNext} ${l.xpLabel} ${l.toNext}` : "MAX"}</span>
-              </div>
-              <div className="h-3 bg-secondary rounded-full overflow-hidden">
-                <div className="h-full gold-gradient transition-all duration-700 rounded-full" style={{ width: `${levelInfo.progress * 100}%` }} />
-              </div>
-            </div>
-          </div>
-
-          {/* Medals */}
-          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border p-5 space-y-3">
-            <h2 className="text-sm font-serif text-primary flex items-center gap-2">
-              <Trophy className="w-4 h-4" /> {l.medals}
-            </h2>
-            {achievements.length > 0 ? (
-              <div className="grid grid-cols-3 gap-3">
-                {achievements.map((a, i) => (
-                  <div key={i} className="flex flex-col items-center gap-1 p-3 rounded-xl bg-secondary/50 border border-border">
-                    <span className="text-3xl">{a.medal_icon}</span>
-                    <span className="text-xs font-sans text-foreground text-center">{a.medal_name}</span>
-                    <span className="text-[9px] font-sans text-muted-foreground">
-                      {new Date(a.earned_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs font-sans text-muted-foreground text-center py-4">{l.noMedals}</p>
-            )}
-          </div>
-
-          {/* Quiz History */}
-          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border p-5 space-y-3">
-            <h2 className="text-sm font-serif text-primary flex items-center gap-2">
-              <Clock className="w-4 h-4" /> {l.quizHistory}
-            </h2>
-            {quizResults.length > 0 ? (
-              <div className="space-y-2">
-                {quizResults.slice(0, 10).map((r) => (
-                  <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/30 border border-border">
-                    <div>
-                      <span className="text-sm font-sans text-foreground">{r.score}/{r.total_questions}</span>
-                      <span className="text-xs font-sans text-muted-foreground ml-2">{r.empire_id}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-sans text-primary">+{r.xp_earned} XP</span>
-                      <p className="text-[9px] font-sans text-muted-foreground">
-                        {new Date(r.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs font-sans text-muted-foreground text-center py-4">{l.noHistory}</p>
-            )}
-          </div>
-
+        </div>
+ 
+        <div className="max-w-xl mx-auto px-4 py-5 space-y-4">
+ 
           {/* Profile card */}
-          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border p-5 space-y-4">
-            <h2 className="text-sm font-serif text-primary flex items-center gap-2">
-              <User className="w-4 h-4" /> {l.profile}
-            </h2>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 text-sm">
-                <Mail className="w-4 h-4 text-primary/60 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] font-sans text-muted-foreground uppercase tracking-wider">{l.email}</p>
-                  <p className="font-sans text-foreground">{user?.email || "—"}</p>
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border p-5">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div
+                  className="w-16 h-16 rounded-2xl overflow-hidden bg-primary/20 flex items-center justify-content cursor-pointer border-2 border-primary/30"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xl font-serif text-primary w-full h-full flex items-center justify-center">
+                      {initials}
+                    </span>
+                  )}
                 </div>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center border-2 border-background"
+                >
+                  <Camera className="w-3 h-3 text-primary-foreground" />
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
               </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Key className="w-4 h-4 text-primary/60 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] font-sans text-muted-foreground uppercase tracking-wider">{l.userId}</p>
-                  <p className="font-sans text-foreground text-xs break-all">{user?.id || "—"}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Calendar className="w-4 h-4 text-primary/60 flex-shrink-0" />
-                <div>
-                  <p className="text-[10px] font-sans text-muted-foreground uppercase tracking-wider">{l.memberSince}</p>
-                  <p className="font-sans text-foreground">{createdAt}</p>
+ 
+              <div className="flex-1 min-w-0">
+                {editingName ? (
+                  <div className="flex gap-2 items-center">
+                    <input
+                      className="flex-1 bg-secondary border border-border rounded-lg px-3 py-1.5 text-sm font-sans text-foreground focus:outline-none focus:border-primary"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      placeholder={l.namePlaceholder}
+                      autoFocus
+                      onKeyDown={(e) => e.key === "Enter" && saveName()}
+                    />
+                    <button
+                      onClick={saveName}
+                      className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-sans"
+                    >
+                      {l.saveName}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <p className="font-serif text-foreground text-base truncate">
+                      {displayName || user?.email?.split("@")[0] || "Explorer"}
+                    </p>
+                    <button
+                      onClick={() => { setNameInput(displayName); setEditingName(true); }}
+                      className="text-[10px] font-sans text-muted-foreground underline underline-offset-2"
+                    >
+                      {l.editName}
+                    </button>
+                  </div>
+                )}
+                <p className="text-xs font-sans text-muted-foreground truncate mt-0.5">{user?.email}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-sans text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    {l.levelLabel} {levelInfo.level} · {xp} {l.xpLabel}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
-
+ 
+          {/* Progress */}
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-5 py-4"
+              onClick={() => toggle("progress")}
+            >
+              <div className="flex items-center gap-3">
+                <Zap className="w-4 h-4 text-primary" />
+                <span className="text-sm font-sans text-foreground">{l.progress}</span>
+              </div>
+              <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${activeSection === "progress" ? "rotate-90" : ""}`} />
+            </button>
+            {activeSection === "progress" && (
+              <div className="px-5 pb-5 space-y-4 border-t border-border">
+                <div className="pt-4 text-center">
+                  <p className="text-3xl font-serif text-primary">{l.levelLabel} {levelInfo.level}</p>
+                  <p className="text-sm font-sans text-muted-foreground">{levelInfo.title}</p>
+                  <p className="text-lg font-sans text-foreground mt-1">{xp} {l.xpLabel}</p>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[10px] font-sans text-muted-foreground mb-1">
+                    <span>{l.levelLabel} {levelInfo.level}</span>
+                    <span>{levelInfo.nextLevel ? `${levelInfo.xpToNext} ${l.xpLabel} ${l.toNext}` : "MAX"}</span>
+                  </div>
+                  <div className="h-2.5 bg-secondary rounded-full overflow-hidden">
+                    <div className="h-full gold-gradient transition-all duration-700 rounded-full" style={{ width: `${levelInfo.progress * 100}%` }} />
+                  </div>
+                </div>
+ 
+                {/* Medals */}
+                <div>
+                  <p className="text-xs font-sans text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5" /> {l.medals}
+                  </p>
+                  {achievements.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {achievements.map((a, i) => (
+                        <div key={i} className="flex flex-col items-center gap-1 p-2.5 rounded-xl bg-secondary/50 border border-border">
+                          <span className="text-2xl">{a.medal_icon}</span>
+                          <span className="text-[10px] font-sans text-foreground text-center leading-tight">{a.medal_name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs font-sans text-muted-foreground text-center py-3">{l.noMedals}</p>
+                  )}
+                </div>
+ 
+                {/* Quiz history */}
+                <div>
+                  <p className="text-xs font-sans text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" /> {l.quizHistory}
+                  </p>
+                  {quizResults.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {quizResults.slice(0, 8).map((r) => (
+                        <div key={r.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/30 border border-border">
+                          <div>
+                            <span className="text-sm font-sans text-foreground">{r.score}/{r.total_questions}</span>
+                            <span className="text-xs font-sans text-muted-foreground ml-2">{r.empire_id}</span>
+                          </div>
+                          <span className="text-xs font-sans text-primary">+{r.xp_earned} XP</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs font-sans text-muted-foreground text-center py-3">{l.noHistory}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+ 
+          {/* Language */}
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-5 py-4"
+              onClick={() => toggle("language")}
+            >
+              <div className="flex items-center gap-3">
+                <Globe className="w-4 h-4 text-primary" />
+                <span className="text-sm font-sans text-foreground">{l.language}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-sans text-muted-foreground">
+                  {LANGUAGES.find((lg) => lg.code === language)?.flag}{" "}
+                  {LANGUAGES.find((lg) => lg.code === language)?.label}
+                </span>
+                <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${activeSection === "language" ? "rotate-90" : ""}`} />
+              </div>
+            </button>
+            {activeSection === "language" && (
+              <div className="border-t border-border">
+                {LANGUAGES.map((lg) => (
+                  <button
+                    key={lg.code}
+                    onClick={() => { setLanguage(lg.code); toast.success(`Language set to ${lg.label}`); }}
+                    className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-secondary/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{lg.flag}</span>
+                      <span className="text-sm font-sans text-foreground">{lg.label}</span>
+                    </div>
+                    {language === lg.code && <Check className="w-4 h-4 text-primary" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+ 
+          {/* Answer level */}
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-5 py-4"
+              onClick={() => toggle("level")}
+            >
+              <div className="flex items-center gap-3">
+                <BookOpen className="w-4 h-4 text-primary" />
+                <span className="text-sm font-sans text-foreground">{l.level}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-sans text-muted-foreground capitalize">
+                  {LEVELS.find((lv) => lv.code === level)?.[`en` as const] || level}
+                </span>
+                <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${activeSection === "level" ? "rotate-90" : ""}`} />
+              </div>
+            </button>
+            {activeSection === "level" && (
+              <div className="border-t border-border">
+                {LEVELS.map((lv) => (
+                  <button
+                    key={lv.code}
+                    onClick={() => { setLevel(lv.code); toast.success(`Level set to ${lv.en}`); }}
+                    className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-secondary/50 transition-colors"
+                  >
+                    <div className="text-left">
+                      <p className="text-sm font-sans text-foreground">{lv.en}</p>
+                      <p className="text-xs font-sans text-muted-foreground">{lv.desc_en}</p>
+                    </div>
+                    {level === lv.code && <Check className="w-4 h-4 text-primary" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+ 
+          {/* Account info */}
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-5 py-4"
+              onClick={() => toggle("account")}
+            >
+              <div className="flex items-center gap-3">
+                <Shield className="w-4 h-4 text-primary" />
+                <span className="text-sm font-sans text-foreground">{l.account}</span>
+              </div>
+              <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${activeSection === "account" ? "rotate-90" : ""}`} />
+            </button>
+            {activeSection === "account" && (
+              <div className="border-t border-border divide-y divide-border">
+                <div className="flex items-center gap-3 px-5 py-3.5">
+                  <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-sans text-muted-foreground uppercase tracking-wider">{l.email}</p>
+                    <p className="text-sm font-sans text-foreground">{user?.email || "—"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 px-5 py-3.5">
+                  <Key className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-sans text-muted-foreground uppercase tracking-wider">User ID</p>
+                    <p className="text-xs font-sans text-foreground break-all">{user?.id || "—"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 px-5 py-3.5">
+                  <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-sans text-muted-foreground uppercase tracking-wider">{l.member}</p>
+                    <p className="text-sm font-sans text-foreground">{createdAt}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+ 
           {/* Actions */}
-          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border p-5 space-y-3">
-            <h2 className="text-sm font-serif text-primary flex items-center gap-2 mb-2">{l.actions}</h2>
-            <button onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-secondary hover:bg-muted text-foreground text-sm font-sans transition-colors">
+          <div className="space-y-2">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-card/80 border border-border hover:bg-secondary/60 text-foreground text-sm font-sans transition-colors"
+            >
               <LogOut className="w-4 h-4 text-primary" /> {l.logout}
             </button>
-            <button onClick={handleDeleteAccount} disabled={deleting}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-destructive/10 hover:bg-destructive/20 text-destructive text-sm font-sans transition-colors disabled:opacity-50">
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deleting}
+              className="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-destructive/8 border border-destructive/20 hover:bg-destructive/15 text-destructive text-sm font-sans transition-colors disabled:opacity-50"
+            >
               <Trash2 className="w-4 h-4" /> {l.delete}
             </button>
           </div>
+ 
+          <p className="text-center text-[10px] font-sans text-muted-foreground pt-2">
+            Empire AI · v1.0
+          </p>
         </div>
       </div>
     </AppLayout>
   );
 }
+ 
