@@ -59,6 +59,7 @@ export default function Admin() {
   setLoading(true);
   try {
     const { data, error } = await supabase
+      console.log("DATA:", data, "ERROR:", error);
       .from("profiles")
       .select(`id, email, display_name, created_at, user_roles(role)`);
 
