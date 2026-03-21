@@ -1,86 +1,36 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./onboarding.css";
 
-export default function Onboarding() {
-  const [step, setStep] = useState(0);
-  const [visible, setVisible] = useState(false);
-
-  const slides = [
-    {
-      title: "Welcome to Empire AI",
-      desc: "Your AI command center"
-    },
-    {
-      title: "Smart Dashboard",
-      desc: "Control everything in one place"
-    },
-    {
-      title: "Fast & Powerful",
-      desc: "Built for the future"
-    }
-  ];
-
-  useEffect(() => {
-    if (!localStorage.getItem("seenOnboarding")) {
-      setTimeout(() => setVisible(true), 500);
-    }
-  }, []);
-
-  const next = () => {
-    vibrate();
-
-    if (step + 1 >= slides.length) {
-      localStorage.setItem("seenOnboarding", "true");
-      setVisible(false);
-    } else {
-      setStep(step + 1);
-    }
-  };
-
-  const prev = () => {
-    if (step > 0) setStep(step - 1);
-  };
-
-  // SWIPE
-  let startX = 0;
-
-  const handleTouchStart = (e: any) => {
-    startX = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = (e: any) => {
-    const endX = e.changedTouches[0].clientX;
-
-    if (startX - endX > 50) next();
-    if (endX - startX > 50) prev();
-  };
-
-  function vibrate() {
-    if (navigator.vibrate) navigator.vibrate(30);
-  }
-
-  if (!visible) return null;
-
-  return (
-    <div
-      className="onboarding"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      <h1 className="fade">{slides[step].title}</h1>
-      <p className="fade">{slides[step].desc}</p>
-
-      {/* dots */}
-      <div className="dots">
-        {slides.map((_, i) => (
-          <span key={i} className={i === step ? "dot active" : "dot"} />
-        ))}
-      </div>
-
-      {/* button */}
-      <button onClick={next} className="nextBtn">
-        →
-      </button>
-    </div>
-  );
-}
+const slides = [
+  {
+    eyebrow: "Empire AI",
+    title: ["Res tillbaka i ", "tiden"],
+    highlight: 0,
+    desc: "Din guide till de stora imperiernas historia — Osmanerna och Rom. Välj kunskapsnivå och utforska en värld av erövringar, kulturer och legender.",
+    iconClass: "icon-welcome",
+    detail: { label: "Tre kunskapsnivåer", text: "Välj mellan Kort, Fördjupad eller Gymnasienivå." },
+    tags: ["Osmanska riket", "Romarriket", "Historia"],
+  },
+  {
+    eyebrow: "AI-chatten",
+    title: ["Din personliga ", "historiker"],
+    highlight: 1,
+    desc: "Chatta med en AI specialiserad på Osmanerna och Rom. Spara dina konversationer och återvänd när du vill.",
+    iconClass: "icon-chat",
+    detail: { label: "Sparade chattar", text: "Alla konversationer sparas automatiskt." },
+    tags: ["Sparade chattar", "Tre nivåer", "Specialist-AI"],
+  },
+  {
+    eyebrow: "Tidslinjen",
+    title: ["Historien år ", "för år"],
+    highlight: 1,
+    desc: "Bläddra genom avgörande år — från 1299 till imperiets fall. Varje händelse med djupanalys och nyckelpersoner.",
+    iconClass: "icon-timeline",
+    detail: { label: "Exempel: år 1299", text: "Osmanska rikets grundande av Osman I." },
+    tags: ["Kronologiskt", "Nyckelpersoner", "AI-djupanalys"],
+  },
+  {
+    eyebrow: "Quizzen",
+    title: ["Tävla om ", "historiens topp"],
+    highlight: 1,
+    desc: "Testa dina kunskaper om sultaner och kejsare. Saml
