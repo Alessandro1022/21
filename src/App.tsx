@@ -1,10 +1,12 @@
+App · TSX
+Copy
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { EmpireProvider } from "@/contexts/EmpireContext";
-
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import Onboarding from "./Onboarding";
@@ -20,11 +22,10 @@ import EmpireSelect from "./pages/EmpireSelect";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
-
 import { ProtectedRoute } from "./components/ProtectedRoute";
-
+ 
 const queryClient = new QueryClient();
-
+ 
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
@@ -33,6 +34,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <EmpireProvider>
+            <Onboarding />
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/auth" element={<Auth />} />
@@ -55,5 +57,5 @@ const App = () => {
     </QueryClientProvider>
   );
 };
-
+ 
 export default App;
