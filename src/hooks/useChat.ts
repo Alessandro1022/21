@@ -4,27 +4,41 @@ import { useEmpire } from "@/contexts/EmpireContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
+ 
 export interface Conversation {
   id: string;
   title: string;
   empire_id: string;
   updated_at: string;
 }
-
+ 
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [language, setLanguage] = useState("sv");
-  const [level, setLevel] = useState("deep");
+ 
+  const [language, setLanguageState] = useState<string>(() => {
+    try { return localStorage.getItem("empireLanguage") || "en"; } catch { return "en"; }
+  });
+  const [level, setLevelState] = useState<string>(() => {
+    try { return localStorage.getItem("empireLevel") || "deep"; } catch { return "deep"; }
+  });
+ 
+  const setLanguage = (lang: string) => {
+    try { localStorage.setItem("empireLanguage", lang); } catch {}
+    setLanguageState(lang);
+  };
+  const setLevel = (lvl: string) => {
+    try { localStorage.setItem("empireLevel", lvl); } catch {}
+    setLevelState(lvl);
+  };
+ 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const abortRef = useRef(false);
   const { empireId, config } = useEmpire();
   const { user } = useAuth();
-
-  // Load conversations list
+ 
   const loadConversations = useCallback(async () => {
     if (!user) return;
     setLoadingConversations(true);
@@ -37,12 +51,11 @@ export function useChat() {
     setConversations((data as Conversation[]) || []);
     setLoadingConversations(false);
   }, [user, empireId]);
-
+ 
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
-
-  // Load messages for a conversation
+ 
   const loadConversation = useCallback(async (convId: string) => {
     const { data } = await supabase
       .from("chat_messages")
@@ -54,8 +67,7 @@ export function useChat() {
     }
     setActiveConversationId(convId);
   }, []);
-
-  // Create new conversation
+ 
   const createConversation = useCallback(async (title: string): Promise<string | null> => {
     if (!user) return null;
     const { data, error } = await supabase
@@ -66,32 +78,29 @@ export function useChat() {
     if (error || !data) return null;
     return data.id;
   }, [user, empireId]);
-
-  // Save message to DB
+ 
   const saveMessage = useCallback(async (convId: string, role: string, content: string) => {
     await supabase.from("chat_messages").insert({ conversation_id: convId, role, content });
     await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
   }, []);
-
+ 
   const send = useCallback(async (input: string) => {
     if (!input.trim() || isLoading) return;
-
+ 
     const userMsg: Message = { role: "user", content: input };
     setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
     abortRef.current = false;
-
-    // Create conversation if none active
+ 
     let convId = activeConversationId;
     if (!convId && user) {
       const title = input.slice(0, 60) + (input.length > 60 ? "..." : "");
       convId = await createConversation(title);
       if (convId) setActiveConversationId(convId);
     }
-
-    // Save user message
+ 
     if (convId) saveMessage(convId, "user", input);
-
+ 
     let assistantSoFar = "";
     const upsertAssistant = (chunk: string) => {
       assistantSoFar += chunk;
@@ -103,9 +112,9 @@ export function useChat() {
         return [...prev, { role: "assistant", content: assistantSoFar }];
       });
     };
-
+ 
     const finalConvId = convId;
-
+ 
     try {
       await streamChat({
         messages: [...messages, userMsg],
@@ -117,7 +126,6 @@ export function useChat() {
         },
         onDone: () => {
           setIsLoading(false);
-          // Save assistant response
           if (finalConvId && assistantSoFar) {
             saveMessage(finalConvId, "assistant", assistantSoFar);
             loadConversations();
@@ -134,12 +142,12 @@ export function useChat() {
       setIsLoading(false);
     }
   }, [messages, isLoading, language, level, empireId, activeConversationId, user, createConversation, saveMessage, loadConversations]);
-
+ 
   const clearMessages = useCallback(() => {
     setMessages([]);
     setActiveConversationId(null);
   }, []);
-
+ 
   const deleteConversation = useCallback(async (convId: string) => {
     await supabase.from("chat_conversations").delete().eq("id", convId);
     if (activeConversationId === convId) {
@@ -148,7 +156,7 @@ export function useChat() {
     }
     loadConversations();
   }, [activeConversationId, loadConversations]);
-
+ 
   return {
     messages, isLoading, send, language, setLanguage, level, setLevel,
     clearMessages, config, conversations, activeConversationId,
