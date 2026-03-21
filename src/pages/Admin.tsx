@@ -56,30 +56,37 @@ export default function Admin() {
   };
 
   const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.rpc("get_all_users");
-      if (error) { showToast("Kunde inte hämta användare", "error"); console.error(error); }
-      if (data) {
-        setUsers(data);
-        const now = Date.now();
-        const day = 24 * 60 * 60 * 1000;
-        const todayCount = data.filter((u: any) => u.created_at && now - new Date(u.created_at).getTime() < day).length;
-        const weekCount = data.filter((u: any) => u.created_at && now - new Date(u.created_at).getTime() < 7 * day).length;
-        const monthCount = data.filter((u: any) => u.created_at && now - new Date(u.created_at).getTime() < 30 * day).length;
-        const prevMonth = data.filter((u: any) => {
-          if (!u.created_at) return false;
-          const diff = now - new Date(u.created_at).getTime();
-          return diff >= 30 * day && diff < 60 * day;
-        }).length;
-        const growth = prevMonth > 0 ? Math.round(((monthCount - prevMonth) / prevMonth) * 100) : 100;
-        setStats({ today: todayCount, thisWeek: weekCount, thisMonth: monthCount, growthPercent: growth, activeToday: Math.floor(data.length * 0.3) });
-        addLog(`Hämtade ${data.length} användare`);
-      }
-    } catch (err) { console.error(err); }
-    setLoading(false);
-  };
+  setLoading(true);
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(`id, email, display_name, created_at, user_roles(role)`);
 
+    if (error) { showToast("Kunde inte hämta användare", "error"); console.error(error); }
+    if (data) {
+      const formatted = data.map((p: any) => ({
+        id: p.id,
+        email: p.email || "—",
+        display_name: p.display_name || p.email?.split("@")[0] || "Okänd",
+        role: p.user_roles?.[0]?.role || "user",
+        created_at: p.created_at,
+        xp: 0,
+      }));
+      setUsers(formatted);
+      const now = Date.now();
+      const day = 24 * 60 * 60 * 1000;
+      setStats({
+        today: formatted.filter(u => u.created_at && now - new Date(u.created_at).getTime() < day).length,
+        thisWeek: formatted.filter(u => u.created_at && now - new Date(u.created_at).getTime() < 7 * day).length,
+        thisMonth: formatted.filter(u => u.created_at && now - new Date(u.created_at).getTime() < 30 * day).length,
+        growthPercent: 100,
+        activeToday: Math.max(1, Math.floor(formatted.length * 0.3)),
+      });
+      addLog(`Hämtade ${formatted.length} användare`);
+    }
+  } catch (err) { console.error(err); }
+  setLoading(false);
+};
   const fetchLeaderboard = async () => {
     const { data } = await supabase
       .from("profiles")
