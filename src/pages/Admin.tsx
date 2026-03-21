@@ -92,7 +92,6 @@ const fetchUsers = async () => {
   } catch (err) { console.error(err); }
   setLoading(false);
 };
-};
   const fetchLeaderboard = async () => {
     const { data } = await supabase
       .from("profiles")
