@@ -3,35 +3,71 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+    <!-- PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#8B0000">
+    <meta name="theme-color" content="#0b0f1a">
+
+    <!-- SEO -->
     <title>Empire AI</title>
     <meta name="description" content="Empire AI – Intelligent solutions powered by AI." />
-    <meta name="author" content="Empire AI" />
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Empire AI" />
-    <meta property="og:description" content="Empire AI – Intelligent solutions powered by AI." />
-    <meta property="og:image" content="/preview.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Empire AI" />
-    <meta name="twitter:description" content="Empire AI – Intelligent solutions powered by AI." />
-    <meta name="twitter:image" content="/preview.png" />
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/src/index.css">
+
     <style>
       #root {
         padding-top: env(safe-area-inset-top);
       }
+
+      /* SPLASH */
+      #splash {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        background: #0b0f1a;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+
+      .logo {
+        width: 120px;
+        animation: bounce 1.5s infinite;
+        filter: drop-shadow(0 0 20px #00f0ff);
+      }
+
+      @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-20px); }
+      }
     </style>
   </head>
+
   <body>
+    <!-- SPLASH SCREEN -->
+    <div id="splash">
+      <img src="/logo.png" class="logo" />
+    </div>
+
+    <!-- REACT ROOT -->
     <div id="root"></div>
+
+    <!-- MAIN -->
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- REMOVE SPLASH -->
     <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js');
-      }
+      window.addEventListener("load", () => {
+        setTimeout(() => {
+          const splash = document.getElementById("splash");
+          if (splash) splash.style.display = "none";
+        }, 2000);
+      });
     </script>
   </body>
 </html>
