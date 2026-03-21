@@ -51,7 +51,6 @@ function getDynastyLabel(generation: number, empireId: string, lang: string): st
   return m.late[lang] ?? m.late.en;
 }
  
-// Hanterar title som sträng ELLER { sv, en, tr } objekt
 function getTitle(title: unknown, lang: string): string {
   if (!title) return "";
   if (typeof title === "string") return title;
@@ -60,6 +59,11 @@ function getTitle(title: unknown, lang: string): string {
     return t[lang] ?? t["en"] ?? Object.values(t)[0] ?? "";
   }
   return String(title);
+}
+ 
+// Always return black text — Ottoman colors are gold/warm tones, needs dark text
+function getTextColor(empireId: string): string {
+  return empireId === "ottoman" ? "#1a1008" : "#fff";
 }
  
 export default function Lineage() {
@@ -84,7 +88,6 @@ export default function Lineage() {
       <div className="h-full overflow-y-auto p-4 pb-8">
         <div className="max-w-3xl mx-auto animate-fade-in">
  
-          {/* Titel */}
           <div className="mb-4">
             <h2 className="text-2xl font-serif text-primary flex items-center gap-2">
               <Crown className="w-6 h-6" /> {pageTitle}
@@ -97,27 +100,33 @@ export default function Lineage() {
           {/* Legend */}
           {leaders.length > 0 && (
             <div className="flex flex-wrap gap-3 mb-4 px-3 py-2 bg-card/40 rounded-xl">
-              {legendGens.map((gen) => (
-                <div key={gen} className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getDynastyColor(gen, empire) }} />
-                  <span className="text-[10px] font-sans text-muted-foreground">
-                    {getDynastyLabel(gen, empire, language)}
-                  </span>
-                </div>
-              ))}
+              {legendGens.map((gen) => {
+                const color = getDynastyColor(gen, empire);
+                const textColor = getTextColor(empire);
+                return (
+                  <div key={gen} className="flex items-center gap-1.5">
+                    <div
+                      className="w-5 h-5 rounded-md flex items-center justify-center"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-[10px] font-sans text-muted-foreground">
+                      {getDynastyLabel(gen, empire, language)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
  
-          {/* Tom lista */}
           {leaders.length === 0 && (
             <p className="text-center py-16 text-muted-foreground font-sans text-sm">{emptyMsg}</p>
           )}
  
-          {/* Platt lista */}
           <div className="space-y-0.5">
             {leaders.map((l) => {
               const isSelected   = selectedId === l.id;
               const color        = getDynastyColor(l.generation ?? 1, empire);
+              const textColor    = getTextColor(empire);
               const reignStart   = Number(l.reignStart) || 0;
               const reignEnd     = Number(l.reignEnd)   || 0;
               const reignLength  = Math.max(0, reignEnd - reignStart);
@@ -127,39 +136,68 @@ export default function Lineage() {
  
               return (
                 <div key={l.id}>
-                  {/* Rad */}
                   <button
                     onClick={() => setSelectedId(isSelected ? null : l.id)}
                     className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                       isSelected ? "bg-card/80 ottoman-border ottoman-glow" : "hover:bg-card/40"
                     }`}
                   >
+                    {/* Dynasty color dot */}
                     <div
                       className="w-3 h-3 rounded-full flex-shrink-0 ring-2 ring-background transition-transform duration-200"
-                      style={{ backgroundColor: color, transform: isSelected ? "scale(1.4)" : "scale(1)" }}
+                      style={{
+                        backgroundColor: color,
+                        transform: isSelected ? "scale(1.4)" : "scale(1)",
+                      }}
                     />
+ 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={`text-sm font-serif truncate transition-colors duration-200 ${isSelected ? "text-primary" : "text-foreground"}`}>
+                        {/* NAME — always dark on Ottoman, follows theme on Roman */}
+                        <span
+                          className={`text-sm font-serif truncate transition-colors duration-200 ${
+                            empire === "ottoman"
+                              ? "text-foreground"
+                              : isSelected
+                              ? "text-primary"
+                              : "text-foreground"
+                          }`}
+                          style={empire === "ottoman" ? { color: isSelected ? "var(--color-primary, #c8a96e)" : "inherit" } : {}}
+                        >
                           {l.name}
                         </span>
                         {hasProfile && <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
                       </div>
                       <div className="flex items-center gap-2 text-[10px] font-sans text-muted-foreground">
                         <span>{formatYear(reignStart, language)}–{formatYear(reignEnd, language)}</span>
-                        {title && <><span className="text-primary/40">·</span><span className="truncate">{title}</span></>}
+                        {title && (
+                          <>
+                            <span className="text-primary/40">·</span>
+                            <span className="truncate">{title}</span>
+                          </>
+                        )}
                       </div>
                     </div>
+ 
+                    {/* Reign bar */}
                     <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                       <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-300"
-                          style={{ width: `${barWidth}%`, backgroundColor: color, opacity: isSelected ? 1 : 0.6 }} />
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{
+                            width: `${barWidth}%`,
+                            backgroundColor: color,
+                            opacity: isSelected ? 1 : 0.6,
+                          }}
+                        />
                       </div>
-                      <span className="text-[9px] font-sans text-muted-foreground w-6 text-right">{reignLength}y</span>
+                      <span className="text-[9px] font-sans text-muted-foreground w-6 text-right">
+                        {reignLength}y
+                      </span>
                     </div>
                   </button>
  
-                  {/* Detaljkort */}
+                  {/* Detail card */}
                   {isSelected && (
                     <div className="mt-1 mb-2 animate-fade-in">
                       <div className="bg-card/90 backdrop-blur-md rounded-xl ottoman-border p-4 shadow-xl">
@@ -182,17 +220,27 @@ export default function Lineage() {
                             {formatYear(reignStart, language)}–{formatYear(reignEnd, language)}
                             {reignLength > 0 && ` (${reignLength} ${yearWord})`}
                           </div>
-                          {title && <p className="text-xs font-sans text-foreground/80">{title}</p>}
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                            <span className="text-[10px] font-sans text-muted-foreground">
-                              {getDynastyLabel(l.generation ?? 1, empire, language)}
-                            </span>
+                          {title && (
+                            <p className="text-xs font-sans text-foreground/80">{title}</p>
+                          )}
+ 
+                          {/* Dynasty badge with correct text color */}
+                          <div
+                            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-sans font-medium"
+                            style={{
+                              backgroundColor: color,
+                              color: empire === "ottoman" ? "#1a1008" : "#fff",
+                            }}
+                          >
+                            {getDynastyLabel(l.generation ?? 1, empire, language)}
                           </div>
                         </div>
  
                         <div className="h-1.5 bg-secondary rounded-full overflow-hidden mb-4">
-                          <div className="h-full rounded-full gold-gradient" style={{ width: `${barWidth}%` }} />
+                          <div
+                            className="h-full rounded-full gold-gradient"
+                            style={{ width: `${barWidth}%` }}
+                          />
                         </div>
  
                         <div className="flex flex-wrap gap-2">
@@ -220,7 +268,6 @@ export default function Lineage() {
               );
             })}
           </div>
- 
         </div>
       </div>
  
@@ -234,3 +281,4 @@ export default function Lineage() {
     </AppLayout>
   );
 }
+ 
