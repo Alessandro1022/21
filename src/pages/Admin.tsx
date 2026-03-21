@@ -7,7 +7,8 @@ import {
   X, Copy, Ban, UserCheck, Clock, Star, Calendar, Filter,
   CheckSquare, Square, MoreHorizontal, ArrowRight, Wifi, WifiOff,
   Plus, Languages, Loader2, BookOpen, ChevronLeft, ChevronRight,
-  Sparkles, Medal,
+  Sparkles, Medal, Globe, MessageSquare, PenLine, BarChart,
+  Hash, Layers, Send, ThumbsUp, ThumbsDown, Flag,
 } from "lucide-react";
  
 interface UserProfile {
@@ -37,7 +38,7 @@ interface Stats {
  
 type SortField = "display_name" | "email" | "role" | "created_at" | "xp";
 type SortDir = "asc" | "desc";
-type Tab = "users" | "stats" | "leaderboard" | "quiz" | "logs" | "settings" | "moderation";
+type Tab = "users" | "stats" | "leaderboard" | "quiz" | "content" | "moderation" | "logs" | "settings";
 type LeaderboardPeriod = "alltime" | "week" | "today";
  
 interface Log {
@@ -63,9 +64,97 @@ interface QuizQuestion {
   translating?: boolean;
 }
  
+interface ContentItem {
+  id: string;
+  type: "announcement" | "tip" | "fact";
+  empire_id: string;
+  text_en: string;
+  text_sv?: string;
+  text_tr?: string;
+  active: boolean;
+  created_at: string;
+}
+ 
 const EMPIRE_OPTIONS = ["ottoman", "roman"];
 const QUIZ_PAGE_SIZE = 10;
 const avatarColors = ["#7F77DD","#1D9E75","#D85A30","#378ADD","#D4537E","#BA7517","#639922","#534AB7"];
+ 
+// ── QUESTION FORM (outside Admin to prevent remount on every render) ──
+function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
+  q: QuizQuestion;
+  onChange: (q: QuizQuestion) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  savingQ: boolean;
+}) {
+  return (
+    <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-primary"/>
+          {q.id ? "Redigera fråga" : "Ny fråga"}
+        </h3>
+        <button onClick={onCancel}><X className="w-4 h-4 text-muted-foreground"/></button>
+      </div>
+      <div>
+        <label className="text-xs text-muted-foreground mb-1 block">Empire</label>
+        <select value={q.empire_id} onChange={e => onChange({ ...q, empire_id: e.target.value })}
+          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
+          {EMPIRE_OPTIONS.map(e => <option key={e} value={e}>{e.charAt(0).toUpperCase()+e.slice(1)}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="text-xs text-muted-foreground mb-1 block">Fråga (engelska)</label>
+        <textarea
+          value={q.question_en}
+          onChange={e => onChange({ ...q, question_en: e.target.value })}
+          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-20"
+          placeholder="Skriv frågan på engelska..."
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="text-xs text-muted-foreground block">Svarsalternativ — välj rätt svar med radio-knappen</label>
+        {q.options_en.map((opt, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input type="radio" name={`correct-${q.id||"new"}`} checked={q.correct_index === i}
+              onChange={() => onChange({ ...q, correct_index: i })} className="accent-primary flex-shrink-0"/>
+            <input
+              value={opt}
+              onChange={e => { const opts=[...q.options_en]; opts[i]=e.target.value; onChange({ ...q, options_en: opts }); }}
+              className="flex-1 px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary"
+              placeholder={`Alternativ ${String.fromCharCode(65+i)}`}
+            />
+            {q.correct_index === i && <span className="text-xs text-green-500 font-medium flex-shrink-0">✓ rätt</span>}
+          </div>
+        ))}
+      </div>
+      <div>
+        <label className="text-xs text-muted-foreground mb-1 block">Förklaring (engelska)</label>
+        <textarea
+          value={q.explanation_en}
+          onChange={e => onChange({ ...q, explanation_en: e.target.value })}
+          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-16"
+          placeholder="Kort förklaring av rätt svar..."
+        />
+      </div>
+      <div className="flex items-start gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+        <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          <strong className="text-foreground">Auto-översättning:</strong> Svenska och turkiska genereras automatiskt av AI vid sparning.
+        </p>
+      </div>
+      <button
+        onClick={onSave}
+        disabled={savingQ || !q.question_en || q.options_en.some(o => !o) || !q.explanation_en}
+        className="w-full py-2.5 rounded-xl gold-gradient text-primary-foreground font-sans font-medium text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {savingQ
+          ? <><Loader2 className="w-4 h-4 animate-spin"/> Översätter &amp; sparar...</>
+          : <>{q.id ? "Spara ändringar" : "Lägg till fråga"}</>}
+      </button>
+    </div>
+  );
+}
  
 export default function Admin() {
  
@@ -99,6 +188,7 @@ export default function Admin() {
   const [savingQ, setSavingQ] = useState(false);
   const [addingQ, setAddingQ] = useState(false);
   const [translatingAll, setTranslatingAll] = useState(false);
+  const [quizSearch, setQuizSearch] = useState("");
   const [newQ, setNewQ] = useState<QuizQuestion>({
     empire_id: "ottoman",
     question_en: "",
@@ -106,6 +196,13 @@ export default function Admin() {
     correct_index: 0,
     explanation_en: "",
   });
+ 
+  // ── CONTENT STATE ──
+  const [contentItems, setContentItems] = useState<ContentItem[]>([]);
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [newContent, setNewContent] = useState({ type: "announcement", empire_id: "ottoman", text_en: "" });
+  const [addingContent, setAddingContent] = useState(false);
+  const [savingContent, setSavingContent] = useState(false);
  
   // ── HELPERS ──
   const showToast = (msg: string, type: "success"|"error" = "success") => {
@@ -141,7 +238,7 @@ export default function Admin() {
       <div className={`${s} rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center font-medium text-white`}
         style={{ background: user.avatar_url ? undefined : avatarColors[colorIndex % avatarColors.length] }}>
         {user.avatar_url
-          ? <img src={user.avatar_url} alt={user.display_name} className="w-full h-full object-cover" />
+          ? <img src={user.avatar_url} alt={user.display_name} className="w-full h-full object-cover"/>
           : initials(user.display_name)}
       </div>
     );
@@ -212,6 +309,16 @@ export default function Admin() {
  
   useEffect(() => { if (tab === "quiz") loadQuizQuestions(); }, [tab, loadQuizQuestions]);
  
+  // ── LOAD CONTENT ──
+  const loadContent = useCallback(async () => {
+    setLoadingContent(true);
+    const { data } = await supabase.from("content_items").select("*").order("created_at", { ascending: false });
+    setContentItems((data || []) as ContentItem[]);
+    setLoadingContent(false);
+  }, []);
+ 
+  useEffect(() => { if (tab === "content") loadContent(); }, [tab, loadContent]);
+ 
   // ── REALTIME + INIT ──
   useEffect(() => {
     fetchUsers(); fetchLeaderboard();
@@ -275,18 +382,26 @@ export default function Admin() {
   };
  
   // ── AUTO TRANSLATE ──
-  async function autoTranslate(q: QuizQuestion): Promise<QuizQuestion> {
+  async function autoTranslate(text_en: string): Promise<{ sv: string; tr: string }> {
     try {
-      const prompt = `You are a translation assistant. Translate the following quiz question from English to Swedish (sv) and Turkish (tr).
-Return ONLY a valid JSON object with this exact structure, no markdown, no extra text:
-{
-  "question_sv": "...",
-  "options_sv": ["...","...","...","..."],
-  "explanation_sv": "...",
-  "question_tr": "...",
-  "options_tr": ["...","...","...","..."],
-  "explanation_tr": "..."
-}
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514", max_tokens: 500,
+          messages: [{ role: "user", content: `Translate to Swedish and Turkish. Return only JSON: {"sv":"...","tr":"..."}\n\nText: ${text_en}` }],
+        }),
+      });
+      const data = await res.json();
+      const raw = data.content?.map((c: any) => c.text||"").join("") || "";
+      return JSON.parse(raw.replace(/```json|```/g,"").trim());
+    } catch { return { sv: "", tr: "" }; }
+  }
+ 
+  async function autoTranslateQuestion(q: QuizQuestion): Promise<QuizQuestion> {
+    try {
+      const prompt = `Translate this quiz question from English to Swedish and Turkish. Return ONLY JSON:
+{"question_sv":"...","options_sv":["...","...","...","..."],"explanation_sv":"...","question_tr":"...","options_tr":["...","...","...","..."],"explanation_tr":"..."}
 Question: ${q.question_en}
 Options: ${JSON.stringify(q.options_en)}
 Explanation: ${q.explanation_en}`;
@@ -296,9 +411,8 @@ Explanation: ${q.explanation_en}`;
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
       });
       const data = await res.json();
-      const text = data.content?.map((c: any) => c.text || "").join("") || "";
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-      return { ...q, ...parsed };
+      const text = data.content?.map((c: any) => c.text||"").join("") || "";
+      return { ...q, ...JSON.parse(text.replace(/```json|```/g,"").trim()) };
     } catch { return q; }
   }
  
@@ -307,7 +421,7 @@ Explanation: ${q.explanation_en}`;
     setSavingQ(true);
     try {
       let final = q;
-      if (!q.question_sv || !q.question_tr) final = await autoTranslate(q);
+      if (!q.question_sv || !q.question_tr) final = await autoTranslateQuestion(q);
       const { id, translating, ...payload } = final as any;
       if (q.id) {
         await supabase.from("quiz_questions").update(payload).eq("id", q.id);
@@ -335,7 +449,7 @@ Explanation: ${q.explanation_en}`;
     setTranslatingAll(true); addLog(`Översätter ${missing.length} frågor...`, "info");
     for (const q of missing) {
       setQuizQuestions(prev => prev.map(p => p.id === q.id ? { ...p, translating: true } : p));
-      const translated = await autoTranslate(q);
+      const translated = await autoTranslateQuestion(q);
       const { id, translating, ...payload } = translated as any;
       await supabase.from("quiz_questions").update(payload).eq("id", q.id);
       setQuizQuestions(prev => prev.map(p => p.id === q.id ? { ...translated, translating: false } : p));
@@ -344,12 +458,48 @@ Explanation: ${q.explanation_en}`;
     setTranslatingAll(false); loadQuizQuestions();
   };
  
+  // ── SAVE CONTENT ──
+  const saveContent = async () => {
+    if (!newContent.text_en.trim()) return;
+    setSavingContent(true);
+    try {
+      const translated = await autoTranslate(newContent.text_en);
+      await supabase.from("content_items").insert({
+        ...newContent,
+        text_sv: translated.sv,
+        text_tr: translated.tr,
+        active: true,
+      });
+      showToast("Innehåll sparat!"); addLog(`Nytt innehåll: ${newContent.type}`, "success");
+      setNewContent({ type: "announcement", empire_id: "ottoman", text_en: "" });
+      setAddingContent(false);
+      loadContent();
+    } catch { showToast("Kunde inte spara", "error"); }
+    setSavingContent(false);
+  };
+ 
+  const toggleContent = async (item: ContentItem) => {
+    await supabase.from("content_items").update({ active: !item.active }).eq("id", item.id);
+    setContentItems(prev => prev.map(c => c.id === item.id ? { ...c, active: !c.active } : c));
+    showToast(item.active ? "Avaktiverat" : "Aktiverat");
+  };
+ 
+  const deleteContent = async (id: string) => {
+    if (!confirm("Radera?")) return;
+    await supabase.from("content_items").delete().eq("id", id);
+    showToast("Raderat"); loadContent();
+  };
+ 
   // ── DERIVED ──
   const adminsCount = users.filter(u => u.role === "admin").length;
   const onlineCount = users.filter(u => u.is_online).length;
   const missingTranslations = quizQuestions.filter(q => !q.question_sv || !q.question_tr).length;
-  const pagedQuestions = quizQuestions.slice(quizPage * QUIZ_PAGE_SIZE, (quizPage+1) * QUIZ_PAGE_SIZE);
-  const totalPages = Math.ceil(quizQuestions.length / QUIZ_PAGE_SIZE);
+ 
+  const filteredQuestions = quizQuestions.filter(q =>
+    !quizSearch || q.question_en.toLowerCase().includes(quizSearch.toLowerCase())
+  );
+  const pagedQuestions = filteredQuestions.slice(quizPage * QUIZ_PAGE_SIZE, (quizPage+1) * QUIZ_PAGE_SIZE);
+  const totalPages = Math.ceil(filteredQuestions.length / QUIZ_PAGE_SIZE);
  
   const filtered = users.filter(u => {
     const matchSearch = u.email?.toLowerCase().includes(search.toLowerCase()) || u.display_name?.toLowerCase().includes(search.toLowerCase());
@@ -365,58 +515,6 @@ Explanation: ${q.explanation_en}`;
       <ChevronUp className={`w-2.5 h-2.5 ${sortField===field&&sortDir==="asc"?"text-primary":"opacity-20"}`}/>
       <ChevronDown className={`w-2.5 h-2.5 ${sortField===field&&sortDir==="desc"?"text-primary":"opacity-20"}`}/>
     </span>
-  );
- 
-  // ── QUIZ FORM ──
-  const QuestionForm = ({ q, onChange, onSave, onCancel }: { q: QuizQuestion; onChange: (q: QuizQuestion) => void; onSave: () => void; onCancel: () => void }) => (
-    <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium flex items-center gap-2"><BookOpen className="w-4 h-4 text-primary"/>{q.id ? "Redigera fråga" : "Ny fråga"}</h3>
-        <button onClick={onCancel}><X className="w-4 h-4 text-muted-foreground"/></button>
-      </div>
-      <div>
-        <label className="text-xs text-muted-foreground mb-1 block">Empire</label>
-        <select value={q.empire_id} onChange={e => onChange({ ...q, empire_id: e.target.value })}
-          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
-          {EMPIRE_OPTIONS.map(e => <option key={e} value={e}>{e.charAt(0).toUpperCase()+e.slice(1)}</option>)}
-        </select>
-      </div>
-      <div>
-        <label className="text-xs text-muted-foreground mb-1 block">Fråga (engelska)</label>
-        <textarea value={q.question_en} onChange={e => onChange({ ...q, question_en: e.target.value })}
-          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-20"
-          placeholder="Skriv frågan på engelska..."/>
-      </div>
-      <div className="space-y-2">
-        <label className="text-xs text-muted-foreground block">Svarsalternativ — välj rätt svar med radio-knappen</label>
-        {q.options_en.map((opt, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input type="radio" name={`correct-${q.id||"new"}`} checked={q.correct_index === i}
-              onChange={() => onChange({ ...q, correct_index: i })} className="accent-primary flex-shrink-0"/>
-            <input value={opt} onChange={e => { const opts=[...q.options_en]; opts[i]=e.target.value; onChange({ ...q, options_en: opts }); }}
-              className="flex-1 px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary"
-              placeholder={`Alternativ ${String.fromCharCode(65+i)}`}/>
-            {q.correct_index === i && <span className="text-xs text-green-500 font-medium flex-shrink-0">✓ rätt</span>}
-          </div>
-        ))}
-      </div>
-      <div>
-        <label className="text-xs text-muted-foreground mb-1 block">Förklaring (engelska)</label>
-        <textarea value={q.explanation_en} onChange={e => onChange({ ...q, explanation_en: e.target.value })}
-          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-16"
-          placeholder="Kort förklaring av rätt svar..."/>
-      </div>
-      <div className="flex items-start gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
-        <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          <strong className="text-foreground">Auto-översättning:</strong> Svenska och turkiska genereras automatiskt av AI vid sparning.
-        </p>
-      </div>
-      <button onClick={onSave} disabled={savingQ || !q.question_en || q.options_en.some(o => !o) || !q.explanation_en}
-        className="w-full py-2.5 rounded-xl gold-gradient text-primary-foreground font-sans font-medium text-sm disabled:opacity-50 flex items-center justify-center gap-2">
-        {savingQ ? <><Loader2 className="w-4 h-4 animate-spin"/> Översätter &amp; sparar...</> : <>{q.id ? "Spara ändringar" : "Lägg till fråga"}</>}
-      </button>
-    </div>
   );
  
   return (
@@ -522,6 +620,7 @@ Explanation: ${q.explanation_en}`;
                   { label:"Online", value:onlineCount, color:"text-green-500" },
                   { label:"Nya idag", value:stats.today, color:"text-orange-500" },
                   { label:"Admins", value:adminsCount, color:"text-purple-500" },
+                  { label:"Quiz-frågor", value:quizQuestions.length, color:"text-blue-500" },
                 ].map(({ label,value,color }) => (
                   <div key={label} className="bg-card/70 backdrop-blur border border-border rounded-xl px-4 py-2 text-center min-w-16">
                     <div className={`text-xl font-serif ${color}`}>{value}</div>
@@ -551,6 +650,7 @@ Explanation: ${q.explanation_en}`;
             { key:"stats", label:"Statistik", icon:BarChart2 },
             { key:"leaderboard", label:"Leaderboard", icon:Trophy },
             { key:"quiz", label:"Quiz", icon:BookOpen },
+            { key:"content", label:"Innehåll", icon:PenLine },
             { key:"moderation", label:"Moderation", icon:Shield },
             { key:"logs", label:"Logg", icon:Activity },
             { key:"settings", label:"Inställningar", icon:Settings },
@@ -687,10 +787,10 @@ Explanation: ${q.explanation_en}`;
                           </td>
                           <td className="px-4 py-3" onClick={e=>e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1">
-                              <button onClick={()=>setSelectedUser(user)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors" title="Visa profil"><Eye className="w-3.5 h-3.5"/></button>
-                              <button onClick={()=>toggleAdmin(user)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors" title="Byt roll"><Shield className="w-3.5 h-3.5 text-purple-500"/></button>
-                              <button onClick={()=>banUser(user)} className="p-1.5 rounded-lg hover:bg-orange-50 transition-colors" title="Banna"><Ban className="w-3.5 h-3.5 text-orange-500"/></button>
-                              <button onClick={()=>deleteUser(user.id,user.email)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Ta bort"><Trash2 className="w-3.5 h-3.5 text-red-500"/></button>
+                              <button onClick={()=>setSelectedUser(user)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors"><Eye className="w-3.5 h-3.5"/></button>
+                              <button onClick={()=>toggleAdmin(user)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors"><Shield className="w-3.5 h-3.5 text-purple-500"/></button>
+                              <button onClick={()=>banUser(user)} className="p-1.5 rounded-lg hover:bg-orange-50 transition-colors"><Ban className="w-3.5 h-3.5 text-orange-500"/></button>
+                              <button onClick={()=>deleteUser(user.id,user.email)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5 text-red-500"/></button>
                             </div>
                           </td>
                         </tr>
@@ -735,8 +835,7 @@ Explanation: ${q.explanation_en}`;
                       <span className="font-medium">{count} ({users.length>0?Math.round((count/users.length)*100):0}%)</span>
                     </div>
                     <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-1000"
-                        style={{ width:`${users.length>0?(count/users.length)*100:0}%`, background:color }}/>
+                      <div className="h-full rounded-full transition-all duration-1000" style={{ width:`${users.length>0?(count/users.length)*100:0}%`, background:color }}/>
                     </div>
                   </div>
                 ))}
@@ -751,6 +850,7 @@ Explanation: ${q.explanation_en}`;
                   { label:"Nya denna vecka", value:stats.thisWeek },
                   { label:"Nya denna månad", value:stats.thisMonth },
                   { label:"Quiz-frågor totalt", value:quizQuestions.length },
+                  { label:"Saknar översättning", value:missingTranslations },
                   { label:"Genomsnittlig XP", value:users.length?Math.round(users.reduce((a,u)=>a+(u.xp||0),0)/users.length):0 },
                 ].map(({ label,value }) => (
                   <div key={label} className="flex justify-between py-2 border-b border-border last:border-0 text-sm">
@@ -821,9 +921,7 @@ Explanation: ${q.explanation_en}`;
               </button>
             </div>
  
-            {/* Instagram/TikTok-friendly card */}
             <div className="rounded-3xl overflow-hidden" style={{ background:"linear-gradient(135deg, #0a0612 0%, #1a0a08 50%, #0a0612 100%)", border:"1px solid rgba(200,169,110,0.25)" }}>
-              {/* Header */}
               <div className="px-6 pt-6 pb-4 text-center" style={{ borderBottom:"1px solid rgba(200,169,110,0.15)" }}>
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <Crown className="w-5 h-5" style={{ color:"#c8a96e" }}/>
@@ -834,16 +932,12 @@ Explanation: ${q.explanation_en}`;
                   {leaderboardPeriod==="alltime"?"All-Time Champions":leaderboardPeriod==="week"?"This Week's Heroes":"Today's Warriors"}
                 </p>
               </div>
- 
-              {/* Podium */}
               {leaderboard.length >= 3 && (
                 <div className="px-4 pt-6 pb-2">
                   <div className="flex items-end justify-center gap-3">
-                    {/* 2nd */}
                     <div className="flex flex-col items-center gap-2 flex-1">
                       <div className="relative">
-                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center text-base font-bold text-white"
-                          style={{ borderColor:"#aaa", background:leaderboard[1].avatar_url?undefined:avatarColors[1] }}>
+                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center text-base font-bold text-white" style={{ borderColor:"#aaa", background:leaderboard[1].avatar_url?undefined:avatarColors[1] }}>
                           {leaderboard[1].avatar_url?<img src={leaderboard[1].avatar_url} className="w-full h-full object-cover" alt=""/>:initials(leaderboard[1].display_name)}
                         </div>
                         <span className="absolute -top-2 -right-2 text-xl">🥈</span>
@@ -852,16 +946,13 @@ Explanation: ${q.explanation_en}`;
                         <p className="text-xs font-medium text-white truncate max-w-20">{leaderboard[1].display_name}</p>
                         <p className="text-xs font-bold" style={{ color:"#aaa" }}>{leaderboard[1].xp} XP</p>
                       </div>
-                      <div className="w-full rounded-t-xl flex items-end justify-center py-3"
-                        style={{ background:"rgba(170,170,170,0.12)", minHeight:"60px", border:"1px solid rgba(170,170,170,0.18)", borderBottom:"none" }}>
+                      <div className="w-full rounded-t-xl flex items-end justify-center py-3" style={{ background:"rgba(170,170,170,0.12)", minHeight:"60px", border:"1px solid rgba(170,170,170,0.18)", borderBottom:"none" }}>
                         <span className="text-2xl font-serif" style={{ color:"rgba(255,255,255,0.2)" }}>2</span>
                       </div>
                     </div>
-                    {/* 1st */}
                     <div className="flex flex-col items-center gap-2 flex-1">
                       <div className="relative">
-                        <div className="rounded-full overflow-hidden flex items-center justify-center text-lg font-bold text-white"
-                          style={{ width:72, height:72, border:"3px solid #c8a96e", background:leaderboard[0].avatar_url?undefined:avatarColors[0], boxShadow:"0 0 24px rgba(200,169,110,0.45)" }}>
+                        <div className="rounded-full overflow-hidden flex items-center justify-center text-lg font-bold text-white" style={{ width:72, height:72, border:"3px solid #c8a96e", background:leaderboard[0].avatar_url?undefined:avatarColors[0], boxShadow:"0 0 24px rgba(200,169,110,0.45)" }}>
                           {leaderboard[0].avatar_url?<img src={leaderboard[0].avatar_url} className="w-full h-full object-cover" alt=""/>:initials(leaderboard[0].display_name)}
                         </div>
                         <span className="absolute -top-3 -right-2 text-2xl">🥇</span>
@@ -870,16 +961,13 @@ Explanation: ${q.explanation_en}`;
                         <p className="text-sm font-semibold text-white truncate max-w-24">{leaderboard[0].display_name}</p>
                         <p className="text-sm font-bold" style={{ color:"#c8a96e" }}>{leaderboard[0].xp} XP</p>
                       </div>
-                      <div className="w-full rounded-t-xl flex items-end justify-center py-4"
-                        style={{ background:"rgba(200,169,110,0.18)", minHeight:"88px", border:"1px solid rgba(200,169,110,0.28)", borderBottom:"none" }}>
+                      <div className="w-full rounded-t-xl flex items-end justify-center py-4" style={{ background:"rgba(200,169,110,0.18)", minHeight:"88px", border:"1px solid rgba(200,169,110,0.28)", borderBottom:"none" }}>
                         <Crown className="w-5 h-5" style={{ color:"rgba(200,169,110,0.45)" }}/>
                       </div>
                     </div>
-                    {/* 3rd */}
                     <div className="flex flex-col items-center gap-2 flex-1">
                       <div className="relative">
-                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center text-base font-bold text-white"
-                          style={{ borderColor:"#cd7f32", background:leaderboard[2].avatar_url?undefined:avatarColors[2] }}>
+                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center text-base font-bold text-white" style={{ borderColor:"#cd7f32", background:leaderboard[2].avatar_url?undefined:avatarColors[2] }}>
                           {leaderboard[2].avatar_url?<img src={leaderboard[2].avatar_url} className="w-full h-full object-cover" alt=""/>:initials(leaderboard[2].display_name)}
                         </div>
                         <span className="absolute -top-2 -right-2 text-xl">🥉</span>
@@ -888,24 +976,20 @@ Explanation: ${q.explanation_en}`;
                         <p className="text-xs font-medium text-white truncate max-w-20">{leaderboard[2].display_name}</p>
                         <p className="text-xs font-bold" style={{ color:"#cd7f32" }}>{leaderboard[2].xp} XP</p>
                       </div>
-                      <div className="w-full rounded-t-xl flex items-end justify-center py-2"
-                        style={{ background:"rgba(205,127,50,0.12)", minHeight:"44px", border:"1px solid rgba(205,127,50,0.18)", borderBottom:"none" }}>
+                      <div className="w-full rounded-t-xl flex items-end justify-center py-2" style={{ background:"rgba(205,127,50,0.12)", minHeight:"44px", border:"1px solid rgba(205,127,50,0.18)", borderBottom:"none" }}>
                         <span className="text-2xl font-serif" style={{ color:"rgba(255,255,255,0.2)" }}>3</span>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
- 
-              {/* Ranks 4–10 */}
               <div className="px-4 pb-4 space-y-1.5">
                 {leaderboard.slice(3).map((u,i)=>(
                   <div key={u.id} onClick={()=>setSelectedUser(u)}
                     className="flex items-center gap-3 px-4 py-2.5 rounded-2xl cursor-pointer transition-all hover:scale-[1.01]"
                     style={{ background:"rgba(255,255,255,0.04)", border:"0.5px solid rgba(255,255,255,0.07)" }}>
                     <span className="text-sm font-serif w-5 text-center" style={{ color:"rgba(200,169,110,0.6)" }}>{i+4}</span>
-                    <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                      style={{ background:u.avatar_url?undefined:avatarColors[(i+3)%avatarColors.length] }}>
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ background:u.avatar_url?undefined:avatarColors[(i+3)%avatarColors.length] }}>
                       {u.avatar_url?<img src={u.avatar_url} className="w-full h-full object-cover" alt=""/>:initials(u.display_name)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -925,8 +1009,6 @@ Explanation: ${q.explanation_en}`;
                   </div>
                 ))}
               </div>
- 
-              {/* Footer */}
               <div className="px-6 py-3 text-center" style={{ borderTop:"1px solid rgba(200,169,110,0.12)" }}>
                 <p className="text-[10px]" style={{ color:"rgba(200,169,110,0.35)" }}>empireai10.vercel.app · {new Date().toLocaleDateString("sv-SE")}</p>
               </div>
@@ -947,12 +1029,12 @@ Explanation: ${q.explanation_en}`;
         {tab === "quiz" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <select value={quizEmpire} onChange={e=>{setQuizEmpire(e.target.value);setQuizPage(0);}}
                   className="px-3 py-2 bg-card border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
                   {EMPIRE_OPTIONS.map(e=><option key={e} value={e}>{e.charAt(0).toUpperCase()+e.slice(1)}</option>)}
                 </select>
-                <span className="text-sm text-muted-foreground">{quizQuestions.length} frågor</span>
+                <span className="text-sm text-muted-foreground">{quizQuestions.length} frågor totalt</span>
                 {missingTranslations > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-600 text-xs font-medium">{missingTranslations} saknar SV/TR</span>
                 )}
@@ -971,25 +1053,36 @@ Explanation: ${q.explanation_en}`;
               </div>
             </div>
  
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground"/>
+              <input value={quizSearch} onChange={e=>{setQuizSearch(e.target.value);setQuizPage(0);}} placeholder="Sök bland frågor..."
+                className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"/>
+            </div>
+ 
             <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/15 rounded-xl">
               <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                <strong className="text-foreground">Auto-översättning:</strong> Skriv frågor på engelska. AI genererar SV och TR automatiskt. Quizzen väljer 12 slumpmässiga frågor per session, max 3 spel per dag.
+                <strong className="text-foreground">Auto-översättning:</strong> Skriv frågor på engelska. AI genererar SV och TR automatiskt vid sparning. Quizzen väljer 12 slumpmässiga frågor per session, max 3 spel per dag.
               </p>
             </div>
  
             {addingQ && (
-              <QuestionForm q={{ ...newQ, empire_id: quizEmpire }} onChange={q=>setNewQ(q)}
-                onSave={()=>saveQuestion({ ...newQ, empire_id: quizEmpire })} onCancel={()=>setAddingQ(false)}/>
+              <QuestionForm
+                q={{ ...newQ, empire_id: quizEmpire }}
+                onChange={q => setNewQ(q)}
+                onSave={() => saveQuestion({ ...newQ, empire_id: quizEmpire })}
+                onCancel={() => setAddingQ(false)}
+                savingQ={savingQ}
+              />
             )}
  
             {loadingQuiz ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div>
-            ) : quizQuestions.length === 0 ? (
+            ) : filteredQuestions.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground">
                 <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-20"/>
-                <p className="font-medium text-sm">Inga frågor ännu</p>
-                <p className="text-xs mt-1">Lägg till din första fråga ovan</p>
+                <p className="font-medium text-sm">{quizSearch ? "Inga frågor matchar sökningen" : "Inga frågor ännu"}</p>
+                <p className="text-xs mt-1">{quizSearch ? "Prova ett annat sökord" : "Lägg till din första fråga ovan"}</p>
               </div>
             ) : (
               <>
@@ -997,12 +1090,18 @@ Explanation: ${q.explanation_en}`;
                   {pagedQuestions.map((q,i)=>(
                     <div key={q.id||i}>
                       {editingQ?.id===q.id ? (
-                        <QuestionForm q={editingQ} onChange={setEditingQ} onSave={()=>saveQuestion(editingQ)} onCancel={()=>setEditingQ(null)}/>
+                        <QuestionForm
+                          q={editingQ}
+                          onChange={setEditingQ}
+                          onSave={() => saveQuestion(editingQ)}
+                          onCancel={() => setEditingQ(null)}
+                          savingQ={savingQ}
+                        />
                       ) : (
                         <div className={`bg-card border rounded-2xl p-4 transition-all ${q.translating?"opacity-60 animate-pulse border-primary/30":"border-border"}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1.5">
+                              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                 <span className="text-xs text-muted-foreground">#{quizPage*QUIZ_PAGE_SIZE+i+1}</span>
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground capitalize">{q.empire_id}</span>
                                 {q.translating&&<span className="text-xs text-primary flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> översätter...</span>}
@@ -1020,8 +1119,8 @@ Explanation: ${q.explanation_en}`;
                               {q.explanation_en&&<p className="text-[11px] text-muted-foreground mt-1.5 italic">💡 {q.explanation_en}</p>}
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <button onClick={()=>setEditingQ(q)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors" title="Redigera"><Eye className="w-3.5 h-3.5 text-muted-foreground"/></button>
-                              <button onClick={()=>q.id&&deleteQuestion(q.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Radera"><Trash2 className="w-3.5 h-3.5 text-red-500"/></button>
+                              <button onClick={()=>setEditingQ(q)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors"><Eye className="w-3.5 h-3.5 text-muted-foreground"/></button>
+                              <button onClick={()=>q.id&&deleteQuestion(q.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5 text-red-500"/></button>
                             </div>
                           </div>
                         </div>
@@ -1033,12 +1132,115 @@ Explanation: ${q.explanation_en}`;
                   <div className="flex items-center justify-center gap-3">
                     <button onClick={()=>setQuizPage(p=>Math.max(0,p-1))} disabled={quizPage===0}
                       className="p-2 rounded-xl border border-border disabled:opacity-30 hover:bg-secondary transition-colors"><ChevronLeft className="w-4 h-4"/></button>
-                    <span className="text-sm text-muted-foreground">{quizPage+1} / {totalPages}</span>
+                    <span className="text-sm text-muted-foreground">{quizPage+1} / {totalPages} · {filteredQuestions.length} frågor</span>
                     <button onClick={()=>setQuizPage(p=>Math.min(totalPages-1,p+1))} disabled={quizPage===totalPages-1}
                       className="p-2 rounded-xl border border-border disabled:opacity-30 hover:bg-secondary transition-colors"><ChevronRight className="w-4 h-4"/></button>
                   </div>
                 )}
               </>
+            )}
+          </div>
+        )}
+ 
+        {/* ══ INNEHÅLL ══ */}
+        {tab === "content" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-sm font-medium text-foreground">Innehållshantering</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Meddelanden, tips och historiska fakta som visas i appen</p>
+              </div>
+              <button onClick={()=>setAddingContent(v=>!v)} className="flex items-center gap-2 px-3 py-2 rounded-xl gold-gradient text-primary-foreground text-sm">
+                <Plus className="w-4 h-4"/> Nytt innehåll
+              </button>
+            </div>
+ 
+            {addingContent && (
+              <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium flex items-center gap-2"><PenLine className="w-4 h-4 text-primary"/> Nytt innehåll</h3>
+                  <button onClick={()=>setAddingContent(false)}><X className="w-4 h-4 text-muted-foreground"/></button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Typ</label>
+                    <select value={newContent.type} onChange={e=>setNewContent(p=>({...p,type:e.target.value as any}))}
+                      className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
+                      <option value="announcement">📢 Meddelande</option>
+                      <option value="tip">💡 Tips</option>
+                      <option value="fact">🏛️ Historisk fakta</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Empire</label>
+                    <select value={newContent.empire_id} onChange={e=>setNewContent(p=>({...p,empire_id:e.target.value}))}
+                      className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
+                      <option value="ottoman">Ottoman</option>
+                      <option value="roman">Roman</option>
+                      <option value="both">Båda</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Text (engelska)</label>
+                  <textarea value={newContent.text_en} onChange={e=>setNewContent(p=>({...p,text_en:e.target.value}))}
+                    className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-20"
+                    placeholder="Skriv innehållet på engelska..."/>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+                  <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
+                  <p className="text-xs text-muted-foreground">Svenska och turkiska genereras automatiskt av AI.</p>
+                </div>
+                <button onClick={saveContent} disabled={savingContent||!newContent.text_en.trim()}
+                  className="w-full py-2.5 rounded-xl gold-gradient text-primary-foreground text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                  {savingContent?<><Loader2 className="w-4 h-4 animate-spin"/> Sparar...</>:"Spara & översätt"}
+                </button>
+              </div>
+            )}
+ 
+            {loadingContent ? (
+              <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div>
+            ) : contentItems.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <PenLine className="w-10 h-10 mx-auto mb-3 opacity-20"/>
+                <p className="font-medium text-sm">Inget innehåll ännu</p>
+                <p className="text-xs mt-1">Lägg till meddelanden, tips eller historiska fakta</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {contentItems.map(item => (
+                  <div key={item.id} className={`bg-card border rounded-2xl p-4 transition-all ${item.active?"border-border":"border-border opacity-50"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+                            {item.type==="announcement"?"📢":item.type==="tip"?"💡":"🏛️"} {item.type}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground capitalize">{item.empire_id}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${item.active?"bg-green-500/15 text-green-600":"bg-secondary text-muted-foreground"}`}>
+                            {item.active?"● Aktiv":"○ Inaktiv"}
+                          </span>
+                          {item.text_sv && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600">✓ översatt</span>}
+                        </div>
+                        <p className="text-sm font-sans text-foreground leading-relaxed">{item.text_en}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {new Date(item.created_at).toLocaleDateString("sv-SE")}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button onClick={()=>toggleContent(item)} className={`p-1.5 rounded-lg transition-colors ${item.active?"hover:bg-yellow-50":"hover:bg-green-50"}`}>
+                          {item.active
+                            ? <EyeOff className="w-3.5 h-3.5 text-yellow-500"/>
+                            : <Eye className="w-3.5 h-3.5 text-green-500"/>}
+                        </button>
+                        <button onClick={()=>deleteContent(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                          <Trash2 className="w-3.5 h-3.5 text-red-500"/>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -1137,6 +1339,7 @@ Explanation: ${q.explanation_en}`;
                   { label:"Totalt användare", value:String(users.length) },
                   { label:"Admins", value:String(adminsCount) },
                   { label:"Quiz-frågor", value:String(quizQuestions.length) },
+                  { label:"Innehållsobjekt", value:String(contentItems.length) },
                 ].map(({ label,value })=>(
                   <div key={label} className="flex justify-between py-2.5 border-b border-border last:border-0">
                     <span className="text-muted-foreground">{label}</span>
@@ -1159,3 +1362,4 @@ Explanation: ${q.explanation_en}`;
     </div>
   );
 }
+ 
