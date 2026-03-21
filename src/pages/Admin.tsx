@@ -55,21 +55,25 @@ export default function Admin() {
     setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(0, 50));
   };
 
-  const fetchUsers = async () => {
+const fetchUsers = async () => {
   setLoading(true);
   try {
-    const { data, error } = await supabase
-      console.log("DATA:", data, "ERROR:", error);
+    const { data: profiles, error } = await supabase
       .from("profiles")
-      .select(`id, email, display_name, created_at, user_roles(role)`);
+      .select("id, email, display_name, created_at");
 
-    if (error) { showToast("Kunde inte hämta användare", "error"); console.error(error); }
-    if (data) {
-      const formatted = data.map((p: any) => ({
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("user_id, role");
+
+    console.log("DATA:", profiles, "ERROR:", error);
+
+    if (profiles) {
+      const formatted = profiles.map((p: any) => ({
         id: p.id,
         email: p.email || "—",
         display_name: p.display_name || p.email?.split("@")[0] || "Okänd",
-        role: p.user_roles?.[0]?.role || "user",
+        role: roles?.find((r: any) => r.user_id === p.id)?.role || "user",
         created_at: p.created_at,
         xp: 0,
       }));
@@ -87,6 +91,7 @@ export default function Admin() {
     }
   } catch (err) { console.error(err); }
   setLoading(false);
+};
 };
   const fetchLeaderboard = async () => {
     const { data } = await supabase
