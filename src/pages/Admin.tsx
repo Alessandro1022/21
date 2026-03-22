@@ -419,6 +419,8 @@ Explanation: ${q.explanation_en}`;
   // ── SAVE QUESTION ──
   const saveQuestion = async (q: QuizQuestion) => {
     setSavingQ(true);
+    await fetchQuizQuestions();
+     setQuizPage(0);
     try {
       let final = q;
       if (!q.question_sv || !q.question_tr) final = await autoTranslateQuestion(q);
@@ -1072,8 +1074,6 @@ Explanation: ${q.explanation_en}`;
                 onChange={q => setNewQ(q)}
                 onSave={() => saveQuestion({ ...newQ, empire_id: quizEmpire })}
                 onCancel={() => setAddingQ(false)}
-                savingQ={savingQ}
-                await fetchQuizQuestions();
                 setQuizPage(0);
               />
             )}
