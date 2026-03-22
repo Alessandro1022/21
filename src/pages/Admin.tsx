@@ -1439,6 +1439,324 @@ Explanation: ${q.explanation_en}`;
           </div>
         )}
 
+        {/* ══ NOTISER ══ */}
+        {tab === "notifications" && (
+          <div className="space-y-5">
+            {/* Skapa ny notis */}
+            <div className="bg-card border border-primary/30 rounded-2xl p-6 space-y-4">
+              <h2 className="text-sm font-medium flex items-center gap-2"><Bell className="w-4 h-4 text-primary"/> Skapa &amp; skicka notis</h2>
+              <p className="text-xs text-muted-foreground">Notisen sparas och visas för alla användare i Notis-centret i appen. Översätts automatiskt till svenska och turkiska.</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Titel (engelska)</label>
+                  <input
+                    value={newNotif.title}
+                    onChange={e => setNewNotif(p => ({ ...p, title: e.target.value }))}
+                    placeholder="Ex: New feature available!"
+                    className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Bild-URL (valfritt)</label>
+                  <input
+                    value={newNotif.image_url}
+                    onChange={e => setNewNotif(p => ({ ...p, image_url: e.target.value }))}
+                    placeholder="https://... (jpg, png)"
+                    className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Meddelande (engelska)</label>
+                <textarea
+                  value={newNotif.body}
+                  onChange={e => setNewNotif(p => ({ ...p, body: e.target.value }))}
+                  placeholder="Write your message to all users in English..."
+                  className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-24"
+                />
+              </div>
+              {newNotif.image_url && (
+                <div className="rounded-xl overflow-hidden border border-border h-32 bg-secondary flex items-center justify-center">
+                  <img
+                    src={newNotif.image_url}
+                    alt="Preview"
+                    className="h-full w-full object-cover"
+                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                </div>
+              )}
+              <div className="flex items-start gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+                <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  <strong className="text-foreground">Auto-översättning:</strong> Titel och meddelande översätts automatiskt till svenska och turkiska av AI innan notisen sparas.
+                </p>
+              </div>
+              <button
+                onClick={sendNotification}
+                disabled={sendingNotif || !newNotif.title.trim() || !newNotif.body.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl gold-gradient text-primary-foreground text-sm font-medium disabled:opacity-50"
+              >
+                {translatingNotif
+                  ? <><Loader2 className="w-4 h-4 animate-spin"/> Översätter...</>
+                  : sendingNotif
+                  ? <><Loader2 className="w-4 h-4 animate-spin"/> Sparar...</>
+                  : <><Send className="w-4 h-4"/> Skicka till {users.length} användare</>
+                }
+              </button>
+            </div>
+
+            {/* Lista skickade notiser */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+                <h2 className="text-sm font-medium flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-muted-foreground"/> Skickade notiser
+                  <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">{notifications.length}</span>
+                </h2>
+                <button onClick={loadNotifications} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingNotifs ? "animate-spin" : ""}`}/>
+                </button>
+              </div>
+              {loadingNotifs ? (
+                <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div>
+              ) : notifications.length === 0 ? (
+                <div className="p-12 text-center text-muted-foreground">
+                  <Bell className="w-8 h-8 mx-auto mb-2 opacity-20"/>
+                  <p className="text-sm">Inga notiser skickade än</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {notifications.map(n => (
+                    <div key={n.id} className="flex items-start gap-4 px-5 py-4 hover:bg-secondary/20 transition-colors">
+                      {n.image_url && (
+                        <img src={n.image_url} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-border"/>
+                      )}
+                      {!n.image_url && (
+                        <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                          <Bell className="w-4 h-4 text-primary"/>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{n.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
+                        <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(n.created_at).toLocaleDateString("sv-SE")} {new Date(n.created_at).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          {n.sent_count !== undefined && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                              Skickad till {n.sent_count} användare
+                            </span>
+                          )}
+                          {n.title_sv && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600">✓ SV+TR</span>}
+                        </div>
+                      </div>
+                      <button onClick={() => deleteNotification(n.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0">
+                        <Trash2 className="w-3.5 h-3.5 text-red-500"/>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══ INFLUENCERS ══ */}
+        {tab === "influencers" && (
+          <div className="space-y-5">
+            {/* Stats-kort */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: "Influencers", value: influencers.length, icon: Users, color: "text-primary" },
+                { label: "Totala klick", value: influencers.reduce((a, i) => a + i.uses, 0), icon: TrendingUp, color: "text-blue-500" },
+                { label: "Konverteringar", value: influencers.reduce((a, i) => a + i.conversions, 0), icon: Star, color: "text-green-500" },
+                { label: "Genererad intäkt", value: `${influencers.reduce((a, i) => a + i.revenue_generated, 0)} kr`, icon: Zap, color: "text-yellow-500" },
+              ].map(({ label, value, icon: Icon, color }) => (
+                <div key={label} className="bg-card border border-border rounded-2xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{label}</span>
+                    <Icon className={`w-4 h-4 ${color}`}/>
+                  </div>
+                  <div className="text-2xl font-serif">{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Lägg till influencer */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-sm font-medium text-foreground">Influencer-länkar</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Skapa unika rabattkoder. Priset är {MONTHLY_PRICE} kr/mån — rabatt dras automatiskt.</p>
+              </div>
+              <button
+                onClick={() => setAddingInfluencer(v => !v)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl gold-gradient text-primary-foreground text-sm"
+              >
+                <Plus className="w-4 h-4"/> Ny influencer
+              </button>
+            </div>
+
+            {addingInfluencer && (
+              <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium flex items-center gap-2"><Share2 className="w-4 h-4 text-primary"/> Ny influencer-länk</h3>
+                  <button onClick={() => setAddingInfluencer(false)}><X className="w-4 h-4 text-muted-foreground"/></button>
+                </div>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Influencerns namn</label>
+                    <input
+                      value={newInfluencer.name}
+                      onChange={e => setNewInfluencer(p => ({ ...p, name: e.target.value }))}
+                      placeholder="Ex: Ahmed Influencer"
+                      className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Rabattkod (lämna tomt = auto)</label>
+                    <input
+                      value={newInfluencer.code}
+                      onChange={e => setNewInfluencer(p => ({ ...p, code: e.target.value.toUpperCase() }))}
+                      placeholder="Ex: AHMED10"
+                      className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Rabatt (%)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={newInfluencer.discount_percent}
+                        onChange={e => setNewInfluencer(p => ({ ...p, discount_percent: Number(e.target.value) }))}
+                        className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        = {Math.round(MONTHLY_PRICE * (1 - newInfluencer.discount_percent / 100))} kr/mån
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
+                  <Zap className="w-4 h-4 text-primary flex-shrink-0"/>
+                  <p className="text-xs text-muted-foreground">
+                    Länk: <span className="font-mono text-foreground">{window.location.origin}?ref={newInfluencer.code || "KOD"}</span>
+                    &nbsp;— Kund betalar <strong className="text-foreground">{Math.round(MONTHLY_PRICE * (1 - newInfluencer.discount_percent / 100))} kr</strong> istället för {MONTHLY_PRICE} kr
+                  </p>
+                </div>
+                <button
+                  onClick={saveInfluencer}
+                  disabled={savingInfluencer || !newInfluencer.name.trim()}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl gold-gradient text-primary-foreground text-sm font-medium disabled:opacity-50"
+                >
+                  {savingInfluencer ? <><Loader2 className="w-4 h-4 animate-spin"/> Skapar...</> : <><Plus className="w-4 h-4"/> Skapa länk</>}
+                </button>
+              </div>
+            )}
+
+            {/* Lista influencers */}
+            {loadingInfluencers ? (
+              <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div>
+            ) : influencers.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <Share2 className="w-10 h-10 mx-auto mb-3 opacity-20"/>
+                <p className="font-medium text-sm">Inga influencer-länkar ännu</p>
+                <p className="text-xs mt-1">Skapa din första länk ovan</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {influencers.map((inf, idx) => {
+                  const discountedPrice = Math.round(MONTHLY_PRICE * (1 - inf.discount_percent / 100));
+                  const convRate = inf.uses > 0 ? Math.round((inf.conversions / inf.uses) * 100) : 0;
+                  return (
+                    <div key={inf.id} className="bg-card border border-border rounded-2xl p-5">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full gold-gradient flex items-center justify-center text-primary-foreground font-serif font-medium text-sm flex-shrink-0">
+                            {inf.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{inf.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className="font-mono text-xs px-2 py-0.5 rounded-lg bg-primary/15 text-primary">{inf.code}</span>
+                              <span className="text-xs text-muted-foreground">{inf.discount_percent}% rabatt</span>
+                              <span className="text-xs text-muted-foreground">→ {discountedPrice} kr/mån</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => copyInfluencerLink(inf.code)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border text-xs hover:bg-secondary transition-colors"
+                          >
+                            <Copy className="w-3.5 h-3.5"/> Kopiera länk
+                          </button>
+                          <button
+                            onClick={() => deleteInfluencer(inf.id, inf.name)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-500"/>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Stats-rad */}
+                      <div className="grid grid-cols-4 gap-3 mt-4">
+                        {[
+                          { label: "Klick", value: inf.uses, color: "text-blue-500" },
+                          { label: "Konverteringar", value: inf.conversions, color: "text-green-500" },
+                          { label: "Conv. rate", value: `${convRate}%`, color: "text-purple-500" },
+                          { label: "Intäkt", value: `${inf.revenue_generated} kr`, color: "text-yellow-500" },
+                        ].map(({ label, value, color }) => (
+                          <div key={label} className="bg-secondary/50 rounded-xl p-3 text-center">
+                            <p className={`text-lg font-serif ${color}`}>{value}</p>
+                            <p className="text-[10px] text-muted-foreground">{label}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Progress-bar konv */}
+                      <div className="mt-3">
+                        <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                          <span>Konverteringsgrad</span>
+                          <span>{convRate}%</span>
+                        </div>
+                        <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                          <div className="h-full rounded-full gold-gradient transition-all duration-700" style={{ width: `${convRate}%` }}/>
+                        </div>
+                      </div>
+
+                      {/* Länk-URL */}
+                      <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-secondary/50 rounded-xl">
+                        <Globe className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"/>
+                        <span className="text-[11px] text-muted-foreground font-mono truncate">
+                          {window.location.origin}?ref={inf.code}
+                        </span>
+                        <button onClick={() => copyInfluencerLink(inf.code)} className="ml-auto flex-shrink-0">
+                          <Copy className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground transition-colors"/>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Info-ruta om 10% */}
+            <div className="bg-card border border-primary/20 rounded-2xl p-5">
+              <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Zap className="w-4 h-4 text-yellow-500"/> Hur det fungerar</h3>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <p>1. Skapa en unik länk per influencer med valfri rabatt (standard {DEFAULT_DISCOUNT}%)</p>
+                <p>2. Influencern delar sin länk med följare — ex: <span className="font-mono text-foreground">empireai10.vercel.app?ref=KOD</span></p>
+                <p>3. Varje klick registreras som ett "use" — när användaren betalar räknas det som en konvertering</p>
+                <p>4. Vid {DEFAULT_DISCOUNT}% rabatt betalar kunden <strong className="text-foreground">{Math.round(MONTHLY_PRICE * 0.9)} kr</strong> istället för {MONTHLY_PRICE} kr</p>
+                <p>5. Du ser i realtid hur många som använt varje länk och hur mycket intäkt som genererats</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ══ MODERATION ══ */}
         {tab === "moderation" && (
           <div className="space-y-4">
