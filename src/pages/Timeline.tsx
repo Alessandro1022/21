@@ -205,8 +205,9 @@ export default function Timeline() {
                         <button
                           key={event.year}
                           onClick={() => setSelectedYear(event.year)}
-                          className="relative w-full text-left pl-10 sm:pl-14 pr-3 py-3 rounded-xl hover:bg-card/60 transition-all duration-200 group animate-fade-in"
-                          style={{ animationDelay: `${Math.min(idx * 30, 500)}ms` }}
+                          className={`relative w-full text-left pl-10 sm:pl-14 pr-3 py-3 rounded-xl transition-all duration-200 group animate-fade-in ${
+                            event.empire === "ottoman" ? "text-black" : "text-white"
+                           }`}
                         >
                           {/* Timeline dot */}
                           <div className={`absolute left-2.5 sm:left-4.5 top-4 w-3 h-3 rounded-full ring-2 ring-background transition-all duration-300 ${
