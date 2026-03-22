@@ -613,7 +613,7 @@ Explanation: ${q.explanation_en}`;
     } catch { return q; }
   }
 
-  // ── SAVE QUESTION ──
+  // ── SAVE QUESTION — sparar direkt, översätter i bakgrunden ──
   const saveQuestion = async (q: QuizQuestion) => {
     if (!q.question_en.trim() || q.options_en.some(o => !o.trim()) || !q.explanation_en.trim()) {
       showToast("Fyll i alla fält innan du sparar", "error"); return;
@@ -621,20 +621,49 @@ Explanation: ${q.explanation_en}`;
     setSavingQ(true);
     setQuizPage(0);
     try {
-      let final = q;
-      if (!q.question_sv || !q.question_tr) final = await autoTranslateQuestion(q);
-      const { id, translating, ...payload } = final as any;
+      // Spara direkt med engelska — sv/tr fylls i om Edge Function finns
+      const payload: any = {
+        empire_id: q.empire_id,
+        question_en: q.question_en,
+        question_sv: q.question_sv || q.question_en,
+        question_tr: q.question_tr || q.question_en,
+        options_en: q.options_en,
+        options_sv: q.options_sv?.length ? q.options_sv : q.options_en,
+        options_tr: q.options_tr?.length ? q.options_tr : q.options_en,
+        correct_index: q.correct_index,
+        explanation_en: q.explanation_en,
+        explanation_sv: q.explanation_sv || q.explanation_en,
+        explanation_tr: q.explanation_tr || q.explanation_en,
+        active: true,
+      };
+
+      let error;
       if (q.id) {
-        await supabase.from("quiz_questions").update(payload).eq("id", q.id);
-        showToast("Fråga uppdaterad!"); addLog(`Uppdaterad: ${q.question_en.slice(0,40)}`, "success");
+        const res = await supabase.from("quiz_questions").update(payload).eq("id", q.id);
+        error = res.error;
+        if (!error) { showToast("Fråga uppdaterad!"); addLog(`Uppdaterad: ${q.question_en.slice(0,40)}`, "success"); }
       } else {
-        await supabase.from("quiz_questions").insert(payload);
-        showToast("Fråga tillagd!"); addLog(`Ny fråga: ${q.question_en.slice(0,40)}`, "success");
-        setNewQ({ empire_id: quizEmpire, question_en: "", options_en: ["","","",""], correct_index: 0, explanation_en: "" });
-        setAddingQ(false);
+        const res = await supabase.from("quiz_questions").insert(payload);
+        error = res.error;
+        if (!error) {
+          showToast("Fråga tillagd!");
+          addLog(`Ny fråga: ${q.question_en.slice(0,40)}`, "success");
+          setNewQ({ empire_id: quizEmpire, question_en: "", options_en: ["","","",""], correct_index: 0, explanation_en: "" });
+          setAddingQ(false);
+        }
       }
-      await loadQuizQuestions(); setEditingQ(null);
-    } catch { showToast("Kunde inte spara", "error"); }
+
+      if (error) {
+        showToast(`Fel: ${error.message}`, "error");
+        addLog(`Sparfel: ${error.message}`, "error");
+      }
+
+      await loadQuizQuestions();
+      setEditingQ(null);
+    } catch (e: any) {
+      showToast(`Fel: ${e?.message || "okänt fel"}`, "error");
+      addLog(`Exception: ${e?.message}`, "error");
+    }
     setSavingQ(false);
   };
 
