@@ -186,8 +186,6 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
   </>
 );
 
-  export default function Admin() {
-
   
   // ── USER STATE ──
   const [users, setUsers] = useState<UserProfile[]>([]);
