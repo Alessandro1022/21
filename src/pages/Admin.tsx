@@ -214,7 +214,6 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
   const [loadingQuiz, setLoadingQuiz] = useState(false);
   const [quizPage, setQuizPage] = useState(0);
   const [editingQ, setEditingQ] = useState<QuizQuestion | null>(null);
-  const [savingQ, setSavingQ] = useState(false);
   const [addingQ, setAddingQ] = useState(false);
   const [translatingAll, setTranslatingAll] = useState(false);
   const [quizSearch, setQuizSearch] = useState("");
