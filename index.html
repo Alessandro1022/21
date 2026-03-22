@@ -7,18 +7,17 @@
 <title>Empire AI</title>
 
 <style>
-body { margin:0; }
+body { margin:0; overflow:hidden; }
 
 /* SPLASH */
 #splash {
-  position: fixed;
+  position:fixed;
   width:100%;
   height:100%;
   background: radial-gradient(circle, #200000, #000);
   display:flex;
   justify-content:center;
   align-items:center;
-  overflow:hidden;
   z-index:9999;
 }
 
@@ -26,13 +25,12 @@ body { margin:0; }
 .logo {
   width:130px;
   animation: bounce 1.5s infinite, glow 2s infinite;
-  transition: transform 0.5s ease;
 }
 
 /* GLOW */
 @keyframes glow {
   0% { filter: drop-shadow(0 0 10px #8B0000); }
-  50% { filter: drop-shadow(0 0 40px #ff0000); }
+  50% { filter: drop-shadow(0 0 40px red); }
   100% { filter: drop-shadow(0 0 10px #8B0000); }
 }
 
@@ -46,21 +44,21 @@ body { margin:0; }
 .sword {
   position:absolute;
   width:220px;
-  top:40%;
-  left:-300px;
-  transform: rotate(45deg);
-  opacity:0;
-}
-
-/* SLASH TRAIL */
-.trail {
-  position:absolute;
-  width:300px;
-  height:3px;
-  background: linear-gradient(90deg, transparent, red, transparent);
   top:50%;
   left:-300px;
   transform: rotate(45deg);
+  z-index:3;
+}
+
+/* TRAIL */
+.trail {
+  position:absolute;
+  width:300px;
+  height:4px;
+  background: linear-gradient(90deg, transparent, red, transparent);
+  transform: rotate(45deg);
+  top:50%;
+  left:-300px;
   opacity:0;
 }
 
@@ -73,39 +71,47 @@ body { margin:0; }
   opacity:0;
 }
 
-/* CRACK EFFECT */
-.crack {
+/* SMOKE */
+.smoke {
   position:absolute;
-  width:140px;
-  height:140px;
-  border:2px solid rgba(255,0,0,0.4);
-  border-radius:20px;
+  width:200px;
+  height:200px;
+  background: radial-gradient(circle, rgba(255,0,0,0.3), transparent);
+  border-radius:50%;
+  top:50%;
+  left:50%;
+  transform:translate(-50%, -50%);
   opacity:0;
 }
 
-/* ANIMATIONS */
-@keyframes slashMove {
-  0% { left:-300px; opacity:0; }
-  30% { opacity:1; }
-  100% { left:120%; opacity:1; }
+/* PARTICLES */
+canvas {
+  position:absolute;
+  top:0;
+  left:0;
 }
 
-@keyframes trailMove {
-  0% { left:-300px; opacity:0; }
-  30% { opacity:1; }
+/* ANIMATION */
+@keyframes slash {
+  0% { left:-300px; }
+  100% { left:120%; }
+}
+
+@keyframes trailAnim {
+  0% { left:-300px; opacity:1; }
   100% { left:120%; opacity:0; }
 }
 
 @keyframes flashAnim {
   0% { opacity:0; }
-  50% { opacity:0.9; }
+  50% { opacity:1; }
   100% { opacity:0; }
 }
 
-@keyframes crackAnim {
-  0% { opacity:0; transform: scale(0.8); }
-  50% { opacity:1; transform: scale(1.1); }
-  100% { opacity:0; }
+@keyframes smokeAnim {
+  0% { opacity:0; transform:translate(-50%, -50%) scale(0.5); }
+  50% { opacity:1; }
+  100% { opacity:0; transform:translate(-50%, -50%) scale(1.5); }
 }
 </style>
 </head>
@@ -116,14 +122,17 @@ body { margin:0; }
   <img src="/icon-192.png" class="logo" id="logo">
 
   <img src="/sword.png" class="sword" id="sword">
-
   <div class="trail" id="trail"></div>
+
   <div class="flash" id="flash"></div>
-  <div class="crack" id="crack"></div>
+  <div class="smoke" id="smoke"></div>
+
+  <canvas id="particles"></canvas>
+
+  <audio id="sound" src="/sword.mp3"></audio>
 </div>
 
 <div id="root"></div>
-
 <script type="module" src="/src/main.tsx"></script>
 
 <script>
@@ -132,39 +141,62 @@ window.addEventListener("load", () => {
   const sword = document.getElementById("sword");
   const trail = document.getElementById("trail");
   const flash = document.getElementById("flash");
-  const crack = document.getElementById("crack");
+  const smoke = document.getElementById("smoke");
   const logo = document.getElementById("logo");
   const splash = document.getElementById("splash");
+  const sound = document.getElementById("sound");
 
-  // ⚔️ START SLASH
+  const canvas = document.getElementById("particles");
+  const ctx = canvas.getContext("2d");
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  function createParticles() {
+    for (let i = 0; i < 40; i++) {
+      const x = canvas.width / 2;
+      const y = canvas.height / 2;
+
+      const dx = (Math.random() - 0.5) * 15;
+      const dy = (Math.random() - 0.5) * 15;
+
+      ctx.fillStyle = "red";
+      ctx.fillRect(x + dx, y + dy, 4, 4);
+    }
+  }
+
+  // ⚔️ SLASH START
   setTimeout(() => {
-    sword.style.animation = "slashMove 0.6s ease forwards";
-    trail.style.animation = "trailMove 0.6s ease forwards";
-  }, 1800);
+    sword.style.animation = "slash 0.5s linear forwards";
+    trail.style.animation = "trailAnim 0.5s linear forwards";
+  }, 1500);
 
-  // 💥 IMPACT
+  // 💥 IMPACT MOMENT
   setTimeout(() => {
-    flash.style.animation = "flashAnim 0.3s ease";
-    crack.style.animation = "crackAnim 0.4s ease";
+    flash.style.animation = "flashAnim 0.3s";
+    smoke.style.animation = "smokeAnim 1s";
 
-    // vibration
+    createParticles();
+
     if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
 
-    // logo recoil
-    logo.style.transform = "scale(1.2) rotate(-3deg)";
-  }, 2000);
+    sound.play();
 
-  // 🎬 RESET LOGO
-  setTimeout(() => {
-    logo.style.transform = "scale(1)";
-  }, 2300);
+    // screen shake
+    document.body.style.transform = "translateX(5px)";
+    setTimeout(() => document.body.style.transform = "translateX(-5px)", 50);
+    setTimeout(() => document.body.style.transform = "translateX(0)", 100);
 
-  // 🚀 EXIT
+    // logo hit reaction
+    logo.style.transform = "scale(1.3) rotate(-5deg)";
+  }, 1700);
+
+  // 🎬 EXIT
   setTimeout(() => {
+    splash.style.transition = "0.5s";
     splash.style.opacity = "0";
-    splash.style.transform = "scale(1.1)";
-    setTimeout(() => splash.remove(), 600);
-  }, 2700);
+    setTimeout(() => splash.remove(), 500);
+  }, 2300);
 
 });
 </script>
