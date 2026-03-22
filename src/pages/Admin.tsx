@@ -12,8 +12,6 @@ import {
   Hash, Layers, Send, ThumbsUp, ThumbsDown, Flag,
 } from "lucide-react";
 
-export default function Admin() {
-
 interface UserProfile {
   id: string;
   email: string;
@@ -187,6 +185,9 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
     </div>
   </>
 );
+
+  export default function Admin() {
+
   
   // ── USER STATE ──
   const [users, setUsers] = useState<UserProfile[]>([]);
