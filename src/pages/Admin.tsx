@@ -101,13 +101,20 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
         </h3>
         <button onClick={onCancel}><X className="w-4 h-4 text-muted-foreground"/></button>
       </div>
+
       <div>
         <label className="text-xs text-muted-foreground mb-1 block">Empire</label>
-        <select value={q.empire_id} onChange={e => onChange({ ...q, empire_id: e.target.value })}
-          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
-          {EMPIRE_OPTIONS.map(e => <option key={e} value={e}>{e.charAt(0).toUpperCase()+e.slice(1)}</option>)}
+        <select
+          value={q.empire_id}
+          onChange={e => onChange({ ...q, empire_id: e.target.value })}
+          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"
+        >
+          {EMPIRE_OPTIONS.map(e => (
+            <option key={e} value={e}>{e.charAt(0).toUpperCase()+e.slice(1)}</option>
+          ))}
         </select>
       </div>
+
       <div>
         <label className="text-xs text-muted-foreground mb-1 block">Fråga (engelska)</label>
         <textarea
@@ -117,22 +124,39 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
           placeholder="Skriv frågan på engelska..."
         />
       </div>
+
       <div className="space-y-2">
-        <label className="text-xs text-muted-foreground block">Svarsalternativ — välj rätt svar med radio-knappen</label>
+        <label className="text-xs text-muted-foreground block">
+          Svarsalternativ — välj rätt svar med radio-knappen
+        </label>
+
         {q.options_en.map((opt, i) => (
           <div key={i} className="flex items-center gap-2">
-            <input type="radio" name={`correct-${q.id||"new"}`} checked={q.correct_index === i}
-              onChange={() => onChange({ ...q, correct_index: i })} className="accent-primary flex-shrink-0"/>
+            <input
+              type="radio"
+              name={`correct-${q.id||"new"}`}
+              checked={q.correct_index === i}
+              onChange={() => onChange({ ...q, correct_index: i })}
+              className="accent-primary flex-shrink-0"
+            />
             <input
               value={opt}
-              onChange={e => { const opts=[...q.options_en]; opts[i]=e.target.value; onChange({ ...q, options_en: opts }); }}
+              onChange={e => {
+                const opts = [...q.options_en];
+                opts[i] = e.target.value;
+                onChange({ ...q, options_en: opts });
+              }}
               className="flex-1 px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary"
               placeholder={`Alternativ ${String.fromCharCode(65+i)}`}
             />
-            {q.correct_index === i && <span className="text-xs text-green-500 font-medium flex-shrink-0">✓ rätt</span>}
+            {q.correct_index === i && (
+              <span className="text-xs text-green-500 font-medium flex-shrink-0">✓ rätt</span>
+            )}
           </div>
         ))}
       </div>
+
+      <div>
         <label className="text-xs text-muted-foreground mb-1 block">Förklaring (engelska)</label>
         <textarea
           value={q.explanation_en}
@@ -141,12 +165,14 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
           placeholder="Kort förklaring av rätt svar..."
         />
       </div>
+
       <div className="flex items-start gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
         <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
         <p className="text-xs text-muted-foreground leading-relaxed">
           <strong className="text-foreground">Auto-översättning:</strong> Svenska och turkiska genereras automatiskt av AI vid sparning.
         </p>
       </div>
+
       <button
         onClick={onSave}
         disabled={savingQ || !q.question_en || q.options_en.some(o => !o) || !q.explanation_en}
@@ -157,8 +183,8 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
           : <>{q.id ? "Spara ändringar" : "Lägg till fråga"}</>}
       </button>
     </div>
-  );
-}
+  </>
+);
  
 export default function Admin() {
  
