@@ -1,94 +1,173 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- PWA -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0a0000">
+<title>Empire AI</title>
 
-    <!-- SEO -->
-    <title>Empire AI</title>
-    <meta name="description" content="Empire AI – Intelligent solutions powered by AI." />
+<style>
+body { margin:0; }
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="/src/index.css">
+/* SPLASH */
+#splash {
+  position: fixed;
+  width:100%;
+  height:100%;
+  background: radial-gradient(circle, #200000, #000);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  overflow:hidden;
+  z-index:9999;
+}
 
-    <style>
-      #root {
-        padding-top: env(safe-area-inset-top);
-      }
+/* LOGO */
+.logo {
+  width:130px;
+  animation: bounce 1.5s infinite, glow 2s infinite;
+  transition: transform 0.5s ease;
+}
 
-      /* SPLASH */
-      #splash {
-        position: fixed;
-        width: 100%;
-        height: 100%;
-        background: radial-gradient(circle, #200000, #0a0000);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-        transition: opacity 0.5s ease;
-      }
+/* GLOW */
+@keyframes glow {
+  0% { filter: drop-shadow(0 0 10px #8B0000); }
+  50% { filter: drop-shadow(0 0 40px #ff0000); }
+  100% { filter: drop-shadow(0 0 10px #8B0000); }
+}
 
-      /* LOGO */
-      .logo {
-        width: 130px;
-        animation: bounce 1.5s infinite, glowPulse 2s infinite;
-      }
+/* BOUNCE */
+@keyframes bounce {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
 
-      /* BOUNCE */
-      @keyframes bounce {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-20px); }
-      }
+/* SWORD */
+.sword {
+  position:absolute;
+  width:220px;
+  top:40%;
+  left:-300px;
+  transform: rotate(45deg);
+  opacity:0;
+}
 
-      /* 🔴 GLOW ANIMATION */
-      @keyframes glowPulse {
-        0% {
-          filter: drop-shadow(0 0 10px #8B0000)
-                  drop-shadow(0 0 20px #8B0000);
-        }
-        50% {
-          filter: drop-shadow(0 0 20px #ff0000)
-                  drop-shadow(0 0 40px #ff0000);
-        }
-        100% {
-          filter: drop-shadow(0 0 10px #8B0000)
-                  drop-shadow(0 0 20px #8B0000);
-        }
-      }
-    </style>
-  </head>
+/* SLASH TRAIL */
+.trail {
+  position:absolute;
+  width:300px;
+  height:3px;
+  background: linear-gradient(90deg, transparent, red, transparent);
+  top:50%;
+  left:-300px;
+  transform: rotate(45deg);
+  opacity:0;
+}
 
-  <body>
-    <!-- SPLASH SCREEN -->
-    <div id="splash">
-      <img src="/icon-192.png" class="logo" />
-    </div>
+/* FLASH */
+.flash {
+  position:absolute;
+  width:100%;
+  height:100%;
+  background:white;
+  opacity:0;
+}
 
-    <!-- REACT ROOT -->
-    <div id="root"></div>
+/* CRACK EFFECT */
+.crack {
+  position:absolute;
+  width:140px;
+  height:140px;
+  border:2px solid rgba(255,0,0,0.4);
+  border-radius:20px;
+  opacity:0;
+}
 
-    <!-- MAIN -->
-    <script type="module" src="/src/main.tsx"></script>
+/* ANIMATIONS */
+@keyframes slashMove {
+  0% { left:-300px; opacity:0; }
+  30% { opacity:1; }
+  100% { left:120%; opacity:1; }
+}
 
-    <!-- REMOVE SPLASH SMOOTH -->
-    <script>
-      window.addEventListener("load", () => {
-        setTimeout(() => {
-          const splash = document.getElementById("splash");
-          if (splash) {
-            splash.style.opacity = "0";
-            setTimeout(() => splash.remove(), 500);
-          }
-        }, 2000);
-      });
-    </script>
-  </body>
+@keyframes trailMove {
+  0% { left:-300px; opacity:0; }
+  30% { opacity:1; }
+  100% { left:120%; opacity:0; }
+}
+
+@keyframes flashAnim {
+  0% { opacity:0; }
+  50% { opacity:0.9; }
+  100% { opacity:0; }
+}
+
+@keyframes crackAnim {
+  0% { opacity:0; transform: scale(0.8); }
+  50% { opacity:1; transform: scale(1.1); }
+  100% { opacity:0; }
+}
+</style>
+</head>
+
+<body>
+
+<div id="splash">
+  <img src="/icon-192.png" class="logo" id="logo">
+
+  <img src="/sword.png" class="sword" id="sword">
+
+  <div class="trail" id="trail"></div>
+  <div class="flash" id="flash"></div>
+  <div class="crack" id="crack"></div>
+</div>
+
+<div id="root"></div>
+
+<script type="module" src="/src/main.tsx"></script>
+
+<script>
+window.addEventListener("load", () => {
+
+  const sword = document.getElementById("sword");
+  const trail = document.getElementById("trail");
+  const flash = document.getElementById("flash");
+  const crack = document.getElementById("crack");
+  const logo = document.getElementById("logo");
+  const splash = document.getElementById("splash");
+
+  // ⚔️ START SLASH
+  setTimeout(() => {
+    sword.style.animation = "slashMove 0.6s ease forwards";
+    trail.style.animation = "trailMove 0.6s ease forwards";
+  }, 1800);
+
+  // 💥 IMPACT
+  setTimeout(() => {
+    flash.style.animation = "flashAnim 0.3s ease";
+    crack.style.animation = "crackAnim 0.4s ease";
+
+    // vibration
+    if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+
+    // logo recoil
+    logo.style.transform = "scale(1.2) rotate(-3deg)";
+  }, 2000);
+
+  // 🎬 RESET LOGO
+  setTimeout(() => {
+    logo.style.transform = "scale(1)";
+  }, 2300);
+
+  // 🚀 EXIT
+  setTimeout(() => {
+    splash.style.opacity = "0";
+    splash.style.transform = "scale(1.1)";
+    setTimeout(() => splash.remove(), 600);
+  }, 2700);
+
+});
+</script>
+
+</body>
 </html>
