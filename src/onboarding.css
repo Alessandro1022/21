@@ -6,6 +6,11 @@
   flex-direction: column;
   z-index: 9999;
   overflow: hidden;
+  animation: obOverlayIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes obOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
  
 .ob-orb {
@@ -54,7 +59,7 @@
 }
  
 .ob-content {
-  animation: obSlideIn 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: obSlideIn 0.55s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @keyframes obSlideIn {
   from {
@@ -221,4 +226,3 @@
 .ob-skip:hover {
   color: rgba(255, 255, 255, 0.48);
 }
- 
