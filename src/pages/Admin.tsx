@@ -11,6 +11,7 @@ import {
   Sparkles, Medal, Globe, MessageSquare, PenLine, BarChart,
   Hash, Layers, Send, ThumbsUp, ThumbsDown, Flag,
 } from "lucide-react";
+
  
 interface UserProfile {
   id: string;
