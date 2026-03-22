@@ -38,8 +38,36 @@ interface Stats {
 
 type SortField = "display_name" | "email" | "role" | "created_at" | "xp";
 type SortDir = "asc" | "desc";
-type Tab = "users" | "stats" | "leaderboard" | "quiz" | "content" | "moderation" | "logs" | "settings";
+type Tab = "users" | "stats" | "leaderboard" | "quiz" | "content" | "notifications" | "influencers" | "moderation" | "logs" | "settings";
 type LeaderboardPeriod = "alltime" | "week" | "today";
+
+// ── NYA INTERFACES ──
+interface AppNotification {
+  id: string;
+  title: string;
+  title_sv?: string;
+  title_tr?: string;
+  body: string;
+  body_sv?: string;
+  body_tr?: string;
+  image_url?: string;
+  created_at: string;
+  sent_count?: number;
+}
+
+interface InfluencerLink {
+  id: string;
+  name: string;
+  code: string;
+  discount_percent: number;
+  uses: number;
+  conversions: number;
+  revenue_generated: number;
+  created_at: string;
+}
+
+const MONTHLY_PRICE = 78;
+const DEFAULT_DISCOUNT = 10;
 
 interface Log {
   id: string;
@@ -145,7 +173,7 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
       </div>
       <button
         onClick={onSave}
-        disabled={savingQ}
+        disabled={savingQ || !q.question_en.trim() || q.options_en.some(o => !o.trim()) || !q.explanation_en.trim()}
         className="w-full py-2.5 rounded-xl gold-gradient text-primary-foreground font-sans font-medium text-sm disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {savingQ
@@ -203,6 +231,20 @@ export default function Admin() {
   const [newContent, setNewContent] = useState({ type: "announcement", empire_id: "ottoman", text_en: "" });
   const [addingContent, setAddingContent] = useState(false);
   const [savingContent, setSavingContent] = useState(false);
+
+  // ── NOTIFICATION STATE ──
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
+  const [newNotif, setNewNotif] = useState({ title: "", body: "", image_url: "" });
+  const [sendingNotif, setSendingNotif] = useState(false);
+  const [translatingNotif, setTranslatingNotif] = useState(false);
+
+  // ── INFLUENCER STATE ──
+  const [influencers, setInfluencers] = useState<InfluencerLink[]>([]);
+  const [loadingInfluencers, setLoadingInfluencers] = useState(false);
+  const [newInfluencer, setNewInfluencer] = useState({ name: "", code: "", discount_percent: DEFAULT_DISCOUNT });
+  const [addingInfluencer, setAddingInfluencer] = useState(false);
+  const [savingInfluencer, setSavingInfluencer] = useState(false);
 
   // ── HELPERS ──
   const showToast = (msg: string, type: "success"|"error" = "success") => {
@@ -285,7 +327,7 @@ export default function Admin() {
               ? (now - new Date(p.last_seen).getTime()) < 5 * 60 * 1000
               : false,
             questions_asked: qStats?.count ?? p.questions_asked ?? 0,
-            quiz_score: quizPct || p.quiz_score ?? 0,
+            quiz_score: quizPct || (p.quiz_score ?? 0),
             is_banned: p.is_banned ?? false,
             avatar_url: p.avatar_url ?? "",
           };
@@ -362,6 +404,26 @@ export default function Admin() {
 
   useEffect(() => { if (tab === "content") loadContent(); }, [tab, loadContent]);
 
+  // ── LOAD NOTIFICATIONS ──
+  const loadNotifications = useCallback(async () => {
+    setLoadingNotifs(true);
+    const { data } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
+    setNotifications((data || []) as AppNotification[]);
+    setLoadingNotifs(false);
+  }, []);
+
+  useEffect(() => { if (tab === "notifications") loadNotifications(); }, [tab, loadNotifications]);
+
+  // ── LOAD INFLUENCERS ──
+  const loadInfluencers = useCallback(async () => {
+    setLoadingInfluencers(true);
+    const { data } = await supabase.from("influencer_links").select("*").order("created_at", { ascending: false });
+    setInfluencers((data || []) as InfluencerLink[]);
+    setLoadingInfluencers(false);
+  }, []);
+
+  useEffect(() => { if (tab === "influencers") loadInfluencers(); }, [tab, loadInfluencers]);
+
   // ── REALTIME + INIT ──
   useEffect(() => {
     fetchUsers(); fetchLeaderboard();
@@ -424,6 +486,90 @@ export default function Admin() {
     else { await navigator.clipboard.writeText(text); showToast("Kopierat!"); }
   };
 
+  // ── SEND NOTIFICATION — sparar i Supabase + auto-translate ──
+  const sendNotification = async () => {
+    if (!newNotif.title.trim() || !newNotif.body.trim()) return;
+    setSendingNotif(true);
+    try {
+      setTranslatingNotif(true);
+      const titleTrans = await autoTranslate(newNotif.title);
+      const bodyTrans = await autoTranslate(newNotif.body);
+      setTranslatingNotif(false);
+      const { error } = await supabase.from("notifications").insert({
+        title: newNotif.title.trim(),
+        title_sv: titleTrans.sv,
+        title_tr: titleTrans.tr,
+        body: newNotif.body.trim(),
+        body_sv: bodyTrans.sv,
+        body_tr: bodyTrans.tr,
+        image_url: newNotif.image_url.trim() || null,
+        sent_count: users.length,
+      });
+      if (error) throw error;
+      showToast(`Notis skickad till ${users.length} användare!`);
+      addLog(`Notis: "${newNotif.title}" → ${users.length} användare`, "success");
+      setNewNotif({ title: "", body: "", image_url: "" });
+      loadNotifications();
+    } catch (e: any) {
+      setTranslatingNotif(false);
+      showToast("Kunde inte skicka notis", "error");
+      addLog(`Notis-fel: ${e?.message}`, "error");
+    }
+    setSendingNotif(false);
+  };
+
+  const deleteNotification = async (id: string) => {
+    if (!confirm("Radera denna notis?")) return;
+    await supabase.from("notifications").delete().eq("id", id);
+    showToast("Notis raderad"); addLog("Notis raderad", "warn"); loadNotifications();
+  };
+
+  // ── INFLUENCER CRUD ──
+  const generateCode = (name: string) => {
+    const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8);
+    const rand = Math.random().toString(36).slice(2, 5);
+    return `${slug}${rand}`.toUpperCase();
+  };
+
+  const saveInfluencer = async () => {
+    if (!newInfluencer.name.trim()) { showToast("Ange ett namn", "error"); return; }
+    setSavingInfluencer(true);
+    try {
+      const code = newInfluencer.code.trim() || generateCode(newInfluencer.name);
+      const { error } = await supabase.from("influencer_links").insert({
+        name: newInfluencer.name.trim(),
+        code: code.toUpperCase(),
+        discount_percent: newInfluencer.discount_percent,
+        uses: 0,
+        conversions: 0,
+        revenue_generated: 0,
+      });
+      if (error) throw error;
+      showToast(`Influencer-länk skapad: ${code.toUpperCase()}`);
+      addLog(`Ny influencer: ${newInfluencer.name} (${code})`, "success");
+      setNewInfluencer({ name: "", code: "", discount_percent: DEFAULT_DISCOUNT });
+      setAddingInfluencer(false);
+      loadInfluencers();
+    } catch (e: any) {
+      showToast("Kunde inte skapa länk — koden kanske redan finns", "error");
+      addLog(`Influencer-fel: ${e?.message}`, "error");
+    }
+    setSavingInfluencer(false);
+  };
+
+  const deleteInfluencer = async (id: string, name: string) => {
+    if (!confirm(`Ta bort ${name}?`)) return;
+    await supabase.from("influencer_links").delete().eq("id", id);
+    showToast(`${name} borttagen`); addLog(`Influencer borttagen: ${name}`, "warn");
+    loadInfluencers();
+  };
+
+  const copyInfluencerLink = (code: string) => {
+    const url = `${window.location.origin}?ref=${code}`;
+    navigator.clipboard.writeText(url);
+    showToast("Länk kopierad!");
+  };
+
   // ── AUTO TRANSLATE ──
   async function autoTranslate(text_en: string): Promise<{ sv: string; tr: string }> {
     try {
@@ -461,9 +607,11 @@ Explanation: ${q.explanation_en}`;
 
   // ── SAVE QUESTION ──
   const saveQuestion = async (q: QuizQuestion) => {
+    if (!q.question_en.trim() || q.options_en.some(o => !o.trim()) || !q.explanation_en.trim()) {
+      showToast("Fyll i alla fält innan du sparar", "error"); return;
+    }
     setSavingQ(true);
-    await fetchQuizQuestions();
-     setQuizPage(0);
+    setQuizPage(0);
     try {
       let final = q;
       if (!q.question_sv || !q.question_tr) final = await autoTranslateQuestion(q);
@@ -696,6 +844,8 @@ Explanation: ${q.explanation_en}`;
             { key:"leaderboard", label:"Leaderboard", icon:Trophy },
             { key:"quiz", label:"Quiz", icon:BookOpen },
             { key:"content", label:"Innehåll", icon:PenLine },
+            { key:"notifications", label:"Notiser", icon:Bell },
+            { key:"influencers", label:"Influencers", icon:Share2 },
             { key:"moderation", label:"Moderation", icon:Shield },
             { key:"logs", label:"Logg", icon:Activity },
             { key:"settings", label:"Inställningar", icon:Settings },
