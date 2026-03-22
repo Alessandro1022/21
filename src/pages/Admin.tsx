@@ -1074,7 +1074,6 @@ Explanation: ${q.explanation_en}`;
                 onChange={q => setNewQ(q)}
                 onSave={() => saveQuestion({ ...newQ, empire_id: quizEmpire })}
                 onCancel={() => setAddingQ(false)}
-                setQuizPage(0);
               />
             )}
 
