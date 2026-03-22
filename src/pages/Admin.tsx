@@ -116,7 +116,7 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
   savingQ: boolean;
 }) {
   return (
-    <div className="h-screen overflow-y-auto">
+    <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-primary"/>
@@ -571,19 +571,33 @@ export default function Admin() {
   };
 
   // ── AUTO TRANSLATE ──
-  async function autoTranslate(text_en: string): Promise<{ sv: string; tr: string }> {
+  // ── AI TRANSLATE via Supabase Edge Function (säker — API-nyckel i backend) ──
+  const EDGE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-translate`;
+
+  async function callAI(prompt: string, max_tokens = 1000): Promise<string> {
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(EDGE_FN_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 500,
-          messages: [{ role: "user", content: `Translate to Swedish and Turkish. Return only JSON: {"sv":"...","tr":"..."}\n\nText: ${text_en}` }],
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token}`,
+          "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ prompt, max_tokens }),
       });
       const data = await res.json();
-      const raw = data.content?.map((c: any) => c.text||"").join("") || "";
-      return JSON.parse(raw.replace(/```json|```/g,"").trim());
+      return data.text || "";
+    } catch { return ""; }
+  }
+
+  async function autoTranslate(text_en: string): Promise<{ sv: string; tr: string }> {
+    try {
+      const raw = await callAI(
+        `Translate to Swedish and Turkish. Return ONLY JSON: {"sv":"...","tr":"..."}\n\nText: ${text_en}`,
+        500
+      );
+      return JSON.parse(raw.replace(/```json|```/g, "").trim());
     } catch { return { sv: "", tr: "" }; }
   }
 
@@ -594,14 +608,8 @@ export default function Admin() {
 Question: ${q.question_en}
 Options: ${JSON.stringify(q.options_en)}
 Explanation: ${q.explanation_en}`;
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
-      });
-      const data = await res.json();
-      const text = data.content?.map((c: any) => c.text||"").join("") || "";
-      return { ...q, ...JSON.parse(text.replace(/```json|```/g,"").trim()) };
+      const raw = await callAI(prompt, 1000);
+      return { ...q, ...JSON.parse(raw.replace(/```json|```/g, "").trim()) };
     } catch { return q; }
   }
 
@@ -1267,6 +1275,7 @@ Explanation: ${q.explanation_en}`;
                 onChange={q => setNewQ(q)}
                 onSave={() => saveQuestion({ ...newQ, empire_id: quizEmpire })}
                 onCancel={() => setAddingQ(false)}
+                savingQ={savingQ}
               />
             )}
 
