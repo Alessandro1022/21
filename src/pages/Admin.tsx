@@ -89,9 +89,10 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
   savingQ: boolean;
 }) {
   return (
+  <>
     <Tab label="Influencer Stats">
-  <InfluencerStats influencerId="jannica" />
-</Tab>
+      <InfluencerStats influencerId="jannica" />
+    </Tab>
     <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium flex items-center gap-2">
