@@ -10,56 +10,106 @@ serve(async (req) => {
 
   try {
     const { figure, empire, language, level } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const langMap: Record<string, string> = { sv: "Svenska", en: "English", tr: "Türkçe" };
-    const levelMap: Record<string, string> = { short: "Brief (3-5 sentences)", high_school: "Intermediate (structured, explanatory)", deep: "Advanced (academic, historiographic)" };
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
-    const systemPrompt = `You are an expert historian specializing in ${empire === "ottoman" ? "the Ottoman Empire (1299-1923)" : "the Roman Empire (753 BC - 476 AD)"}.
-Respond in ${langMap[language] || "English"} at ${levelMap[level] || "Advanced"} level.
-Write in short streaming-optimized paragraphs. No emojis. Elegant, authoritative tone.`;
+    const langMap: Record<string, string> = { sv: "Svenska", en: "English", tr: "Turkce" };
+    const levelMap: Record<string, string> = {
+      short: "Brief (3-5 sentences)",
+      high_school: "Intermediate (structured, explanatory)",
+      deep: "Advanced (academic, historiographic)",
+    };
 
-    const userPrompt = `Provide a deep analytical profile of ${figure.name} (${figure.period}).
-Title: ${figure.title?.en || ""}
-Category: ${figure.category}
+    const empireLabel = empire === "ottoman"
+      ? "the Ottoman Empire (1299-1923)"
+      : "the Roman Empire (753 BC - 476 AD)";
 
-Analyze the following dimensions:
-1. **Strategic Intelligence** – How did this person think strategically?
-2. **Political Skill** – How effectively did they navigate power?
-3. **Long-term Impact** – What lasting effects did their actions have?
-4. **Comparison with Contemporaries** – How did they compare to rivals/peers of their era?
-5. **Alternative Historical Scenarios** – What if key decisions had gone differently?
+    const systemPrompt =
+      "You are an expert historian specializing in " + empireLabel + ". " +
+      "Respond in " + (langMap[language] || "English") + " at " + (levelMap[level] || "Advanced") + " level. " +
+      "Write in short streaming-optimized paragraphs. No emojis. Elegant, authoritative tone.";
 
-Be specific, cite events, and provide nuanced analysis.`;
+    const userPrompt =
+      "Provide a deep analytical profile of " + figure.name + " (" + figure.period + ").\n" +
+      "Title: " + (figure.title?.en || "") + "\n" +
+      "Category: " + figure.category + "\n" +
+      "Analyze the following dimensions:\n" +
+      "1. Strategic Intelligence - How did this person think strategically?\n" +
+      "2. Political Skill - How effectively did they navigate power?\n" +
+      "3. Long-term Impact - What lasting effects did their actions have?\n" +
+      "4. Comparison with Contemporaries - How did they compare to rivals/peers of their era?\n" +
+      "5. Alternative Historical Scenarios - What if key decisions had gone differently?\n" +
+      "Be specific, cite events, and provide nuanced analysis.";
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const geminiContents = [{ role: "user", parts: [{ text: userPrompt }] }];
+
+    const url =
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=" +
+      GEMINI_API_KEY;
+
+    const response = await fetch(url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        stream: true,
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: geminiContents,
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
       }),
     });
 
     if (!response.ok) {
-      if (response.status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (response.status === 402) return new Response(JSON.stringify({ error: "Payment required." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.error("Gemini error:", response.status, t);
+      return new Response(
+        JSON.stringify({ error: "Gemini API error: " + response.status }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    return new Response(response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        let buffer = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const jsonStr = line.slice(6).trim();
+              if (!jsonStr || jsonStr === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  const chunk = { choices: [{ delta: { content: text } }] };
+                  controller.enqueue(encoder.encode("data: " + JSON.stringify(chunk) + "\n\n"));
+                }
+              } catch {}
+            }
+          }
+        } finally {
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+    });
   } catch (e) {
     console.error("figure-analysis error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
