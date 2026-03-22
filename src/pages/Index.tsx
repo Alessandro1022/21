@@ -90,7 +90,7 @@ export default function Index() {
                 className="w-9 h-9 rounded-lg object-cover"
               />
               <div>
-                <h1 className="text-lg font-serif text-primary leading-tight">Ottoman Intelligence</h1>
+                <h1 className="text-lg font-serif text-primary leading-tight"> Empire Ai </h1>
                 <p className="text-xs text-muted-foreground font-sans">1299–1922</p>
               </div>
             </div>
@@ -153,7 +153,7 @@ export default function Index() {
                 className="w-full h-full object-cover"
               />
             </div>
-            <h2 className="text-2xl font-serif text-primary mb-2">Ottoman Intelligence</h2>
+            <h2 className="text-2xl font-serif text-primary mb-2">Empire Ai</h2>
             <p className="text-muted-foreground text-sm font-sans mb-8 text-center max-w-md">
               {language === "sv" && "Utforska Osmanska rikets historia med AI-driven analys. Välj språk och detaljnivå ovan."}
               {language === "en" && "Explore the history of the Ottoman Empire with AI-powered analysis. Choose language and detail level above."}
