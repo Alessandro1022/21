@@ -6,49 +6,40 @@ const corsHeaders = {
 };
 
 const EMPIRE_CONTEXTS: Record<string, string> = {
-  ottoman: `Du är expert på Osmanska rikets historia (1299–1923).
-Inkludera perspektiv på osmansk administration, militär, kultur, expansion och nedgång.
+  ottoman: `Du ar expert pa Osmanska rikets historia (1299-1923).
+Inkludera perspektiv pa osmansk administration, militar, kultur, expansion och nedgang.
 Referera till sultaner, vizierer, janitsjarer, millet-systemet och andra osmanska institutioner.`,
-  roman: `Du är expert på Romerska rikets historia (753 f.Kr.–476 e.Kr.).
-Inkludera perspektiv på romersk republik, principat, militär, kultur, lag och imperiums fall.
-Referera till kejsare, senaten, legioner, provinsförvaltning och andra romerska institutioner.`,
+  roman: `Du ar expert pa Romerska rikets historia (753 f.Kr.-476 e.Kr.).
+Inkludera perspektiv pa romersk republik, principat, militar, kultur, lag och imperiums fall.
+Referera till kejsare, senaten, legioner, provinsforvaltning och andra romerska institutioner.`,
 };
 
-const BASE_SYSTEM_PROMPT = `Du är huvudmodellen i applikationen "Empire AI".
+const BASE_SYSTEM_PROMPT = `Du ar huvudmodellen i applikationen "Empire AI".
 
-Ditt uppdrag är att svara progressivt, koncist och strukturerat med naturlig flödeskänsla, optimerad för realtids-streaming.
+Ditt uppdrag ar att svara progressivt, koncist och strukturerat med naturlig flodeskansla, optimerad for realtids-streaming.
 
-══════════════════════════
-SPRÅKREGLER
-══════════════════════════
-Använd alltid det språk som användaren valt i gränssnittet:
+SPRAKREGLER
+Anvand alltid det sprak som anvandaren valt i granssnittet:
 - Svenska
 - English
-- Türkçe
-Blanda aldrig språk.
+- Turkce
+Blanda aldrig sprak.
 
-══════════════════════════
-SVARNIVÅ
-══════════════════════════
-Anpassa djup baserat på vald nivå:
+SVARNIVA
+Anpassa djup baserat pa vald niva:
+KORT - 3-6 meningar, karnpoang
+GYMNASIE - Tydlig struktur, forklarande, historisk kontext
+FORDJUPAD - Akademisk ton, perspektivanalys, orsak-verkan, historiografisk reflektion
 
-KORT – 3–6 meningar, kärnpoäng
-GYMNASIE – Tydlig struktur, förklarande, historisk kontext
-FÖRDJUPAD – Akademisk ton, perspektivanalys, orsak–verkan, historiografisk reflektion
-
-══════════════════════════
 STREAMING-OPTIMERAD STIL
-══════════════════════════
-- Skriv i korta segment (1–2 meningar per stycke).
-- Undvik långa kompakta block.
-- Låt resonemang byggas stegvis.
-- Prioritera rytm och flöde.
+- Skriv i korta segment (1-2 meningar per stycke).
+- Undvik langa kompakta block.
+- Lat resonemang byggas stegvis.
+- Prioritera rytm och flode.
 
-══════════════════════════
 TON & FORMAT
-══════════════════════════
 - Elegant, intellektuell, tydlig, auktoritativ
-- Korta stycken, markdown för läsbarhet
+- Korta stycken, markdown for lasbarhet
 - Inga emojis, inga disclaimers`;
 
 serve(async (req) => {
@@ -56,15 +47,20 @@ serve(async (req) => {
 
   try {
     const { messages, language, level, empire } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const empireContext = EMPIRE_CONTEXTS[empire || "ottoman"] || EMPIRE_CONTEXTS.ottoman;
-    const systemPrompt = `${BASE_SYSTEM_PROMPT}\n\n══════════════════════════\nEXPERTOMRÅDE\n══════════════════════════\n${empireContext}`;
+    const systemPrompt = `${BASE_SYSTEM_PROMPT}\n\nEXPERTOMRADE\n${empireContext}`;
 
-    const langMap: Record<string, string> = { sv: "Svenska", en: "English", tr: "Türkçe" };
-    const levelMap: Record<string, string> = { short: "Kort svar", high_school: "Gymnasienivå", deep: "Fördjupad analys" };
-    const contextPrefix = `Språk: ${langMap[language] || "Svenska"}. Nivå: ${levelMap[level] || "Fördjupad analys"}.\n\n`;
+    const langMap: Record<string, string> = { sv: "Svenska", en: "English", tr: "Turkce" };
+    const levelMap: Record<string, string> = {
+      short: "Kort svar",
+      high_school: "Gymnasieniva",
+      deep: "Fordjupad analys",
+    };
+    const contextPrefix = `Sprak: ${langMap[language] || "English"}. Niva: ${levelMap[level] || "Fordjupad analys"}.\n\n`;
 
     const enrichedMessages = messages.map((m: any, i: number) => {
       if (i === messages.length - 1 && m.role === "user") {
@@ -73,30 +69,103 @@ serve(async (req) => {
       return m;
     });
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Convert messages to Gemini format
+    const geminiContents = enrichedMessages.map((m: any) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+    const url =
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=" +
+      GEMINI_API_KEY;
+
+    const response = await fetch(url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "system", content: systemPrompt }, ...enrichedMessages],
-        stream: true,
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: geminiContents,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1024,
+        },
       }),
     });
 
     if (!response.ok) {
-      if (response.status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (response.status === 402) return new Response(JSON.stringify({ error: "Payment required." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      console.error("Gemini error:", response.status, t);
+      return new Response(
+        JSON.stringify({ error: "Gemini API error: " + response.status }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    return new Response(response.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+    // Transform Gemini SSE to OpenAI-compatible SSE format
+    // so existing streamChat.ts works without changes
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        let buffer = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const jsonStr = line.slice(6).trim();
+              if (!jsonStr || jsonStr === "[DONE]") continue;
+
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  // Convert to OpenAI SSE format so existing frontend works
+                  const openaiChunk = {
+                    choices: [{ delta: { content: text } }],
+                  };
+                  controller.enqueue(
+                    encoder.encode("data: " + JSON.stringify(openaiChunk) + "\n\n")
+                  );
+                }
+
+                // Check if done
+                const finishReason = parsed.candidates?.[0]?.finishReason;
+                if (finishReason && finishReason !== "STOP" && finishReason !== "") {
+                  console.log("Gemini finish reason:", finishReason);
+                }
+              } catch {
+                // ignore parse errors on individual chunks
+              }
+            }
+          }
+        } finally {
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      },
+    });
   } catch (e) {
-    console.error("chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("ottoman-chat error:", e);
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
