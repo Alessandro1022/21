@@ -1,617 +1,934 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from “react”;
-import { useEmpire } from “@/contexts/EmpireContext”;
-import { formatYear } from “@/data/empires”;
-import { AppLayout } from “@/components/AppLayout”;
-import { useChat } from “@/hooks/useChat”;
-import { ChatMessage } from “@/components/ChatMessage”;
 import {
-BookOpen, ChevronLeft, ChevronRight, Sparkles,
-Sword, Landmark, Coins, BookMarked, Crown, Globe,
-ChevronDown, ChevronUp, Bookmark, BookmarkCheck,
-Map, X, Loader2, RotateCcw, Zap, MessageSquare,
-ArrowRight, Eye,
-} from “lucide-react”;
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from "react";
+import { useEmpire } from "@/contexts/EmpireContext";
+import { formatYear } from "@/data/empires";
+import { AppLayout } from "@/components/AppLayout";
+import { useChat } from "@/hooks/useChat";
+import { ChatMessage } from "@/components/ChatMessage";
+import {
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Sword,
+  Landmark,
+  Coins,
+  BookMarked,
+  Crown,
+  Globe,
+  ChevronDown,
+  ChevronUp,
+  Bookmark,
+  BookmarkCheck,
+  Map,
+  X,
+  Loader2,
+  RotateCcw,
+  Zap,
+  MessageSquare,
+  ArrowRight,
+  Eye,
+  Trophy,
+  Flame,
+  Shield,
+  Star,
+} from "lucide-react";
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
-type Lang = “sv” | “en” | “tr”;
+// =============================================================================
+// TYPES
+// =============================================================================
+
+type Lang = "sv" | "en" | "tr";
+
+type EventCategory =
+  | "war"
+  | "culture"
+  | "economy"
+  | "religion"
+  | "politics"
+  | "exploration";
 
 interface StoryEvent {
-year: number;
-title: Record<string, string>;
-summary: Record<string, string>;
-figures: string[];
-category?: “war” | “culture” | “economy” | “religion” | “politics” | “exploration”;
+  year: number;
+  title: Record<string, string>;
+  summary: Record<string, string>;
+  figures: string[];
+  category?: EventCategory;
+  importance?: "low" | "medium" | "high";
+}
+
+interface ChapterTheme {
+  from: string;
+  to: string;
+  accent: string;
+  icon: ReactNode;
+  badge: string;
 }
 
 interface Chapter {
-title: Record<string, string>;
-description: Record<string, string>;
-events: StoryEvent[];
-era: string;
-theme: {
-from: string;
-to: string;
-accent: string;
-icon: React.ReactNode;
-};
+  title: Record<string, string>;
+  description: Record<string, string>;
+  events: StoryEvent[];
+  era: string;
+  theme: ChapterTheme;
+  index: number;
 }
 
-interface ChatMsg {
-role: “user” | “assistant”;
-content: string;
+interface PerChapterState {
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  bookmarks: string[];
+  aiAnalyzed: boolean;
 }
 
-// ─────────────────────────────────────────────
-// Constants & helpers
-// ─────────────────────────────────────────────
-const CATEGORY_META = {
-war:         { icon: <Sword className="w-3 h-3" />,     label: { sv: “Krig”,       en: “War”,         tr: “Savaş”     }, color: “text-rose-400 bg-rose-400/10 border-rose-400/20” },
-culture:     { icon: <BookMarked className="w-3 h-3" />, label: { sv: “Kultur”,     en: “Culture”,     tr: “Kültür”    }, color: “text-violet-400 bg-violet-400/10 border-violet-400/20” },
-economy:     { icon: <Coins className="w-3 h-3" />,      label: { sv: “Ekonomi”,    en: “Economy”,     tr: “Ekonomi”   }, color: “text-emerald-400 bg-emerald-400/10 border-emerald-400/20” },
-religion:    { icon: <Landmark className="w-3 h-3" />,   label: { sv: “Religion”,   en: “Religion”,    tr: “Din”       }, color: “text-amber-400 bg-amber-400/10 border-amber-400/20” },
-politics:    { icon: <Crown className="w-3 h-3" />,      label: { sv: “Politik”,    en: “Politics”,    tr: “Siyaset”   }, color: “text-sky-400 bg-sky-400/10 border-sky-400/20” },
-exploration: { icon: <Globe className="w-3 h-3" />,      label: { sv: “Utforskning”, en: “Exploration”, tr: “Keşif”    }, color: “text-teal-400 bg-teal-400/10 border-teal-400/20” },
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+const CATEGORY_META: Record<
+  EventCategory,
+  { icon: ReactNode; label: Record<string, string>; color: string; dot: string }
+> = {
+  war: {
+    icon: <Sword className="w-3 h-3" />,
+    label: { sv: "Krig", en: "War", tr: "Savas" },
+    color: "text-rose-400 bg-rose-400/10 border-rose-400/20",
+    dot: "bg-rose-400",
+  },
+  culture: {
+    icon: <BookMarked className="w-3 h-3" />,
+    label: { sv: "Kultur", en: "Culture", tr: "Kultur" },
+    color: "text-violet-400 bg-violet-400/10 border-violet-400/20",
+    dot: "bg-violet-400",
+  },
+  economy: {
+    icon: <Coins className="w-3 h-3" />,
+    label: { sv: "Ekonomi", en: "Economy", tr: "Ekonomi" },
+    color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+    dot: "bg-emerald-400",
+  },
+  religion: {
+    icon: <Landmark className="w-3 h-3" />,
+    label: { sv: "Religion", en: "Religion", tr: "Din" },
+    color: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+    dot: "bg-amber-400",
+  },
+  politics: {
+    icon: <Crown className="w-3 h-3" />,
+    label: { sv: "Politik", en: "Politics", tr: "Siyaset" },
+    color: "text-sky-400 bg-sky-400/10 border-sky-400/20",
+    dot: "bg-sky-400",
+  },
+  exploration: {
+    icon: <Globe className="w-3 h-3" />,
+    label: { sv: "Utforskning", en: "Exploration", tr: "Kesif" },
+    color: "text-teal-400 bg-teal-400/10 border-teal-400/20",
+    dot: "bg-teal-400",
+  },
 };
 
-const CHAPTER_THEMES = [
-{ from: “from-amber-950/60”,  to: “to-stone-950”,   accent: “#f59e0b”, icon: <Crown className="w-5 h-5" /> },
-{ from: “from-sky-950/60”,    to: “to-stone-950”,   accent: “#38bdf8”, icon: <Globe className="w-5 h-5" /> },
-{ from: “from-amber-900/60”,  to: “to-stone-950”,   accent: “#fbbf24”, icon: <Sparkles className="w-5 h-5" /> },
-{ from: “from-rose-950/60”,   to: “to-stone-950”,   accent: “#f43f5e”, icon: <Sword className="w-5 h-5" /> },
-{ from: “from-violet-950/60”, to: “to-stone-950”,   accent: “#a78bfa”, icon: <BookMarked className="w-5 h-5" /> },
-{ from: “from-emerald-950/60”, to: “to-stone-950”,  accent: “#34d399”, icon: <Landmark className="w-5 h-5" /> },
+const CHAPTER_THEMES: ChapterTheme[] = [
+  {
+    from: "from-amber-950/70",
+    to: "to-stone-950",
+    accent: "#f59e0b",
+    icon: <Crown className="w-5 h-5" />,
+    badge: "from-amber-500 to-yellow-600",
+  },
+  {
+    from: "from-sky-950/70",
+    to: "to-stone-950",
+    accent: "#38bdf8",
+    icon: <Globe className="w-5 h-5" />,
+    badge: "from-sky-500 to-blue-600",
+  },
+  {
+    from: "from-yellow-950/70",
+    to: "to-stone-950",
+    accent: "#fbbf24",
+    icon: <Star className="w-5 h-5" />,
+    badge: "from-yellow-400 to-amber-500",
+  },
+  {
+    from: "from-rose-950/70",
+    to: "to-stone-950",
+    accent: "#f43f5e",
+    icon: <Flame className="w-5 h-5" />,
+    badge: "from-rose-500 to-red-600",
+  },
+  {
+    from: "from-violet-950/70",
+    to: "to-stone-950",
+    accent: "#a78bfa",
+    icon: <Shield className="w-5 h-5" />,
+    badge: "from-violet-500 to-purple-600",
+  },
+  {
+    from: "from-emerald-950/70",
+    to: "to-stone-950",
+    accent: "#34d399",
+    icon: <Trophy className="w-5 h-5" />,
+    badge: "from-emerald-500 to-green-600",
+  },
 ];
 
+const CHAPTER_TITLES: Record<number, Record<string, string>> = {
+  0: { sv: "Uppkomsten", en: "The Rise", tr: "Yukselis" },
+  1: { sv: "Expansion", en: "Expansion", tr: "Genisleme" },
+  2: { sv: "Guldaaldern", en: "The Golden Age", tr: "Altin Cag" },
+  3: { sv: "Utmaningar", en: "Challenges", tr: "Zorluklar" },
+  4: { sv: "Omvandling", en: "Transformation", tr: "Donusum" },
+  5: { sv: "Arvet", en: "The Legacy", tr: "Miras" },
+};
+
 const CHAPTER_DESCRIPTIONS: Record<number, Record<string, string>> = {
-0: {
-sv: “Ur historiens dimma träder ett imperium fram. Grundarna sätter sina avtryck och lägger grunden för vad som ska bli en av historiens mäktigaste makter.”,
-en: “From the mists of history, an empire emerges. Founders leave their mark and lay the foundation for what will become one of history’s most powerful forces.”,
-tr: “Tarihin sisinden bir imparatorluk doğar. Kurucular izlerini bırakır ve tarihin en güçlü güçlerinden birinin temellerini atar.”,
-},
-1: {
-sv: “Imperiet sträcker sina gränser. Arméer marscherar, handelsvägar öppnas och nya folk inlemmas under kejsarens baner.”,
-en: “The empire stretches its borders. Armies march, trade routes open, and new peoples are brought under the emperor’s banner.”,
-tr: “İmparatorluk sınırlarını genişletir. Ordular yürür, ticaret yolları açılır ve yeni halklar imparatorun bayrağı altına girer.”,
-},
-2: {
-sv: “Imperiet når sin zenit. Konst, vetenskap och välstånd blomstrar. Detta är den era som eftervärlden minns och sörjer.”,
-en: “The empire reaches its zenith. Art, science and prosperity flourish. This is the era posterity remembers and mourns.”,
-tr: “İmparatorluk zirvesine ulaşır. Sanat, bilim ve refah çiçek açar. Bu, sonraki nesillerin hatırladığı ve özlem duyduğu çağdır.”,
-},
-3: {
-sv: “Stormen nalkas. Inre konflikter, yttre hot och ekonomiska påfrestningar sätter imperiet på hårda prov. Inte alla överlever.”,
-en: “The storm approaches. Internal conflicts, external threats and economic strain put the empire to the test. Not all survive.”,
-tr: “Fırtına yaklaşır. İç çatışmalar, dış tehditler ve ekonomik baskılar imparatorluğu ağır sınavlardan geçirir. Herkes hayatta kalmaz.”,
-},
-4: {
-sv: “Imperiet förändras. Gamla strukturer bryts ned och nya formas. Vissa kallar det förfall — andra ser det som återfödelse.”,
-en: “The empire transforms. Old structures break down and new ones form. Some call it decline — others see it as rebirth.”,
-tr: “İmparatorluk dönüşür. Eski yapılar çöker ve yenileri oluşur. Bazıları buna çöküş der — diğerleri yeniden doğuş olarak görür.”,
-},
-5: {
-sv: “Imperiet är borta — men dess ande lever. Lagar, språk, konst och idéer fortsätter att forma världen långt efter att det sista kvarlevande fallen.”,
-en: “The empire is gone — but its spirit lives on. Laws, language, art and ideas continue to shape the world long after the last walls fell.”,
-tr: “İmparatorluk gitti — ama ruhu yaşıyor. Yasalar, dil, sanat ve fikirler, son duvarlar yıkıldıktan çok sonra da dünyayı şekillendirmeye devam ediyor.”,
-},
+  0: {
+    sv: "Ur historiens dimma trader ett imperium fram. Grundarna satter sina avtryck och lagger grunden for vad som ska bli en av historiens maktigaste makter. De forsta stegen ar osäkra - men avgörande.",
+    en: "From the mists of history, an empire emerges. Founders leave their mark and lay the foundation for what will become one of history's most powerful forces. The first steps are uncertain - but decisive.",
+    tr: "Tarihin sisinden bir imparatorluk dogar. Kurucular izlerini birakir ve tarihin en guclu guclerinden birinin temellerini atar. Ilk adimlar belirsiz ama belirleyicidir.",
+  },
+  1: {
+    sv: "Imperiet stracker sina granser bortom horisonten. Armeer marscherar, handelsvagar oppnas och nya folk inlemmas under kejsarens baner. Varje erövring forandrar imperiet lika mycket som det erovrade landet.",
+    en: "The empire stretches its borders beyond the horizon. Armies march, trade routes open, and new peoples are brought under the emperor's banner. Every conquest changes the empire as much as the conquered land.",
+    tr: "Imparatorluk sinirlarini ufkun otesine uzatiyor. Ordular yurur, ticaret yollari acilir ve yeni halklar imparatorun bayragi altina girer. Her fetih, imparatorlugu fethedilen toprak kadar degistirir.",
+  },
+  2: {
+    sv: "Imperiet nar sin zenit. Konst, vetenskap och valstand blomstrar i en era som kommer att drommas om i tusental ar. De stora verken skapas. De stora tankarna tänks. Detta ar den era som eftervarlden minns och sorjer.",
+    en: "The empire reaches its zenith. Art, science and prosperity flourish in an era that will be dreamed of for thousands of years. The great works are created. The great thoughts are thought. This is the era posterity remembers and mourns.",
+    tr: "Imparatorluk zirvesine ulasir. Sanat, bilim ve refah, binlerce yil boyunca ozlemle anilacak bir cagda cicek acar. Buyuk eserler yaratilir. Buyuk dusunceler dusunulur. Bu, sonraki nesillerin hatirladigi ve ozlem duydugu cagdir.",
+  },
+  3: {
+    sv: "Stormen nalkas. Inre konflikter, yttre hot och ekonomiska pafrestningar satter imperiet pa harda prov. Gamla allianser spricker. Nya fiender uppstar. Inte alla kommer att overleva det som komma skall.",
+    en: "The storm approaches. Internal conflicts, external threats and economic strain put the empire to the test. Old alliances fracture. New enemies arise. Not all will survive what is to come.",
+    tr: "Firtina yaklasir. Ic catismalar, dis tehditler ve ekonomik baskilar imparatorlugu agir sinavlardan gecirir. Eski ittifaklar catlıyor. Yeni dusmanlar ortaya cikiyor. Geleceklerden herkes saglam cikmayacak.",
+  },
+  4: {
+    sv: "Imperiet forandras i grunden. Gamla strukturer bryts ned och nya formas i kaosens eld. Vissa kallar det forfall - andra ser fron till aterfodelse i ruinerna. Historien har inte sagt sitt sista ord annu.",
+    en: "The empire transforms at its core. Old structures break down and new ones form in the fires of chaos. Some call it decline - others see seeds of rebirth in the ruins. History has not said its last word yet.",
+    tr: "Imparatorluk ozunde donusur. Eski yapilar cokuyor ve kaosun ateside yenileri sekilleniyor. Bazilari buna cokus der - digerleri harabalerde yeniden dogusin tohumlarini goriyor. Tarih henuz son sozunu soylememistir.",
+  },
+  5: {
+    sv: "Imperiet ar borta - men dess ande lever vidare. Lagar, sprak, konst och ideer fortsatter att forma varlden lange efter att de sista murarna foll. Det verkliga imperiet var aldrig stenar och jord - det var en idé.",
+    en: "The empire is gone - but its spirit endures. Laws, language, art and ideas continue to shape the world long after the last walls fell. The real empire was never stone and soil - it was an idea.",
+    tr: "Imparatorluk gitti - ama ruhu sureguduyor. Yasalar, dil, sanat ve fikirler, son duvarlar yikildindan cok sonra da dunyayi sekillendirmeye devam ediyor. Gercek imparatorluk hicbir zaman tas ve toprak degildi - bir fikirdi.",
+  },
 };
 
-const QUICK_QUESTIONS: Record<string, Record<Lang, string[]>> = {
-default: {
-sv: [“Vad var konsekvenserna av detta?”, “Vilka nyckelfigurer var inblandade?”, “Hur påverkade detta imperiet långsiktigt?”],
-en: [“What were the consequences of this?”, “Which key figures were involved?”, “How did this affect the empire long-term?”],
-tr: [“Bunun sonuçları nelerdi?”, “Hangi kilit figürler dahil oldu?”, “Bu, imparatorluğu uzun vadede nasıl etkiledi?”],
-},
+const QUICK_QUESTIONS: Record<Lang, string[]> = {
+  sv: [
+    "Vad var de viktigaste konsekvenserna av detta?",
+    "Vilka nyckelfigurer var inblandade och varfor?",
+    "Hur paverkade detta imperiet langsiktigt?",
+    "Vad hande direkt efter detta?",
+    "Hur upplevde vanliga manniskor detta?",
+  ],
+  en: [
+    "What were the most important consequences of this?",
+    "Which key figures were involved and why?",
+    "How did this affect the empire long-term?",
+    "What happened immediately after this?",
+    "How did ordinary people experience this?",
+  ],
+  tr: [
+    "Bunun en onemli sonuclari nelerdi?",
+    "Hangi kilit figurler dahil oldu ve neden?",
+    "Bu, imparatorlugu uzun vadede nasil etkiledi?",
+    "Bundan hemen sonra ne oldu?",
+    "Sıradan insanlar bunu nasil yasadi?",
+  ],
 };
 
-const LABELS = {
-sv: {
-title: “Guidad kejserlig resa”, chapter: “Kapitel”, of: “av”,
-prev: “Föregående”, next: “Nästa”, aiBtn: “AI-analys av epoken”,
-journey: “Din resa genom historien”, readMore: “Läs mer”, readLess: “Läs mindre”,
-quickQ: “Snabbfrågor”, bookmark: “Bokmärke”, bookmarked: “Bokmärkt”,
-overview: “Kapitelöversikt”, close: “Stäng”, analyzing: “Analyserar epoken…”,
-resetChat: “Rensa svar”, progress: “utforskat”, figureQ: “Berätta om”,
-noEvents: “Inga händelser att visa för detta kapitel ännu.”,
-emptyState: “Det finns ingen tidslinje för detta imperium ännu.”,
-stopGen: “Avbryt”, chapterJump: “Hoppa till kapitel”,
-swipeHint: “Svep eller använd piltangenterna för att bläddra”,
-askAbout: “Fråga om denna händelse”,
-},
-en: {
-title: “Guided Imperial Journey”, chapter: “Chapter”, of: “of”,
-prev: “Previous”, next: “Next”, aiBtn: “AI Analysis of Era”,
-journey: “Your journey through history”, readMore: “Read more”, readLess: “Read less”,
-quickQ: “Quick Questions”, bookmark: “Bookmark”, bookmarked: “Bookmarked”,
-overview: “Chapter Overview”, close: “Close”, analyzing: “Analyzing the era…”,
-resetChat: “Clear answers”, progress: “explored”, figureQ: “Tell me about”,
-noEvents: “No events to show for this chapter yet.”,
-emptyState: “There is no timeline for this empire yet.”,
-stopGen: “Stop”, chapterJump: “Jump to chapter”,
-swipeHint: “Swipe or use arrow keys to navigate”,
-askAbout: “Ask about this event”,
-},
-tr: {
-title: “Rehberli İmparatorluk Yolculuğu”, chapter: “Bölüm”, of: “/”,
-prev: “Önceki”, next: “Sonraki”, aiBtn: “Dönem AI Analizi”,
-journey: “Tarih boyunca yolculuğunuz”, readMore: “Devamını oku”, readLess: “Daha az göster”,
-quickQ: “Hızlı Sorular”, bookmark: “Yer imi”, bookmarked: “Yer imi eklendi”,
-overview: “Bölüm Genel Bakışı”, close: “Kapat”, analyzing: “Çağ analiz ediliyor…”,
-resetChat: “Yanıtları temizle”, progress: “keşfedildi”, figureQ: “Hakkında anlat”,
-noEvents: “Bu bölüm için henüz gösterilecek olay yok.”,
-emptyState: “Bu imparatorluk için henüz zaman çizelgesi yok.”,
-stopGen: “Durdur”, chapterJump: “Bölüme atla”,
-swipeHint: “Kaydırın veya gezinmek için ok tuşlarını kullanın”,
-askAbout: “Bu olay hakkında sor”,
-},
+const FIGURE_QUESTIONS: Record<Lang, (name: string) => string> = {
+  sv: (name) => "Berätta om " + name + " - vem var de, vad uppnadde de och vilket arv lamnade de efter sig?",
+  en: (name) => "Tell me about " + name + " - who were they, what did they achieve, and what legacy did they leave behind?",
+  tr: (name) => name + " hakkinda anlat - kim olduklarini, ne basardiklarini ve ne tur bir miras biraktiklari.",
 };
+
+const L: Record<Lang, {
+  title: string; chapter: string; of: string; prev: string; next: string;
+  aiBtn: string; readMore: string; readLess: string; bookmark: string;
+  bookmarked: string; overview: string; close: string; analyzing: string;
+  resetChat: string; progress: string; noEvents: string; emptyState: string;
+  swipeHint: string; askAbout: string; figures: string; events: string;
+  categories: string; eraAnalysis: string; quickQ: string; jumpTo: string;
+  analyzed: string; notAnalyzed: string; chapterComplete: string;
+}> = {
+  sv: {
+    title: "Guidad Kejserlig Resa",
+    chapter: "Kapitel", of: "av", prev: "Foregaende", next: "Nasta",
+    aiBtn: "AI-analys av epoken", readMore: "Las mer", readLess: "Las mindre",
+    bookmark: "Bokmarke", bookmarked: "Bokmarkt",
+    overview: "Kapiteloversikt", close: "Stang",
+    analyzing: "Analyserar epoken...",
+    resetChat: "Rensa svar", progress: "utforskat",
+    noEvents: "Inga handelser att visa for detta kapitel annu.",
+    emptyState: "Det finns ingen tidslinje for detta imperium annu.",
+    swipeHint: "Svep vänster/höger eller tryck piltangenter for att bladda",
+    askAbout: "Fraga om denna handelse",
+    figures: "figurer", events: "handelser", categories: "kategorier",
+    eraAnalysis: "AI-analys av epoken",
+    quickQ: "Snabbfragor",
+    jumpTo: "Hoppa till",
+    analyzed: "Analyserad",
+    notAnalyzed: "Ej analyserad",
+    chapterComplete: "Kapitel genomfört",
+  },
+  en: {
+    title: "Guided Imperial Journey",
+    chapter: "Chapter", of: "of", prev: "Previous", next: "Next",
+    aiBtn: "AI Analysis of Era", readMore: "Read more", readLess: "Read less",
+    bookmark: "Bookmark", bookmarked: "Bookmarked",
+    overview: "Chapter Overview", close: "Close",
+    analyzing: "Analyzing the era...",
+    resetChat: "Clear answers", progress: "explored",
+    noEvents: "No events to show for this chapter yet.",
+    emptyState: "There is no timeline for this empire yet.",
+    swipeHint: "Swipe left/right or use arrow keys to navigate",
+    askAbout: "Ask about this event",
+    figures: "figures", events: "events", categories: "categories",
+    eraAnalysis: "Era Analysis",
+    quickQ: "Quick Questions",
+    jumpTo: "Jump to",
+    analyzed: "Analyzed",
+    notAnalyzed: "Not analyzed",
+    chapterComplete: "Chapter complete",
+  },
+  tr: {
+    title: "Rehberli Imparatorluk Yolculugu",
+    chapter: "Bolum", of: "/", prev: "Onceki", next: "Sonraki",
+    aiBtn: "Donem AI Analizi", readMore: "Devamini oku", readLess: "Daha az goster",
+    bookmark: "Yer imi", bookmarked: "Yer imi eklendi",
+    overview: "Bolum Genel Bakisi", close: "Kapat",
+    analyzing: "Cag analiz ediliyor...",
+    resetChat: "Yanitlari temizle", progress: "kesfedildi",
+    noEvents: "Bu bolum icin henuz gosterilecek olay yok.",
+    emptyState: "Bu imparatorluk icin henuz zaman cizelgesi yok.",
+    swipeHint: "Kaydirin veya ok tuslarini kullanin",
+    askAbout: "Bu olay hakkinda sor",
+    figures: "figur", events: "olay", categories: "kategori",
+    eraAnalysis: "Donem Analizi",
+    quickQ: "Hizli Sorular",
+    jumpTo: "Atla",
+    analyzed: "Analiz edildi",
+    notAnalyzed: "Analiz edilmedi",
+    chapterComplete: "Bolum tamamlandi",
+  },
+};
+
+// =============================================================================
+// UTILS
+// =============================================================================
+
+function safeGet(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function safeSet(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch {}
+}
 
 function buildChapters(timeline: StoryEvent[], lang: Lang): Chapter[] {
-if (!timeline.length) return [];
-const sorted = […timeline].sort((a, b) => a.year - b.year);
-const total = Math.min(6, sorted.length);
-const chapterSize = Math.ceil(sorted.length / total);
-
-const chapterTitles: Record<number, Record<string, string>> = {
-0: { sv: “Uppkomsten”,   en: “The Rise”,         tr: “Yükseliş”  },
-1: { sv: “Expansion”,    en: “Expansion”,        tr: “Genişleme” },
-2: { sv: “Guldåldern”,   en: “The Golden Age”,   tr: “Altın Çağ” },
-3: { sv: “Utmaningar”,   en: “Challenges”,       tr: “Zorluklar” },
-4: { sv: “Omvandling”,   en: “Transformation”,   tr: “Dönüşüm”   },
-5: { sv: “Arvet”,        en: “The Legacy”,       tr: “Miras”     },
-};
-
-return Array.from({ length: total }, (_, idx) => {
-const chunk = sorted.slice(idx * chapterSize, (idx + 1) * chapterSize);
-const first = chunk[0];
-const last = chunk[chunk.length - 1];
-return {
-title: chapterTitles[idx] || chapterTitles[0],
-description: CHAPTER_DESCRIPTIONS[idx] || CHAPTER_DESCRIPTIONS[0],
-events: chunk,
-era: `${formatYear(first.year, lang)}–${formatYear(last.year, lang)}`,
-theme: CHAPTER_THEMES[idx] || CHAPTER_THEMES[0],
-};
-});
+  if (!timeline.length) return [];
+  const sorted = [...timeline].sort((a, b) => a.year - b.year);
+  const total = Math.min(6, sorted.length);
+  const chapterSize = Math.ceil(sorted.length / total);
+  return Array.from({ length: total }, (_, idx) => {
+    const chunk = sorted.slice(idx * chapterSize, (idx + 1) * chapterSize);
+    const first = chunk[0];
+    const last = chunk[chunk.length - 1];
+    return {
+      index: idx,
+      title: CHAPTER_TITLES[idx] || CHAPTER_TITLES[0],
+      description: CHAPTER_DESCRIPTIONS[idx] || CHAPTER_DESCRIPTIONS[0],
+      events: chunk,
+      era: formatYear(first.year, lang) + "\u2013" + formatYear(last.year, lang),
+      theme: CHAPTER_THEMES[idx] || CHAPTER_THEMES[0],
+    };
+  });
 }
 
-// ─────────────────────────────────────────────
-// Sub-components
-// ─────────────────────────────────────────────
-
-function CategoryBadge({ category, lang }: { category?: string; lang: Lang }) {
-if (!category || !CATEGORY_META[category as keyof typeof CATEGORY_META]) return null;
-const meta = CATEGORY_META[category as keyof typeof CATEGORY_META];
-return (
-<span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-medium ${meta.color}`}>
-{meta.icon}
-{meta.label[lang] || meta.label.en}
-</span>
-);
+function getCategoryStats(events: StoryEvent[]): Record<string, number> {
+  const stats: Record<string, number> = {};
+  events.forEach((e) => {
+    if (e.category) stats[e.category] = (stats[e.category] || 0) + 1;
+  });
+  return stats;
 }
 
-function ProgressRing({ progress, size = 36 }: { progress: number; size?: number }) {
-const r = (size - 4) / 2;
-const circ = 2 * Math.PI * r;
-const offset = circ - (progress / 100) * circ;
-return (
-<svg width={size} height={size} className="rotate-[-90deg]">
-<circle cx={size / 2} cy={size / 2} r={r} fill=“none” stroke=“currentColor” strokeWidth=“2” className=“text-border” />
-<circle
-cx={size / 2} cy={size / 2} r={r} fill=“none”
-stroke=“currentColor” strokeWidth=“2”
-strokeDasharray={circ} strokeDashoffset={offset}
-strokeLinecap=“round”
-className=“text-primary transition-all duration-700”
-/>
-</svg>
-);
+// =============================================================================
+// SMALL PURE COMPONENTS
+// =============================================================================
+
+function ProgressRing({ pct, size = 32 }: { pct: number; size?: number }) {
+  const r = (size - 4) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+  return (
+    <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke="currentColor" strokeWidth="2.5"
+        className="text-border"
+      />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke="currentColor" strokeWidth="2.5"
+        strokeDasharray={circ} strokeDashoffset={offset}
+        strokeLinecap="round"
+        className="text-primary"
+        style={{ transition: "stroke-dashoffset 600ms ease" }}
+      />
+    </svg>
+  );
+}
+
+function CategoryBadge({ category, lang }: { category?: EventCategory; lang: Lang }) {
+  if (!category || !CATEGORY_META[category]) return null;
+  const m = CATEGORY_META[category];
+  return (
+    <span className={"inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-sans font-medium " + m.color}>
+      {m.icon}
+      {m.label[lang] || m.label.en}
+    </span>
+  );
 }
 
 function StreamingDots() {
-return (
-<span className="inline-flex items-center gap-1 ml-1">
-{[0, 1, 2].map((i) => (
-<span
-key={i}
-className=“w-1 h-1 rounded-full bg-primary animate-bounce”
-style={{ animationDelay: `${i * 150}ms`, animationDuration: “0.8s” }}
-/>
-))}
-</span>
-);
+  return (
+    <span className="inline-flex items-center gap-0.5 ml-1">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="w-1.5 h-1.5 rounded-full bg-primary-foreground animate-bounce"
+          style={{ animationDelay: i * 160 + "ms", animationDuration: "0.9s" }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function ImportanceDot({ importance }: { importance?: string }) {
+  if (!importance || importance === "low") return null;
+  return (
+    <span
+      className={"inline-block w-2 h-2 rounded-full ml-1 " + (importance === "high" ? "bg-amber-400" : "bg-primary/40")}
+      title={importance === "high" ? "High importance" : "Medium importance"}
+    />
+  );
+}
+
+function CategoryBreakdown({ events, lang }: { events: StoryEvent[]; lang: Lang }) {
+  const stats = getCategoryStats(events);
+  const entries = Object.entries(stats);
+  if (!entries.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-primary/10">
+      {entries.map(([cat, count]) => {
+        const m = CATEGORY_META[cat as EventCategory];
+        if (!m) return null;
+        return (
+          <span key={cat} className={"inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-sans " + m.color}>
+            {m.icon}
+            {m.label[lang] || m.label.en}
+            <span className="opacity-60 font-normal ml-0.5">{count}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+// =============================================================================
+// EVENT CARD
+// =============================================================================
+
+interface EventCardProps {
+  event: StoryEvent;
+  index: number;
+  isLast: boolean;
+  lang: Lang;
+  bookmarked: boolean;
+  onBookmark: () => void;
+  onFigureClick: (name: string) => void;
+  onQuickQuestion: (q: string) => void;
+  l: typeof L.en;
 }
 
 function EventCard({
-event, index, isLast, lang, bookmarked, onBookmark, onFigureClick, onQuickQuestion, l,
-}: {
-event: StoryEvent;
-index: number;
-isLast: boolean;
-lang: Lang;
-bookmarked: boolean;
-onBookmark: () => void;
-onFigureClick: (name: string) => void;
-onQuickQuestion: (q: string) => void;
-l: typeof LABELS.en;
-}) {
-const [expanded, setExpanded] = useState(false);
-const [showQuestions, setShowQuestions] = useState(false);
-const summary = event.summary[lang] || event.summary.en;
-const title = event.title[lang] || event.title.en;
-const isTruncatable = summary.length > 180;
-const displaySummary = isTruncatable && !expanded ? summary.slice(0, 180) + “…” : summary;
-const questions = QUICK_QUESTIONS.default[lang];
+  event, index, isLast, lang, bookmarked, onBookmark, onFigureClick, onQuickQuestion, l,
+}: EventCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(false);
+  const [showFigures, setShowFigures] = useState(false);
 
-return (
-<div
-className=“relative pl-10 animate-fade-in group”
-style={{ animationDelay: `${index * 80}ms` }}
->
-{/* Timeline line */}
-{!isLast && (
-<div className="absolute left-[13px] top-7 bottom-0 w-px bg-gradient-to-b from-primary/30 to-transparent" />
-)}
+  const summary = event.summary[lang] || event.summary.en || "";
+  const title = event.title[lang] || event.title.en || "";
+  const TRUNC = 200;
+  const isTruncatable = summary.length > TRUNC;
+  const displaySummary = isTruncatable && !expanded ? summary.slice(0, TRUNC) + "..." : summary;
+  const questions = QUICK_QUESTIONS[lang];
+  const hasFigures = event.figures && event.figures.length > 0;
 
-```
-  {/* Timeline dot */}
-  <div className={`absolute left-0 top-2 w-7 h-7 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${bookmarked ? "gold-gradient ottoman-glow" : "bg-card border border-primary/30"}`}>
-    {bookmarked
-      ? <BookmarkCheck className="w-3.5 h-3.5 text-primary-foreground" />
-      : <div className="w-2 h-2 rounded-full gold-gradient" />
-    }
-  </div>
+  return (
+    <div
+      className="relative pl-11 group"
+      style={{ animation: "fadeSlideIn 400ms ease both", animationDelay: index * 70 + "ms" }}
+    >
+      {/* Vertical timeline line */}
+      {!isLast && (
+        <div className="absolute left-[14px] top-8 bottom-0 w-px"
+          style={{ background: "linear-gradient(to bottom, hsl(var(--primary) / 0.25), transparent)" }} />
+      )}
 
-  {/* Card */}
-  <div className="bg-card/50 backdrop-blur-md rounded-2xl ottoman-border p-5 hover:bg-card/70 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5">
-
-    {/* Header row */}
-    <div className="flex items-start justify-between gap-2 mb-3">
-      <div className="flex-1">
-        <div className="flex items-center gap-2 flex-wrap mb-1">
-          <span className="text-base font-serif text-primary font-bold tabular-nums">
-            {formatYear(event.year, lang)}
-          </span>
-          <CategoryBadge category={event.category} lang={lang} />
-        </div>
-        <h3 className="text-sm font-serif text-foreground leading-snug">{title}</h3>
+      {/* Timeline node */}
+      <div
+        className={"absolute left-0 top-2 w-7 h-7 rounded-full flex items-center justify-center z-10 transition-transform duration-300 group-hover:scale-110 " +
+          (bookmarked ? "gold-gradient ottoman-glow" : "bg-card border border-primary/30")}
+      >
+        {bookmarked
+          ? <BookmarkCheck className="w-3.5 h-3.5 text-primary-foreground" />
+          : <div className="w-2 h-2 rounded-full gold-gradient" />}
       </div>
 
-      {/* Bookmark button */}
-      <button
-        onClick={onBookmark}
-        className={`flex-shrink-0 p-1.5 rounded-lg transition-all duration-200 ${bookmarked ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
-        title={bookmarked ? l.bookmarked : l.bookmark}
-      >
-        {bookmarked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-      </button>
-    </div>
+      {/* Main card */}
+      <div className="bg-card/50 backdrop-blur-md rounded-2xl ottoman-border p-5 hover:bg-card/75 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-0.5">
 
-    {/* Summary */}
-    <p className="text-sm font-sans text-foreground/75 leading-relaxed mb-3">
-      {displaySummary}
-    </p>
-    {isTruncatable && (
-      <button
-        onClick={() => setExpanded((e) => !e)}
-        className="flex items-center gap-1 text-xs text-primary hover:opacity-80 transition-opacity mb-3"
-      >
-        {expanded ? <><ChevronUp className="w-3 h-3" />{l.readLess}</> : <><ChevronDown className="w-3 h-3" />{l.readMore}</>}
-      </button>
-    )}
-
-    {/* Figures */}
-    {event.figures.length > 0 && (
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        {event.figures.map((f) => (
+        {/* Top row: year + category + bookmark */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+              <span className="text-base font-serif text-primary font-bold tabular-nums">
+                {formatYear(event.year, lang)}
+              </span>
+              <CategoryBadge category={event.category} lang={lang} />
+              <ImportanceDot importance={event.importance} />
+            </div>
+            <h3 className="text-sm font-serif text-foreground leading-snug font-medium">{title}</h3>
+          </div>
           <button
-            key={f}
-            onClick={() => onFigureClick(f)}
-            className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[11px] font-sans hover:bg-primary/20 transition-colors duration-200 flex items-center gap-1"
+            onClick={onBookmark}
+            className={"flex-shrink-0 p-1.5 rounded-lg transition-all duration-200 " +
+              (bookmarked ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/5")}
+            title={bookmarked ? l.bookmarked : l.bookmark}
           >
-            <Crown className="w-2.5 h-2.5" />
-            {f}
+            {bookmarked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
           </button>
-        ))}
+        </div>
+
+        {/* Summary text */}
+        <p className="text-sm font-sans text-foreground/70 leading-relaxed mb-3">
+          {displaySummary}
+        </p>
+
+        {/* Read more/less */}
+        {isTruncatable && (
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            className="flex items-center gap-1 text-xs text-primary hover:opacity-75 transition-opacity mb-3 font-sans"
+          >
+            {expanded
+              ? <><ChevronUp className="w-3 h-3" />{l.readLess}</>
+              : <><ChevronDown className="w-3 h-3" />{l.readMore}</>}
+          </button>
+        )}
+
+        {/* Divider */}
+        <div className="border-t border-border/40 pt-3 space-y-2">
+
+          {/* Figures section */}
+          {hasFigures && (
+            <div>
+              <button
+                onClick={() => setShowFigures((s) => !s)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1.5 font-sans"
+              >
+                <Crown className="w-3.5 h-3.5" />
+                {event.figures.length} {lang === "sv" ? "nyckelfigurer" : lang === "tr" ? "kilit figur" : "key figures"}
+                <ChevronDown className={"w-3 h-3 transition-transform duration-200 " + (showFigures ? "rotate-180" : "")} />
+              </button>
+              {showFigures && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {event.figures.map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => onFigureClick(f)}
+                      className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[11px] font-sans hover:bg-primary/20 hover:scale-105 transition-all duration-200 flex items-center gap-1"
+                    >
+                      <Crown className="w-2.5 h-2.5" />
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Quick questions */}
+          <div>
+            <button
+              onClick={() => setShowQuestions((s) => !s)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200 font-sans"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              {l.askAbout}
+              <ChevronDown className={"w-3 h-3 transition-transform duration-200 " + (showQuestions ? "rotate-180" : "")} />
+            </button>
+
+            {showQuestions && (
+              <div className="mt-2 flex flex-col gap-1.5">
+                {questions.map((q) => {
+                  const fullQ = q + " (" + title + ", " + formatYear(event.year, lang) + ")";
+                  return (
+                    <button
+                      key={q}
+                      onClick={() => { onQuickQuestion(fullQ); setShowQuestions(false); }}
+                      className="flex items-start gap-2 px-3 py-2 rounded-xl bg-secondary/50 hover:bg-secondary border border-border text-xs text-foreground/80 hover:text-foreground transition-all duration-200 text-left font-sans"
+                    >
+                      <ArrowRight className="w-3 h-3 text-primary mt-0.5 flex-shrink-0" />
+                      {q}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    )}
+    </div>
+  );
+}
 
-    {/* Quick questions toggle */}
-    <div className="border-t border-border/50 pt-3">
-      <button
-        onClick={() => setShowQuestions((s) => !s)}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200"
+// =============================================================================
+// CHAPTER OVERVIEW MODAL
+// =============================================================================
+
+interface OverviewModalProps {
+  chapters: Chapter[];
+  current: number;
+  lang: Lang;
+  analyzed: Record<number, boolean>;
+  bookmarkCounts: Record<number, number>;
+  onSelect: (i: number) => void;
+  onClose: () => void;
+  l: typeof L.en;
+}
+
+function ChapterOverviewModal({
+  chapters, current, lang, analyzed, bookmarkCounts, onSelect, onClose, l,
+}: OverviewModalProps) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-background/80 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md bg-card rounded-2xl ottoman-border shadow-2xl p-6 max-h-[80vh] overflow-y-auto"
+        style={{ animation: "fadeSlideIn 250ms ease both" }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <MessageSquare className="w-3.5 h-3.5" />
-        {l.askAbout}
-        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${showQuestions ? "rotate-180" : ""}`} />
-      </button>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-serif text-primary flex items-center gap-2">
+            <Map className="w-5 h-5" />
+            {l.overview}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-      {showQuestions && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {questions.map((q) => {
-            const fullQ = `${q} (${title}, ${formatYear(event.year, lang)})`;
+        <div className="space-y-2">
+          {chapters.map((ch, i) => {
+            const isCurrent = i === current;
+            const isDone = i < current;
+            const bCount = bookmarkCounts[i] || 0;
+            const isAnalyzed = analyzed[i] || false;
             return (
               <button
-                key={q}
-                onClick={() => { onQuickQuestion(fullQ); setShowQuestions(false); }}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary/60 hover:bg-secondary border border-border text-xs text-foreground/80 hover:text-foreground transition-all duration-200"
+                key={i}
+                onClick={() => { onSelect(i); onClose(); }}
+                className={"w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 text-left " +
+                  (isCurrent
+                    ? "bg-primary/10 border border-primary/30"
+                    : "hover:bg-secondary border border-transparent hover:border-border")}
               >
-                <ArrowRight className="w-3 h-3 text-primary" />
-                {q}
+                {/* Number badge */}
+                <div
+                  className={"w-9 h-9 rounded-full flex items-center justify-center text-sm font-serif font-bold flex-shrink-0 bg-gradient-to-br " +
+                    (isCurrent ? ch.theme.badge + " text-white shadow-md" : isDone ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground")}
+                >
+                  {isDone ? <Trophy className="w-4 h-4" /> : i + 1}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-sm font-serif text-foreground truncate">
+                      {ch.title[lang] || ch.title.en}
+                    </span>
+                    {isAnalyzed && <Zap className="w-3 h-3 text-primary flex-shrink-0" />}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground font-sans">
+                    <span>{ch.era}</span>
+                    <span className="opacity-40">|</span>
+                    <span>{ch.events.length} {l.events}</span>
+                    {bCount > 0 && (
+                      <>
+                        <span className="opacity-40">|</span>
+                        <span className="flex items-center gap-0.5">
+                          <Bookmark className="w-3 h-3" />{bCount}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right indicator */}
+                {isCurrent && <Eye className="w-4 h-4 text-primary flex-shrink-0" />}
+                {isDone && !isCurrent && (
+                  <div className="w-2 h-2 rounded-full bg-primary/50 flex-shrink-0" />
+                )}
               </button>
             );
           })}
         </div>
+
+        {/* Legend */}
+        <div className="mt-4 pt-4 border-t border-border flex items-center gap-4 text-[10px] text-muted-foreground font-sans">
+          <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-primary" /> {l.analyzed}</span>
+          <span className="flex items-center gap-1"><Trophy className="w-3 h-3" /> {l.chapterComplete}</span>
+          <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {lang === "sv" ? "Nu" : lang === "tr" ? "Simdi" : "Current"}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// AI SECTION
+// =============================================================================
+
+interface AISectionProps {
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  isLoading: boolean;
+  hasBeenAnalyzed: boolean;
+  lang: Lang;
+  l: typeof L.en;
+  onAnalyze: () => void;
+  onReset: () => void;
+}
+
+function AISection({ messages, isLoading, hasBeenAnalyzed, lang, l, onAnalyze, onReset }: AISectionProps) {
+  return (
+    <div className="mt-10 border-t border-border pt-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-sm font-serif text-primary flex items-center gap-2">
+          <Zap className="w-4 h-4" />
+          {l.eraAnalysis}
+          {hasBeenAnalyzed && (
+            <span className="text-[10px] font-sans bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full">
+              {l.analyzed}
+            </span>
+          )}
+        </h3>
+        {messages.length > 0 && (
+          <button
+            onClick={onReset}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors font-sans"
+          >
+            <RotateCcw className="w-3 h-3" />
+            {l.resetChat}
+          </button>
+        )}
+      </div>
+
+      {/* Trigger button */}
+      <div className="flex justify-center mb-6">
+        <button
+          onClick={onAnalyze}
+          disabled={isLoading}
+          className="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl gold-gradient text-primary-foreground text-sm font-sans font-semibold hover:opacity-90 active:scale-95 transition-all duration-200 disabled:opacity-60 ottoman-glow shadow-lg"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {l.analyzing}
+              <StreamingDots />
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              {l.aiBtn}
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Message thread */}
+      {messages.length > 0 && (
+        <div className="space-y-3">
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              style={{ animation: "fadeSlideIn 300ms ease both", animationDelay: i * 50 + "ms" }}
+            >
+              <ChatMessage
+                message={msg}
+                isStreaming={isLoading && i === messages.length - 1}
+              />
+            </div>
+          ))}
+          {isLoading && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground pl-2 font-sans">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              {l.analyzing}
+            </div>
+          )}
+        </div>
       )}
     </div>
-  </div>
-</div>
-```
-
-);
+  );
 }
 
-function ChapterOverviewModal({
-chapters, currentChapter, lang, onSelect, onClose, l,
+// =============================================================================
+// CHAPTER HERO
+// =============================================================================
+
+function ChapterHero({
+  chapter, chapterIndex, totalChapters, lang, l,
 }: {
-chapters: Chapter[];
-currentChapter: number;
-lang: Lang;
-onSelect: (i: number) => void;
-onClose: () => void;
-l: typeof LABELS.en;
+  chapter: Chapter;
+  chapterIndex: number;
+  totalChapters: number;
+  lang: Lang;
+  l: typeof L.en;
 }) {
-return (
-<div
-className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md"
-onClick={onClose}
->
-<div
-className=“w-full max-w-md bg-card rounded-2xl ottoman-border shadow-2xl p-6 animate-fade-in”
-onClick={(e) => e.stopPropagation()}
->
-<div className="flex items-center justify-between mb-5">
-<h2 className="text-lg font-serif text-primary flex items-center gap-2">
-<Map className="w-5 h-5" />{l.overview}
-</h2>
-<button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
-<X className="w-4 h-4" />
-</button>
-</div>
-<div className="space-y-2">
-{chapters.map((ch, i) => (
-<button
-key={i}
-onClick={() => { onSelect(i); onClose(); }}
-className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 text-left ${ i === currentChapter ? "bg-primary/10 border border-primary/30" : "hover:bg-secondary border border-transparent" }`}
->
-<div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-serif font-bold flex-shrink-0 ${ i === currentChapter ? "gold-gradient text-primary-foreground" : "bg-secondary text-muted-foreground" }`}>
-{i + 1}
-</div>
-<div className="flex-1 min-w-0">
-<div className="text-sm font-serif text-foreground truncate">
-{ch.title[lang] || ch.title.en}
-</div>
-<div className="text-xs text-muted-foreground">{ch.era} · {ch.events.length} händelser</div>
-</div>
-{i < currentChapter && <div className="w-2 h-2 rounded-full bg-primary/50 flex-shrink-0" />}
-{i === currentChapter && <Eye className="w-4 h-4 text-primary flex-shrink-0" />}
-</button>
-))}
-</div>
-</div>
-</div>
-);
+  const theme = chapter.theme;
+  const uniqueFigures = [...new Set(chapter.events.flatMap((e) => e.figures))].length;
+  const uniqueCategories = [...new Set(chapter.events.map((e) => e.category).filter(Boolean))].length;
+
+  return (
+    <div
+      className={"relative rounded-2xl overflow-hidden mb-8 bg-gradient-to-br " + theme.from + " " + theme.to + " border border-primary/10"}
+    >
+      {/* Ambient glow overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at 15% 50%, " + theme.accent + "18 0%, transparent 55%), " +
+            "radial-gradient(ellipse at 85% 50%, " + theme.accent + "0f 0%, transparent 55%)",
+        }}
+      />
+
+      {/* Chapter number badge top-right */}
+      <div
+        className={"absolute top-4 right-4 w-8 h-8 rounded-full bg-gradient-to-br " + theme.badge + " flex items-center justify-center text-xs font-serif font-bold text-white shadow-lg"}
+      >
+        {chapterIndex + 1}
+      </div>
+
+      <div className="relative px-6 py-8 text-center">
+        {/* Icon */}
+        <div
+          className="w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center"
+          style={{
+            backgroundColor: theme.accent + "22",
+            border: "1px solid " + theme.accent + "44",
+            color: theme.accent,
+          }}
+        >
+          {theme.icon}
+        </div>
+
+        {/* Label */}
+        <span className="text-[10px] font-sans uppercase tracking-[0.22em] text-muted-foreground mb-1 block">
+          {l.chapter} {chapterIndex + 1} {l.of} {totalChapters}
+        </span>
+
+        {/* Title */}
+        <h1 className="text-3xl font-serif text-primary mb-1 leading-tight">
+          {chapter.title[lang] || chapter.title.en}
+        </h1>
+
+        {/* Era */}
+        <p className="text-xs font-sans text-muted-foreground mb-5">{chapter.era}</p>
+
+        {/* Description */}
+        <p className="text-sm font-sans text-foreground/65 leading-relaxed max-w-prose mx-auto">
+          {chapter.description[lang] || chapter.description.en}
+        </p>
+
+        {/* Stats row */}
+        <div className="flex items-stretch justify-center gap-0 mt-6 pt-5 border-t border-primary/10">
+          <div className="flex-1 text-center px-3">
+            <div className="text-xl font-serif text-primary">{chapter.events.length}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{l.events}</div>
+          </div>
+          <div className="w-px bg-primary/10" />
+          <div className="flex-1 text-center px-3">
+            <div className="text-xl font-serif text-primary">{uniqueFigures}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{l.figures}</div>
+          </div>
+          {uniqueCategories > 0 && (
+            <>
+              <div className="w-px bg-primary/10" />
+              <div className="flex-1 text-center px-3">
+                <div className="text-xl font-serif text-primary">{uniqueCategories}</div>
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{l.categories}</div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Category breakdown pills */}
+        <CategoryBreakdown events={chapter.events} lang={lang} />
+      </div>
+    </div>
+  );
 }
 
-// ─────────────────────────────────────────────
-// Main component
-// ─────────────────────────────────────────────
-export default function StoryMode() {
-const { language, setLanguage } = useChat();
-const { config, empireId } = useEmpire();
+// =============================================================================
+// TOP NAVIGATION BAR
+// =============================================================================
 
-// Re-use a single useChat but manage messages per chapter ourselves
-const { isLoading, send, messages: rawMessages } = useChat();
-
-const lang = (language as Lang) || “en”;
-const l = LABELS[lang] || LABELS.en;
-
-// ── State ──
-const [currentChapter, setCurrentChapter] = useState(0);
-const [direction, setDirection] = useState<“forward” | “back”>(“forward”);
-const [isTransitioning, setIsTransitioning] = useState(false);
-const [chapterMessages, setChapterMessages] = useState<Record<number, ChatMsg[]>>({});
-const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
-const [showOverview, setShowOverview] = useState(false);
-const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
-const [hasShownHint, setHasShownHint] = useState(false);
-
-const scrollRef = useRef<HTMLDivElement>(null);
-const touchStartX = useRef<number | null>(null);
-const contentKey = useRef(0);
-
-const timeline: StoryEvent[] = config?.timeline || [];
-const chapters = useMemo(() => buildChapters(timeline, lang), [timeline, lang]);
-const chapter = chapters[currentChapter];
-const progress = chapters.length > 0 ? Math.round(((currentChapter + 1) / chapters.length) * 100) : 0;
-const currentMessages = chapterMessages[currentChapter] || [];
-
-// ── Sync rawMessages into per-chapter store ──
-useEffect(() => {
-if (rawMessages.length > 0) {
-setChapterMessages((prev) => ({
-…prev,
-[currentChapter]: rawMessages as ChatMsg[],
-}));
-}
-}, [rawMessages, currentChapter]);
-
-// ── Persist chapter position ──
-useEffect(() => {
-if (!empireId) return;
-const key = `story_chapter_${empireId}`;
-const saved = localStorage.getItem(key);
-if (saved !== null) {
-const n = parseInt(saved, 10);
-if (!isNaN(n) && n < chapters.length) setCurrentChapter(n);
-}
-}, [empireId, chapters.length]);
-
-useEffect(() => {
-if (!empireId) return;
-localStorage.setItem(`story_chapter_${empireId}`, String(currentChapter));
-}, [empireId, currentChapter]);
-
-// ── Persist bookmarks ──
-useEffect(() => {
-if (!empireId) return;
-const saved = localStorage.getItem(`story_bookmarks_${empireId}`);
-if (saved) {
-try { setBookmarks(JSON.parse(saved)); } catch {}
-}
-}, [empireId]);
-
-const toggleBookmark = useCallback((key: string) => {
-setBookmarks((prev) => {
-const next = { …prev, [key]: !prev[key] };
-if (empireId) localStorage.setItem(`story_bookmarks_${empireId}`, JSON.stringify(next));
-return next;
-});
-}, [empireId]);
-
-// ── Navigation ──
-const navigate = useCallback((dir: “forward” | “back”) => {
-const next = dir === “forward” ? currentChapter + 1 : currentChapter - 1;
-if (next < 0 || next >= chapters.length || isTransitioning) return;
-setDirection(dir);
-setIsTransitioning(true);
-contentKey.current += 1;
-setTimeout(() => {
-setCurrentChapter(next);
-setIsTransitioning(false);
-scrollRef.current?.scrollTo({ top: 0, behavior: “smooth” });
-}, 200);
-}, [currentChapter, chapters.length, isTransitioning]);
-
-const jumpToChapter = useCallback((i: number) => {
-setDirection(i > currentChapter ? “forward” : “back”);
-setIsTransitioning(true);
-contentKey.current += 1;
-setTimeout(() => {
-setCurrentChapter(i);
-setIsTransitioning(false);
-scrollRef.current?.scrollTo({ top: 0, behavior: “smooth” });
-}, 200);
-}, [currentChapter]);
-
-// ── Keyboard ──
-useEffect(() => {
-const handler = (e: KeyboardEvent) => {
-if (e.key === “ArrowRight”) navigate(“forward”);
-if (e.key === “ArrowLeft”) navigate(“back”);
-if (e.key === “Escape”) setShowOverview(false);
-};
-window.addEventListener(“keydown”, handler);
-return () => window.removeEventListener(“keydown”, handler);
-}, [navigate]);
-
-// ── Touch / swipe ──
-const onTouchStart = (e: React.TouchEvent) => {
-touchStartX.current = e.touches[0].clientX;
-};
-const onTouchEnd = (e: React.TouchEvent) => {
-if (touchStartX.current === null) return;
-const dx = e.changedTouches[0].clientX - touchStartX.current;
-if (Math.abs(dx) > 50) navigate(dx < 0 ? “forward” : “back”);
-touchStartX.current = null;
-};
-
-// ── Show swipe hint once ──
-useEffect(() => {
-if (!hasShownHint) setHasShownHint(true);
-}, []);
-
-// ── AI send ──
-const handleAI = useCallback(() => {
-if (!chapter) return;
-const events = chapter.events.map((e) => e.title[lang] || e.title.en).join(”, “);
-const prompt =
-lang === “sv”
-? `Analysera denna historiska period "${chapter.title.sv}" (${chapter.era}): ${events}. Skriv en sammanhängande, levande berättelse om denna epok som om du vore en historiker som berättar för en intresserad publik.`
-: lang === “tr”
-? `"${chapter.title.tr}" (${chapter.era}) tarihsel dönemini analiz edin: ${events}. Bu çağı, ilgili bir kitleye anlatan bir tarihçi gibi tutarlı, canlı bir anlatı yazın.`
-: `Analyze the historical period "${chapter.title.en}" (${chapter.era}): ${events}. Write a cohesive, vivid narrative of this era as if you were a historian addressing an engaged audience.`;
-send(prompt);
-}, [chapter, lang, send]);
-
-const handleFigureClick = useCallback((name: string) => {
-const prompt =
-lang === “sv” ? `Berätta om ${name} och dennes roll i imperiet.`
-: lang === “tr” ? `${name} ve imparatorluktaki rolü hakkında bilgi ver.`
-: `Tell me about ${name} and their role in the empire.`;
-send(prompt);
-}, [lang, send]);
-
-const handleQuickQuestion = useCallback((q: string) => {
-send(q);
-}, [send]);
-
-const resetChapterMessages = () => {
-setChapterMessages((prev) => ({ …prev, [currentChapter]: [] }));
-};
-
-// ── Empty states ──
-if (!timeline.length) {
-return (
-<AppLayout language={language} setLanguage={setLanguage}>
-<div className="h-full flex items-center justify-center p-8">
-<div className="text-center space-y-3 max-w-sm">
-<BookOpen className="w-12 h-12 text-muted-foreground mx-auto opacity-40" />
-<p className="text-muted-foreground font-sans text-sm">{l.emptyState}</p>
-</div>
-</div>
-</AppLayout>
-);
-}
-
-if (!chapter) return null;
-
-const theme = chapter.theme;
-
-// ─────────────────────────────────────────────
-return (
-<AppLayout language={language} setLanguage={setLanguage}>
-<div
-className="h-full flex flex-col"
-onTouchStart={onTouchStart}
-onTouchEnd={onTouchEnd}
->
-{/* ── Top bar ── */}
-<div className="flex-shrink-0 px-4 py-3 border-b border-border bg-background/60 backdrop-blur-md z-10">
-<div className="max-w-3xl mx-auto">
-
-```
-        {/* Title row */}
+function TopBar({
+  chapters, current, lang, progress, l, onDotClick, onOpenOverview,
+}: {
+  chapters: Chapter[];
+  current: number;
+  lang: Lang;
+  progress: number;
+  l: typeof L.en;
+  onDotClick: (i: number) => void;
+  onOpenOverview: () => void;
+}) {
+  const chapter = chapters[current];
+  return (
+    <div className="flex-shrink-0 px-4 py-3 border-b border-border bg-background/60 backdrop-blur-md z-10">
+      <div className="max-w-3xl mx-auto">
+        {/* Row 1: title + ring + map button */}
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-serif text-primary/80 flex items-center gap-1.5 uppercase tracking-widest">
+          <h2 className="text-[11px] font-serif text-primary/75 flex items-center gap-1.5 uppercase tracking-widest">
             <BookOpen className="w-3.5 h-3.5" />
             {l.title}
           </h2>
-
           <div className="flex items-center gap-2">
-            {/* Progress ring + percent */}
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ProgressRing progress={progress} size={28} />
-              <span className="tabular-nums">{progress}% {l.progress}</span>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-sans">
+              <ProgressRing pct={progress} size={26} />
+              <span className="tabular-nums">{progress}%</span>
             </div>
-
-            {/* Overview button */}
             <button
-              onClick={() => setShowOverview(true)}
-              className="p-1.5 rounded-lg bg-secondary/50 hover:bg-secondary border border-border text-muted-foreground hover:text-foreground transition-all duration-200"
+              onClick={onOpenOverview}
+              className="p-1.5 rounded-lg bg-secondary/60 hover:bg-secondary border border-border text-muted-foreground hover:text-foreground transition-all duration-200"
               title={l.overview}
             >
               <Map className="w-3.5 h-3.5" />
@@ -619,254 +936,410 @@ onTouchEnd={onTouchEnd}
           </div>
         </div>
 
-        {/* Chapter dots */}
+        {/* Row 2: chapter progress bar */}
         <div className="flex gap-1.5 items-center">
           {chapters.map((ch, i) => (
             <button
               key={i}
-              onClick={() => jumpToChapter(i)}
-              title={ch.title[lang] || ch.title.en}
-              className={`h-1.5 rounded-full transition-all duration-500 ${
-                i === currentChapter
-                  ? "gold-gradient ottoman-glow flex-[2]"
-                  : i < currentChapter
-                  ? "bg-primary/40 flex-1"
-                  : "bg-secondary flex-1"
-              }`}
+              onClick={() => onDotClick(i)}
+              title={(ch.title[lang] || ch.title.en) + " - " + ch.era}
+              className={"h-1.5 rounded-full transition-all duration-500 " + (
+                i === current
+                  ? "gold-gradient ottoman-glow flex-[2.5]"
+                  : i < current
+                  ? "bg-primary/40 flex-1 hover:bg-primary/60"
+                  : "bg-secondary flex-1 hover:bg-secondary/80"
+              )}
             />
           ))}
         </div>
 
-        {/* Chapter label row */}
-        <div className="flex items-center justify-between mt-1.5">
-          <span className="text-[10px] font-sans text-muted-foreground">
-            {l.chapter} {currentChapter + 1} {l.of} {chapters.length}
-          </span>
-          <span className="text-[10px] font-sans text-muted-foreground">
-            {chapter.title[lang] || chapter.title.en} · {chapter.era}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    {/* ── Scrollable content ── */}
-    <div
-      ref={scrollRef}
-      className="flex-1 overflow-y-auto"
-      style={{
-        opacity: isTransitioning ? 0 : 1,
-        transform: isTransitioning
-          ? `translateX(${direction === "forward" ? "-20px" : "20px"})`
-          : "translateX(0)",
-        transition: "opacity 200ms ease, transform 200ms ease",
-      }}
-    >
-      <div className="max-w-3xl mx-auto px-4 pb-12 pt-0">
-
-        {/* ── Chapter hero ── */}
-        <div className={`relative rounded-2xl overflow-hidden mb-8 bg-gradient-to-br ${theme.from} ${theme.to} border border-primary/10`}>
-          {/* Decorative pattern */}
-          <div
-            className="absolute inset-0 opacity-5"
-            style={{
-              backgroundImage: `radial-gradient(circle at 20% 50%, ${theme.accent}33 0%, transparent 50%), radial-gradient(circle at 80% 50%, ${theme.accent}22 0%, transparent 50%)`,
-            }}
-          />
-          <div className="relative px-6 py-8 text-center">
-            <div
-              className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center"
-              style={{ backgroundColor: `${theme.accent}22`, border: `1px solid ${theme.accent}44`, color: theme.accent }}
-            >
-              {theme.icon}
-            </div>
-            <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-muted-foreground mb-1 block">
-              {l.chapter} {currentChapter + 1}
+        {/* Row 3: chapter info */}
+        {chapter && (
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-[10px] font-sans text-muted-foreground">
+              {l.chapter} {current + 1} {l.of} {chapters.length}
             </span>
-            <h1 className="text-3xl font-serif text-primary mb-1">
+            <span className="text-[10px] font-sans text-muted-foreground truncate max-w-[55%] text-right">
               {chapter.title[lang] || chapter.title.en}
-            </h1>
-            <p className="text-xs font-sans text-muted-foreground mb-4">{chapter.era}</p>
-            <p className="text-sm font-sans text-foreground/70 leading-relaxed max-w-prose mx-auto">
-              {chapter.description[lang] || chapter.description.en}
-            </p>
-
-            {/* Era stats */}
-            <div className="flex items-center justify-center gap-4 mt-5 pt-5 border-t border-primary/10">
-              <div className="text-center">
-                <div className="text-lg font-serif text-primary">{chapter.events.length}</div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  {lang === "sv" ? "händelser" : lang === "tr" ? "olay" : "events"}
-                </div>
-              </div>
-              <div className="w-px h-8 bg-border" />
-              <div className="text-center">
-                <div className="text-lg font-serif text-primary">
-                  {[...new Set(chapter.events.flatMap((e) => e.figures))].length}
-                </div>
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  {lang === "sv" ? "figurer" : lang === "tr" ? "figür" : "figures"}
-                </div>
-              </div>
-              {chapter.events.some((e) => e.category) && (
-                <>
-                  <div className="w-px h-8 bg-border" />
-                  <div className="text-center">
-                    <div className="text-lg font-serif text-primary">
-                      {[...new Set(chapter.events.map((e) => e.category).filter(Boolean))].length}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                      {lang === "sv" ? "kategorier" : lang === "tr" ? "kategori" : "categories"}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Events ── */}
-        {chapter.events.length === 0 ? (
-          <p className="text-center text-muted-foreground text-sm py-12">{l.noEvents}</p>
-        ) : (
-          <div className="space-y-5">
-            {chapter.events.map((event, i) => {
-              const bkey = `${empireId}_${event.year}_${(event.title.en || "").slice(0, 10)}`;
-              return (
-                <EventCard
-                  key={`${event.year}-${i}`}
-                  event={event}
-                  index={i}
-                  isLast={i === chapter.events.length - 1}
-                  lang={lang}
-                  bookmarked={!!bookmarks[bkey]}
-                  onBookmark={() => toggleBookmark(bkey)}
-                  onFigureClick={handleFigureClick}
-                  onQuickQuestion={handleQuickQuestion}
-                  l={l}
-                />
-              );
-            })}
+              {" \u00b7 "}
+              {chapter.era}
+            </span>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
 
-        {/* ── AI section ── */}
-        <div className="mt-10">
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-serif text-primary flex items-center gap-2">
-                <Zap className="w-4 h-4" />
-                {lang === "sv" ? "AI-analys av epoken" : lang === "tr" ? "Dönem Analizi" : "Era Analysis"}
-              </h3>
-              {currentMessages.length > 0 && (
-                <button
-                  onClick={resetChapterMessages}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <RotateCcw className="w-3 h-3" />{l.resetChat}
-                </button>
-              )}
+// =============================================================================
+// BOTTOM NAVIGATION
+// =============================================================================
+
+function BottomNav({
+  current, total, isTransitioning, l, onPrev, onNext,
+}: {
+  current: number; total: number; isTransitioning: boolean;
+  l: typeof L.en; onPrev: () => void; onNext: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between mt-10 pt-6 border-t border-border gap-3">
+      <button
+        onClick={onPrev}
+        disabled={current === 0 || isTransitioning}
+        className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-sans text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent hover:border-border disabled:opacity-25 transition-all duration-200"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        {l.prev}
+      </button>
+
+      {/* Dot indicators */}
+      <div className="flex gap-1.5 items-center">
+        {Array.from({ length: total }).map((_, i) => (
+          <div
+            key={i}
+            className={"rounded-full transition-all duration-300 " + (
+              i === current ? "w-5 h-2 gold-gradient" : "w-2 h-2 bg-border"
+            )}
+          />
+        ))}
+      </div>
+
+      <button
+        onClick={onNext}
+        disabled={current === total - 1 || isTransitioning}
+        className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-sans gold-gradient text-primary-foreground hover:opacity-90 active:scale-95 disabled:opacity-25 transition-all duration-200 ottoman-glow"
+      >
+        {l.next}
+        <ChevronRight className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
+
+export default function StoryMode() {
+  // Hooks
+  const chatHook = useChat();
+  const { language, setLanguage, isLoading, send, messages: rawMessages } = chatHook;
+  const { config, empireId } = useEmpire();
+
+  const lang: Lang = (language as Lang) || "en";
+  const l = L[lang] || L.en;
+
+  // State
+  const [currentChapter, setCurrentChapter] = useState(0);
+  const [direction, setDirection] = useState<"forward" | "back">("forward");
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showOverview, setShowOverview] = useState(false);
+
+  // Per-chapter data stored locally so switching chapters preserves AI history
+  const [perChapter, setPerChapter] = useState<Record<number, PerChapterState>>({});
+
+  // Global bookmarks keyed by empireId+year+titleslug
+  const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
+
+  // Derived
+  const timeline: StoryEvent[] = (config as any)?.timeline || [];
+  const chapters = useMemo(() => buildChapters(timeline, lang), [timeline, lang]);
+  const chapter = chapters[currentChapter];
+  const totalChapters = chapters.length;
+  const progress = totalChapters > 0 ? Math.round(((currentChapter + 1) / totalChapters) * 100) : 0;
+  const currentState: PerChapterState = perChapter[currentChapter] || { messages: [], bookmarks: [], aiAnalyzed: false };
+  const currentMessages = currentState.messages;
+
+  // Sync rawMessages from useChat into per-chapter store whenever they change
+  useEffect(() => {
+    if (!rawMessages || rawMessages.length === 0) return;
+    setPerChapter((prev) => {
+      const existing = prev[currentChapter] || { messages: [], bookmarks: [], aiAnalyzed: false };
+      return {
+        ...prev,
+        [currentChapter]: {
+          ...existing,
+          messages: rawMessages as Array<{ role: "user" | "assistant"; content: string }>,
+          aiAnalyzed: true,
+        },
+      };
+    });
+  }, [rawMessages, currentChapter]);
+
+  // Restore chapter position from localStorage
+  useEffect(() => {
+    if (!empireId || !totalChapters) return;
+    const saved = safeGet("story_ch_" + empireId);
+    if (saved !== null) {
+      const n = parseInt(saved, 10);
+      if (!isNaN(n) && n >= 0 && n < totalChapters) {
+        setCurrentChapter(n);
+      }
+    }
+  }, [empireId, totalChapters]);
+
+  // Restore bookmarks
+  useEffect(() => {
+    if (!empireId) return;
+    try {
+      const raw = safeGet("story_bm_" + empireId);
+      if (raw) setBookmarks(JSON.parse(raw));
+    } catch {}
+  }, [empireId]);
+
+  // Persist chapter position
+  const persistChapter = useCallback((n: number) => {
+    if (empireId) safeSet("story_ch_" + empireId, String(n));
+  }, [empireId]);
+
+  // Toggle bookmark
+  const toggleBookmark = useCallback((key: string) => {
+    setBookmarks((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (empireId) safeSet("story_bm_" + empireId, JSON.stringify(next));
+      return next;
+    });
+  }, [empireId]);
+
+  // Bookmark key generator
+  const bKey = useCallback((event: StoryEvent) => {
+    return (empireId || "x") + "_" + event.year + "_" + (event.title.en || "").slice(0, 12).replace(/\s/g, "_");
+  }, [empireId]);
+
+  // Bookmark counts per chapter (for overview modal)
+  const bookmarkCounts = useMemo(() => {
+    const counts: Record<number, number> = {};
+    chapters.forEach((ch, idx) => {
+      counts[idx] = ch.events.filter((e) => bookmarks[bKey(e)]).length;
+    });
+    return counts;
+  }, [chapters, bookmarks, bKey]);
+
+  // Which chapters have been AI-analyzed
+  const analyzedMap = useMemo(() => {
+    const m: Record<number, boolean> = {};
+    Object.entries(perChapter).forEach(([k, v]) => {
+      m[Number(k)] = v.aiAnalyzed;
+    });
+    return m;
+  }, [perChapter]);
+
+  // Navigation helper
+  const doNavigate = useCallback((next: number, dir: "forward" | "back") => {
+    if (next < 0 || next >= totalChapters || isTransitioning) return;
+    setDirection(dir);
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentChapter(next);
+      persistChapter(next);
+      setIsTransitioning(false);
+      scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }, 220);
+  }, [totalChapters, isTransitioning, persistChapter]);
+
+  const navigatePrev = useCallback(() => doNavigate(currentChapter - 1, "back"), [currentChapter, doNavigate]);
+  const navigateNext = useCallback(() => doNavigate(currentChapter + 1, "forward"), [currentChapter, doNavigate]);
+  const jumpToChapter = useCallback((i: number) => {
+    doNavigate(i, i >= currentChapter ? "forward" : "back");
+  }, [currentChapter, doNavigate]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") navigateNext();
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") navigatePrev();
+      else if (e.key === "Escape") setShowOverview(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [navigateNext, navigatePrev]);
+
+  // Touch swipe
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) > 55) {
+      if (dx < 0) navigateNext();
+      else navigatePrev();
+    }
+    touchStartX.current = null;
+  };
+
+  // AI analysis
+  const handleAI = useCallback(() => {
+    if (!chapter || isLoading) return;
+    const eventsList = chapter.events.map((e) => e.title[lang] || e.title.en).join(", ");
+    const prompt =
+      lang === "sv"
+        ? "Analysera den historiska perioden \"" + (chapter.title.sv || chapter.title.en) + "\" (" + chapter.era + "): " + eventsList + ". Skriv en sammanhangande, levande berattelse om denna epok som om du vore en historiker som talar for en intresserad publik. Inkludera orsaker, konsekvenser och manskliga dimensioner."
+        : lang === "tr"
+        ? "\"" + (chapter.title.tr || chapter.title.en) + "\" (" + chapter.era + ") tarihsel donemini analiz edin: " + eventsList + ". Bu cagi, ilgili bir kitleye anlatan bir tarihci gibi tutarli, canli bir anlati yazin. Nedenleri, sonuclari ve insani boyutlari ekleyin."
+        : "Analyze the historical period \"" + chapter.title.en + "\" (" + chapter.era + "): " + eventsList + ". Write a cohesive, vivid narrative of this era as if you were a historian addressing an engaged audience. Include causes, consequences, and human dimensions.";
+    send(prompt);
+  }, [chapter, lang, isLoading, send]);
+
+  const handleFigureClick = useCallback((name: string) => {
+    if (isLoading) return;
+    send(FIGURE_QUESTIONS[lang](name));
+  }, [lang, isLoading, send]);
+
+  const handleQuickQuestion = useCallback((q: string) => {
+    if (isLoading) return;
+    send(q);
+  }, [isLoading, send]);
+
+  const resetChapterMessages = useCallback(() => {
+    setPerChapter((prev) => ({
+      ...prev,
+      [currentChapter]: { messages: [], bookmarks: [], aiAnalyzed: false },
+    }));
+  }, [currentChapter]);
+
+  // ==========================================================================
+  // RENDER - EMPTY STATE
+  // ==========================================================================
+
+  if (!timeline.length) {
+    return (
+      <AppLayout language={language} setLanguage={setLanguage}>
+        <div className="h-full flex items-center justify-center p-8">
+          <div className="text-center space-y-4 max-w-sm">
+            <div className="w-16 h-16 rounded-full bg-secondary/60 flex items-center justify-center mx-auto">
+              <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
             </div>
+            <p className="text-muted-foreground font-sans text-sm leading-relaxed">{l.emptyState}</p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
-            {/* AI trigger button */}
-            <div className="flex justify-center mb-6">
-              <button
-                onClick={handleAI}
-                disabled={isLoading}
-                className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl gold-gradient text-primary-foreground text-sm font-sans font-semibold hover:opacity-90 active:scale-95 transition-all duration-200 disabled:opacity-60 ottoman-glow shadow-lg"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {l.analyzing}
-                    <StreamingDots />
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    {l.aiBtn}
-                  </>
-                )}
-              </button>
-            </div>
+  if (!chapter) return null;
 
-            {/* Messages */}
-            {currentMessages.length > 0 && (
-              <div className="space-y-3">
-                {currentMessages.map((msg, i) => (
-                  <div key={i} className="animate-fade-in">
-                    <ChatMessage
-                      message={msg}
-                      isStreaming={isLoading && i === currentMessages.length - 1}
-                    />
-                  </div>
+  // ==========================================================================
+  // RENDER - MAIN
+  // ==========================================================================
+
+  const transitionStyle = {
+    opacity: isTransitioning ? 0 : 1,
+    transform: isTransitioning
+      ? "translateX(" + (direction === "forward" ? "-24px" : "24px") + ")"
+      : "translateX(0px)",
+    transition: "opacity 220ms ease, transform 220ms ease",
+  };
+
+  return (
+    <AppLayout language={language} setLanguage={setLanguage}>
+      <style>{`
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
+      <div
+        className="h-full flex flex-col select-none"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* ── TOP BAR ── */}
+        <TopBar
+          chapters={chapters}
+          current={currentChapter}
+          lang={lang}
+          progress={progress}
+          l={l}
+          onDotClick={jumpToChapter}
+          onOpenOverview={() => setShowOverview(true)}
+        />
+
+        {/* ── SCROLLABLE BODY ── */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto" style={transitionStyle}>
+          <div className="max-w-3xl mx-auto px-4 pb-16 pt-2">
+
+            {/* Chapter hero card */}
+            <ChapterHero
+              chapter={chapter}
+              chapterIndex={currentChapter}
+              totalChapters={totalChapters}
+              lang={lang}
+              l={l}
+            />
+
+            {/* Events list */}
+            {chapter.events.length === 0 ? (
+              <p className="text-center text-muted-foreground text-sm py-16 font-sans">{l.noEvents}</p>
+            ) : (
+              <div className="space-y-5">
+                {chapter.events.map((event, i) => (
+                  <EventCard
+                    key={event.year + "-" + i}
+                    event={event}
+                    index={i}
+                    isLast={i === chapter.events.length - 1}
+                    lang={lang}
+                    bookmarked={!!bookmarks[bKey(event)]}
+                    onBookmark={() => toggleBookmark(bKey(event))}
+                    onFigureClick={handleFigureClick}
+                    onQuickQuestion={handleQuickQuestion}
+                    l={l}
+                  />
                 ))}
-                {isLoading && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground pl-2">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    {l.analyzing}
-                  </div>
-                )}
               </div>
+            )}
+
+            {/* AI analysis section */}
+            <AISection
+              messages={currentMessages}
+              isLoading={isLoading}
+              hasBeenAnalyzed={currentState.aiAnalyzed}
+              lang={lang}
+              l={l}
+              onAnalyze={handleAI}
+              onReset={resetChapterMessages}
+            />
+
+            {/* Bottom navigation */}
+            <BottomNav
+              current={currentChapter}
+              total={totalChapters}
+              isTransitioning={isTransitioning}
+              l={l}
+              onPrev={navigatePrev}
+              onNext={navigateNext}
+            />
+
+            {/* Swipe / keyboard hint - only on first chapter */}
+            {currentChapter === 0 && (
+              <p className="text-center text-[10px] text-muted-foreground/40 mt-5 font-sans">
+                {l.swipeHint}
+              </p>
             )}
           </div>
         </div>
 
-        {/* ── Chapter navigation ── */}
-        <div className="flex items-center justify-between mt-10 pt-6 border-t border-border gap-3">
-          <button
-            onClick={() => navigate("back")}
-            disabled={currentChapter === 0 || isTransitioning}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-sans text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent hover:border-border disabled:opacity-30 transition-all duration-200"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            {l.prev}
-          </button>
-
-          {/* Chapter dots (center) */}
-          <div className="flex gap-1">
-            {chapters.map((_, i) => (
-              <div
-                key={i}
-                className={`rounded-full transition-all duration-300 ${
-                  i === currentChapter ? "w-5 h-2 gold-gradient" : "w-2 h-2 bg-border"
-                }`}
-              />
-            ))}
-          </div>
-
-          <button
-            onClick={() => navigate("forward")}
-            disabled={currentChapter === chapters.length - 1 || isTransitioning}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-sans gold-gradient text-primary-foreground hover:opacity-90 active:scale-95 disabled:opacity-30 transition-all duration-200 ottoman-glow"
-          >
-            {l.next}
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Keyboard hint */}
-        {hasShownHint && currentChapter === 0 && (
-          <p className="text-center text-[10px] text-muted-foreground/50 mt-4 font-sans">
-            {l.swipeHint}
-          </p>
+        {/* ── OVERVIEW MODAL ── */}
+        {showOverview && (
+          <ChapterOverviewModal
+            chapters={chapters}
+            current={currentChapter}
+            lang={lang}
+            analyzed={analyzedMap}
+            bookmarkCounts={bookmarkCounts}
+            onSelect={jumpToChapter}
+            onClose={() => setShowOverview(false)}
+            l={l}
+          />
         )}
       </div>
-    </div>
-
-    {/* ── Overview modal ── */}
-    {showOverview && (
-      <ChapterOverviewModal
-        chapters={chapters}
-        currentChapter={currentChapter}
-        lang={lang}
-        onSelect={jumpToChapter}
-        onClose={() => setShowOverview(false)}
-        l={l}
-      />
-    )}
-  </div>
-</AppLayout>
-```
-
-);
+    </AppLayout>
+  );
 }
