@@ -250,22 +250,46 @@ export default function Admin() {
     try {
       const { data: profiles, error } = await supabase.from("profiles").select("*");
       const { data: roles } = await supabase.from("user_roles").select("user_id, role");
+      const { data: progress } = await supabase.from("user_progress").select("user_id, xp");
+      const { data: quizResults } = await supabase.from("quiz_results").select("user_id, score, total_questions");
       if (error) { showToast("Kunde inte hämta användare", "error"); addLog(`Fel: ${error.message}`, "error"); }
       if (profiles) {
         const now = Date.now(); const day = 86400000;
-        const formatted: UserProfile[] = profiles.map((p: any, i: number) => ({
-          id: p.id, email: p.email || "—",
-          display_name: p.display_name || p.email?.split("@")[0] || "Okänd",
-          role: roles?.find((r: any) => r.user_id === p.id)?.role || "user",
-          created_at: p.created_at,
-          xp: p.xp ?? Math.floor(Math.random() * 2000),
-          last_seen: p.last_seen ?? new Date(now - Math.random() * 7 * day).toISOString(),
-          is_online: Math.random() > 0.7,
-          questions_asked: p.questions_asked ?? Math.floor(Math.random() * 150),
-          quiz_score: p.quiz_score ?? Math.floor(Math.random() * 100),
-          is_banned: p.is_banned ?? false,
-          avatar_url: p.avatar_url ?? "",
-        }));
+
+        // Bygg ett XP-map från user_progress (äkta XP)
+        const xpMap: Record<string, number> = {};
+        (progress || []).forEach((p: any) => { xpMap[p.user_id] = p.xp ?? 0; });
+
+        // Räkna quiz-statistik per användare
+        const quizMap: Record<string, { count: number; totalScore: number; totalQ: number }> = {};
+        (quizResults || []).forEach((r: any) => {
+          if (!quizMap[r.user_id]) quizMap[r.user_id] = { count: 0, totalScore: 0, totalQ: 0 };
+          quizMap[r.user_id].count += 1;
+          quizMap[r.user_id].totalScore += r.score ?? 0;
+          quizMap[r.user_id].totalQ += r.total_questions ?? 12;
+        });
+
+        const formatted: UserProfile[] = profiles.map((p: any, i: number) => {
+          const qStats = quizMap[p.id];
+          const quizPct = qStats && qStats.totalQ > 0
+            ? Math.round((qStats.totalScore / qStats.totalQ) * 100)
+            : 0;
+          return {
+            id: p.id, email: p.email || "—",
+            display_name: p.display_name || p.email?.split("@")[0] || "Okänd",
+            role: roles?.find((r: any) => r.user_id === p.id)?.role || "user",
+            created_at: p.created_at,
+            xp: xpMap[p.id] ?? p.xp ?? 0,
+            last_seen: p.last_seen ?? null,
+            is_online: p.last_seen
+              ? (now - new Date(p.last_seen).getTime()) < 5 * 60 * 1000
+              : false,
+            questions_asked: qStats?.count ?? p.questions_asked ?? 0,
+            quiz_score: quizPct || p.quiz_score ?? 0,
+            is_banned: p.is_banned ?? false,
+            avatar_url: p.avatar_url ?? "",
+          };
+        });
         setUsers(formatted); animateCounter(formatted.length);
         const admins = formatted.filter(u => u.role === "admin").length;
         setStats({
@@ -283,17 +307,36 @@ export default function Admin() {
 
   // ── FETCH LEADERBOARD ──
   const fetchLeaderboard = useCallback(async () => {
-    const { data: profiles } = await supabase.from("profiles").select("id, display_name, email, created_at, xp, avatar_url, questions_asked, quiz_score");
+    const { data: profiles } = await supabase.from("profiles").select("id, display_name, email, avatar_url");
+    const { data: progress } = await supabase.from("user_progress").select("user_id, xp");
+    const { data: quizResults } = await supabase.from("quiz_results").select("user_id, score, total_questions");
     if (profiles) {
-      const lb = profiles.map((p: any) => ({
-        id: p.id, email: p.email || "—",
-        display_name: p.display_name || p.email?.split("@")[0] || "Okänd",
-        role: "user",
-        xp: p.xp ?? Math.floor(Math.random() * 3000),
-        questions_asked: p.questions_asked ?? Math.floor(Math.random() * 200),
-        quiz_score: p.quiz_score ?? Math.floor(Math.random() * 100),
-        avatar_url: p.avatar_url ?? "",
-      })).sort((a: any, b: any) => b.xp - a.xp).slice(0, 10);
+      const xpMap: Record<string, number> = {};
+      (progress || []).forEach((p: any) => { xpMap[p.user_id] = p.xp ?? 0; });
+
+      const quizMap: Record<string, { count: number; totalScore: number; totalQ: number }> = {};
+      (quizResults || []).forEach((r: any) => {
+        if (!quizMap[r.user_id]) quizMap[r.user_id] = { count: 0, totalScore: 0, totalQ: 0 };
+        quizMap[r.user_id].count += 1;
+        quizMap[r.user_id].totalScore += r.score ?? 0;
+        quizMap[r.user_id].totalQ += r.total_questions ?? 12;
+      });
+
+      const lb = profiles.map((p: any) => {
+        const qStats = quizMap[p.id];
+        const quizPct = qStats && qStats.totalQ > 0
+          ? Math.round((qStats.totalScore / qStats.totalQ) * 100)
+          : 0;
+        return {
+          id: p.id, email: p.email || "—",
+          display_name: p.display_name || p.email?.split("@")[0] || "Okänd",
+          role: "user",
+          xp: xpMap[p.id] ?? 0,
+          questions_asked: qStats?.count ?? 0,
+          quiz_score: quizPct,
+          avatar_url: p.avatar_url ?? "",
+        };
+      }).sort((a: any, b: any) => b.xp - a.xp).slice(0, 10);
       setLeaderboard(lb);
     }
   }, []);
