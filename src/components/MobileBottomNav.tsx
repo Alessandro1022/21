@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, MessageSquare, Clock, Map, Brain, Users, Crown, BookOpen, Settings, MoreHorizontal, Shield, Bell } from "lucide-react";
+import { Home, MessageSquare, Clock, Map, Brain, Users, Crown, BookOpen, Settings, MoreHorizontal, Shield, Bell, Trophy } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ const MAIN_TABS = [
 const MORE_ITEMS = [
   { path: "/map", icon: Map, label: { sv: "Karta", en: "Map", tr: "Harita" } },
   { path: "/quiz", icon: Brain, label: { sv: "Quiz", en: "Quiz", tr: "Quiz" } },
+  { path: "/leaderboard", icon: Trophy, label: { sv: "Topplista", en: "Leaderboard", tr: "Liderlik" } },
   { path: "/profiles", icon: Users, label: { sv: "Profiler", en: "Profiles", tr: "Profiller" } },
   { path: "/lineage", icon: Crown, label: { sv: "Stamtavla", en: "Lineage", tr: "Soy Ağacı" } },
   { path: "/story", icon: BookOpen, label: { sv: "Berättelse", en: "Story", tr: "Hikaye" } },
