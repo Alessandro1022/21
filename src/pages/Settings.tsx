@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Settings as SettingsIcon, User, LogOut, Trash2, Mail, Key,
   Calendar, Zap, Trophy, Clock, Globe, BookOpen, Camera,
-  ChevronRight, Check, Shield, Bell, Palette,
+  ChevronRight, Check, Shield, Bell, Palette, MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
  
@@ -24,7 +24,28 @@ const LEVELS = [
   { code: "academic", en: "Academic", sv: "Gymnasienivå", tr: "Akademik", desc_en: "Scholarly level analysis", desc_sv: "Akademisk analys", desc_tr: "Akademik analiz" },
 ];
  
-export default function Settings() {
+const COUNTRIES = [
+  { code: "SE", name: "Sweden", flag: "🇸🇪" },
+  { code: "TR", name: "Turkey", flag: "🇹🇷" },
+  { code: "SO", name: "Somalia", flag: "🇸🇴" },
+  { code: "US", name: "United States", flag: "🇺🇸" },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "DE", name: "Germany", flag: "🇩🇪" },
+  { code: "FR", name: "France", flag: "🇫🇷" },
+  { code: "NO", name: "Norway", flag: "🇳🇴" },
+  { code: "DK", name: "Denmark", flag: "🇩🇰" },
+  { code: "FI", name: "Finland", flag: "🇫🇮" },
+  { code: "NL", name: "Netherlands", flag: "🇳🇱" },
+  { code: "IT", name: "Italy", flag: "🇮🇹" },
+  { code: "ES", name: "Spain", flag: "🇪🇸" },
+  { code: "SA", name: "Saudi Arabia", flag: "🇸🇦" },
+  { code: "AE", name: "UAE", flag: "🇦🇪" },
+  { code: "EG", name: "Egypt", flag: "🇪🇬" },
+  { code: "ET", name: "Ethiopia", flag: "🇪🇹" },
+  { code: "NG", name: "Nigeria", flag: "🇳🇬" },
+  { code: "CA", name: "Canada", flag: "🇨🇦" },
+  { code: "AU", name: "Australia", flag: "🇦🇺" },
+];
   const { user, signOut } = useAuth();
   const { language, setLanguage, level, setLevel } = useChat();
   const { xp, levelInfo, achievements, quizResults } = useProgress();
@@ -41,6 +62,27 @@ export default function Settings() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [savingCountry, setSavingCountry] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("country_code").eq("id", user.id).maybeSingle()
+      .then(({ data }) => { if (data?.country_code) setSelectedCountry(data.country_code); });
+  }, [user]);
+
+  const saveCountry = async (code: string) => {
+    if (!user) return;
+    setSavingCountry(true);
+    const country = COUNTRIES.find(c => c.code === code);
+    await supabase.from("profiles").update({
+      country: country?.name || code,
+      country_code: code,
+    }).eq("id", user.id);
+    setSelectedCountry(code);
+    setSavingCountry(false);
+    toast.success(`Country set to ${country?.name || code}`);
+  };
  
   const l = language === "sv" ? {
     settings: "Settings", profile: "Profile", language: "Language", level: "Answer level",
@@ -283,6 +325,44 @@ export default function Settings() {
             )}
           </div>
  
+          {/* Country */}
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between px-5 py-4"
+              onClick={() => toggle("country")}
+            >
+              <div className="flex items-center gap-3">
+                <MapPin className="w-4 h-4 text-primary" />
+                <span className="text-sm font-sans text-foreground">Country</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-sans text-muted-foreground">
+                  {selectedCountry
+                    ? `${COUNTRIES.find(c => c.code === selectedCountry)?.flag} ${COUNTRIES.find(c => c.code === selectedCountry)?.name}`
+                    : "Not set"}
+                </span>
+                <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${activeSection === "country" ? "rotate-90" : ""}`} />
+              </div>
+            </button>
+            {activeSection === "country" && (
+              <div className="border-t border-border max-h-64 overflow-y-auto">
+                {COUNTRIES.map((c) => (
+                  <button
+                    key={c.code}
+                    onClick={() => saveCountry(c.code)}
+                    className="w-full flex items-center justify-between px-5 py-3 hover:bg-secondary/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{c.flag}</span>
+                      <span className="text-sm font-sans text-foreground">{c.name}</span>
+                    </div>
+                    {selectedCountry === c.code && <Check className="w-4 h-4 text-primary" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Language */}
           <div className="bg-card/80 backdrop-blur-sm rounded-2xl border border-border overflow-hidden">
             <button
@@ -420,4 +500,3 @@ export default function Settings() {
     </AppLayout>
   );
 }
- 
