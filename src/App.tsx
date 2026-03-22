@@ -20,6 +20,8 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Notifications from "./pages/Notifications";
+import Leaderboard from "./pages/Leaderboard";
+import Leaderboard from "./pages/Leaderboard";
 import { ProtectedRoute } from "./components/ProtectedRoute";
  
 const queryClient = new QueryClient();
@@ -48,6 +50,8 @@ const App = () => {
               <Route path="/settings" element={<ProtectedRoute skipEmpireCheck><Settings /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute skipEmpireCheck><Admin /></ProtectedRoute>} />
               <Route path="/notifications" element={<ProtectedRoute skipEmpireCheck><Notifications /></ProtectedRoute>} />
+              <Route path="/leaderboard" element={<ProtectedRoute skipEmpireCheck><Leaderboard /></ProtectedRoute>} />
+              <Route path="/leaderboard" element={<ProtectedRoute skipEmpireCheck><Leaderboard /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </EmpireProvider>
