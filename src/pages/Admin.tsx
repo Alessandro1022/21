@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import InfluencerStats from "@/components/InfluencerStats";
 import {
   Trash2, Shield, Users, TrendingUp, Search, RefreshCw, Crown,
   Activity, BarChart2, Trophy, Zap, Share2, Settings, Bell,
@@ -26,7 +25,7 @@ interface UserProfile {
   is_banned?: boolean;
   avatar_url?: string;
 }
- 
+
 interface Stats {
   total: number;
   today: number;
@@ -36,19 +35,19 @@ interface Stats {
   activeToday: number;
   admins: number;
 }
- 
+
 type SortField = "display_name" | "email" | "role" | "created_at" | "xp";
 type SortDir = "asc" | "desc";
 type Tab = "users" | "stats" | "leaderboard" | "quiz" | "content" | "moderation" | "logs" | "settings";
 type LeaderboardPeriod = "alltime" | "week" | "today";
- 
+
 interface Log {
   id: string;
   msg: string;
   type: "info" | "warn" | "error" | "success";
   time: string;
 }
- 
+
 interface QuizQuestion {
   id?: string;
   empire_id: string;
@@ -64,7 +63,7 @@ interface QuizQuestion {
   explanation_tr?: string;
   translating?: boolean;
 }
- 
+
 interface ContentItem {
   id: string;
   type: "announcement" | "tip" | "fact";
@@ -75,11 +74,11 @@ interface ContentItem {
   active: boolean;
   created_at: string;
 }
- 
+
 const EMPIRE_OPTIONS = ["ottoman", "roman"];
 const QUIZ_PAGE_SIZE = 10;
 const avatarColors = ["#7F77DD","#1D9E75","#D85A30","#378ADD","#D4537E","#BA7517","#639922","#534AB7"];
- 
+
 // ── QUESTION FORM (outside Admin to prevent remount on every render) ──
 function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
   q: QuizQuestion;
@@ -89,10 +88,6 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
   savingQ: boolean;
 }) {
   return (
-  <>
-    <Tab label="Influencer Stats">
-      <InfluencerStats influencerId="jannica" />
-    </Tab>
     <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium flex items-center gap-2">
@@ -101,20 +96,13 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
         </h3>
         <button onClick={onCancel}><X className="w-4 h-4 text-muted-foreground"/></button>
       </div>
-
       <div>
         <label className="text-xs text-muted-foreground mb-1 block">Empire</label>
-        <select
-          value={q.empire_id}
-          onChange={e => onChange({ ...q, empire_id: e.target.value })}
-          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"
-        >
-          {EMPIRE_OPTIONS.map(e => (
-            <option key={e} value={e}>{e.charAt(0).toUpperCase()+e.slice(1)}</option>
-          ))}
+        <select value={q.empire_id} onChange={e => onChange({ ...q, empire_id: e.target.value })}
+          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
+          {EMPIRE_OPTIONS.map(e => <option key={e} value={e}>{e.charAt(0).toUpperCase()+e.slice(1)}</option>)}
         </select>
       </div>
-
       <div>
         <label className="text-xs text-muted-foreground mb-1 block">Fråga (engelska)</label>
         <textarea
@@ -124,38 +112,22 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
           placeholder="Skriv frågan på engelska..."
         />
       </div>
-
       <div className="space-y-2">
-        <label className="text-xs text-muted-foreground block">
-          Svarsalternativ — välj rätt svar med radio-knappen
-        </label>
-
+        <label className="text-xs text-muted-foreground block">Svarsalternativ — välj rätt svar med radio-knappen</label>
         {q.options_en.map((opt, i) => (
           <div key={i} className="flex items-center gap-2">
-            <input
-              type="radio"
-              name={`correct-${q.id||"new"}`}
-              checked={q.correct_index === i}
-              onChange={() => onChange({ ...q, correct_index: i })}
-              className="accent-primary flex-shrink-0"
-            />
+            <input type="radio" name={`correct-${q.id||"new"}`} checked={q.correct_index === i}
+              onChange={() => onChange({ ...q, correct_index: i })} className="accent-primary flex-shrink-0"/>
             <input
               value={opt}
-              onChange={e => {
-                const opts = [...q.options_en];
-                opts[i] = e.target.value;
-                onChange({ ...q, options_en: opts });
-              }}
+              onChange={e => { const opts=[...q.options_en]; opts[i]=e.target.value; onChange({ ...q, options_en: opts }); }}
               className="flex-1 px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary"
               placeholder={`Alternativ ${String.fromCharCode(65+i)}`}
             />
-            {q.correct_index === i && (
-              <span className="text-xs text-green-500 font-medium flex-shrink-0">✓ rätt</span>
-            )}
+            {q.correct_index === i && <span className="text-xs text-green-500 font-medium flex-shrink-0">✓ rätt</span>}
           </div>
         ))}
       </div>
-
       <div>
         <label className="text-xs text-muted-foreground mb-1 block">Förklaring (engelska)</label>
         <textarea
@@ -165,14 +137,12 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
           placeholder="Kort förklaring av rätt svar..."
         />
       </div>
-
       <div className="flex items-start gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
         <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
         <p className="text-xs text-muted-foreground leading-relaxed">
           <strong className="text-foreground">Auto-översättning:</strong> Svenska och turkiska genereras automatiskt av AI vid sparning.
         </p>
       </div>
-
       <button
         onClick={onSave}
         disabled={savingQ || !q.question_en || q.options_en.some(o => !o) || !q.explanation_en}
@@ -183,10 +153,11 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
           : <>{q.id ? "Spara ändringar" : "Lägg till fråga"}</>}
       </button>
     </div>
-  </>
-);
+  );
+}
 
-  
+export default function Admin() {
+
   // ── USER STATE ──
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -207,13 +178,14 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
   const [blockedWords, setBlockedWords] = useState("hack, exploit, jailbreak");
   const [animatedTotal, setAnimatedTotal] = useState(0);
   const realtimeRef = useRef<any>(null);
- 
+
   // ── QUIZ STATE ──
   const [quizEmpire, setQuizEmpire] = useState("ottoman");
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [loadingQuiz, setLoadingQuiz] = useState(false);
   const [quizPage, setQuizPage] = useState(0);
   const [editingQ, setEditingQ] = useState<QuizQuestion | null>(null);
+  const [savingQ, setSavingQ] = useState(false);
   const [addingQ, setAddingQ] = useState(false);
   const [translatingAll, setTranslatingAll] = useState(false);
   const [quizSearch, setQuizSearch] = useState("");
@@ -224,26 +196,26 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
     correct_index: 0,
     explanation_en: "",
   });
- 
+
   // ── CONTENT STATE ──
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [loadingContent, setLoadingContent] = useState(false);
   const [newContent, setNewContent] = useState({ type: "announcement", empire_id: "ottoman", text_en: "" });
   const [addingContent, setAddingContent] = useState(false);
   const [savingContent, setSavingContent] = useState(false);
- 
+
   // ── HELPERS ──
   const showToast = (msg: string, type: "success"|"error" = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
- 
+
   const addLog = useCallback((msg: string, type: Log["type"] = "info") => {
     const time = new Date().toLocaleTimeString("sv-SE");
     const id = Math.random().toString(36).slice(2);
     setLogs(prev => [{ id, msg, type, time }, ...prev].slice(0, 100));
   }, []);
- 
+
   const animateCounter = (target: number) => {
     let current = 0;
     const step = Math.ceil(target / 30);
@@ -253,12 +225,12 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
       if (current >= target) clearInterval(interval);
     }, 30);
   };
- 
+
   const initials = (name: string) => name?.slice(0, 2).toUpperCase() || "??";
   const medalEmoji = (i: number) => ["🥇","🥈","🥉"][i] || `#${i+1}`;
   const logColor = (type: Log["type"]) =>
     ({ info:"bg-blue-500", warn:"bg-yellow-500", error:"bg-red-500", success:"bg-green-500" }[type]);
- 
+
   // ── AVATAR ──
   const Avatar = ({ user, size = "md", colorIndex = 0 }: { user: UserProfile; size?: "sm"|"md"|"lg"|"xl"; colorIndex?: number }) => {
     const s = { sm:"w-7 h-7 text-xs", md:"w-9 h-9 text-xs", lg:"w-12 h-12 text-sm", xl:"w-16 h-16 text-base" }[size];
@@ -271,7 +243,7 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
       </div>
     );
   };
- 
+
   // ── FETCH USERS ──
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -308,7 +280,7 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
     } catch { addLog("Okänt fel vid hämtning", "error"); }
     setLoading(false);
   }, [addLog]);
- 
+
   // ── FETCH LEADERBOARD ──
   const fetchLeaderboard = useCallback(async () => {
     const { data: profiles } = await supabase.from("profiles").select("id, display_name, email, created_at, xp, avatar_url, questions_asked, quiz_score");
@@ -325,7 +297,7 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
       setLeaderboard(lb);
     }
   }, []);
- 
+
   // ── LOAD QUIZ ──
   const loadQuizQuestions = useCallback(async () => {
     setLoadingQuiz(true);
@@ -334,9 +306,9 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
     else setQuizQuestions((data || []) as QuizQuestion[]);
     setLoadingQuiz(false);
   }, [quizEmpire]);
- 
+
   useEffect(() => { if (tab === "quiz") loadQuizQuestions(); }, [tab, loadQuizQuestions]);
- 
+
   // ── LOAD CONTENT ──
   const loadContent = useCallback(async () => {
     setLoadingContent(true);
@@ -344,9 +316,9 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
     setContentItems((data || []) as ContentItem[]);
     setLoadingContent(false);
   }, []);
- 
+
   useEffect(() => { if (tab === "content") loadContent(); }, [tab, loadContent]);
- 
+
   // ── REALTIME + INIT ──
   useEffect(() => {
     fetchUsers(); fetchLeaderboard();
@@ -356,7 +328,7 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
       }).subscribe();
     return () => { if (realtimeRef.current) supabase.removeChannel(realtimeRef.current); };
   }, [fetchUsers, fetchLeaderboard, addLog]);
- 
+
   // ── USER ACTIONS ──
   const deleteUser = async (id: string, email: string) => {
     if (id === (await supabase.auth.getUser()).data.user?.id) { showToast("Du kan inte ta bort dig själv!", "error"); return; }
@@ -366,24 +338,24 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
     showToast(`${email} borttagen`); addLog(`Borttagen: ${email}`, "warn");
     if (selectedUser?.id === id) setSelectedUser(null); fetchUsers();
   };
- 
+
   const banUser = async (user: UserProfile) => {
     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_banned: !u.is_banned } : u));
     showToast(`${user.display_name} ${user.is_banned ? "avbannad" : "bannad"}`);
     addLog(`${user.is_banned ? "Avbannad" : "Bannad"}: ${user.email}`, "warn");
   };
- 
+
   const toggleAdmin = async (user: UserProfile) => {
     const newRole = user.role === "admin" ? "user" : "admin";
     await supabase.from("user_roles").upsert({ user_id: user.id, role: newRole });
     showToast(`${user.display_name} är nu ${newRole}`);
     addLog(`Roll: ${user.email} → ${newRole}`, "info"); fetchUsers();
   };
- 
+
   const copyUserData = (user: UserProfile) => {
     navigator.clipboard.writeText(JSON.stringify(user, null, 2)); showToast("Kopierat!");
   };
- 
+
   const deleteBulk = async () => {
     if (!confirm(`Ta bort ${selectedUsers.length} användare?`)) return;
     for (const id of selectedUsers) {
@@ -393,7 +365,7 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
     showToast(`${selectedUsers.length} borttagna`); addLog(`Bulk-borttagen: ${selectedUsers.length}`, "warn");
     setSelectedUsers([]); fetchUsers();
   };
- 
+
   const exportCSV = () => {
     const rows = [["ID","Email","Namn","Roll","XP","Frågor","Registrerad"]];
     users.forEach(u => rows.push([u.id, u.email, u.display_name, u.role, String(u.xp||0), String(u.questions_asked||0), u.created_at||""]));
@@ -402,13 +374,13 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "användare.csv"; a.click();
     addLog("CSV exporterad", "success");
   };
- 
+
   const shareLeaderboard = async () => {
     const text = `🏆 Empire AI Leaderboard\n${leaderboard.slice(0,3).map((u,i)=>`${["🥇","🥈","🥉"][i]} ${u.display_name}: ${u.xp} XP`).join("\n")}\n\nempireai10.vercel.app`;
     if (navigator.share) await navigator.share({ title: "Empire AI Leaderboard", text });
     else { await navigator.clipboard.writeText(text); showToast("Kopierat!"); }
   };
- 
+
   // ── AUTO TRANSLATE ──
   async function autoTranslate(text_en: string): Promise<{ sv: string; tr: string }> {
     try {
@@ -425,7 +397,7 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
       return JSON.parse(raw.replace(/```json|```/g,"").trim());
     } catch { return { sv: "", tr: "" }; }
   }
- 
+
   async function autoTranslateQuestion(q: QuizQuestion): Promise<QuizQuestion> {
     try {
       const prompt = `Translate this quiz question from English to Swedish and Turkish. Return ONLY JSON:
@@ -443,7 +415,7 @@ Explanation: ${q.explanation_en}`;
       return { ...q, ...JSON.parse(text.replace(/```json|```/g,"").trim()) };
     } catch { return q; }
   }
- 
+
   // ── SAVE QUESTION ──
   const saveQuestion = async (q: QuizQuestion) => {
     setSavingQ(true);
@@ -464,13 +436,13 @@ Explanation: ${q.explanation_en}`;
     } catch { showToast("Kunde inte spara", "error"); }
     setSavingQ(false);
   };
- 
+
   const deleteQuestion = async (id: string) => {
     if (!confirm("Radera denna fråga?")) return;
     await supabase.from("quiz_questions").delete().eq("id", id);
     showToast("Raderad"); addLog("Fråga raderad", "warn"); loadQuizQuestions();
   };
- 
+
   const translateMissing = async () => {
     const missing = quizQuestions.filter(q => !q.question_sv || !q.question_tr);
     if (!missing.length) { showToast("Alla frågor är redan översatta!"); return; }
@@ -485,7 +457,7 @@ Explanation: ${q.explanation_en}`;
     showToast(`Översatte ${missing.length} frågor!`); addLog(`Översättning klar: ${missing.length}`, "success");
     setTranslatingAll(false); loadQuizQuestions();
   };
- 
+
   // ── SAVE CONTENT ──
   const saveContent = async () => {
     if (!newContent.text_en.trim()) return;
@@ -505,30 +477,30 @@ Explanation: ${q.explanation_en}`;
     } catch { showToast("Kunde inte spara", "error"); }
     setSavingContent(false);
   };
- 
+
   const toggleContent = async (item: ContentItem) => {
     await supabase.from("content_items").update({ active: !item.active }).eq("id", item.id);
     setContentItems(prev => prev.map(c => c.id === item.id ? { ...c, active: !c.active } : c));
     showToast(item.active ? "Avaktiverat" : "Aktiverat");
   };
- 
+
   const deleteContent = async (id: string) => {
     if (!confirm("Radera?")) return;
     await supabase.from("content_items").delete().eq("id", id);
     showToast("Raderat"); loadContent();
   };
- 
+
   // ── DERIVED ──
   const adminsCount = users.filter(u => u.role === "admin").length;
   const onlineCount = users.filter(u => u.is_online).length;
   const missingTranslations = quizQuestions.filter(q => !q.question_sv || !q.question_tr).length;
- 
+
   const filteredQuestions = quizQuestions.filter(q =>
     !quizSearch || q.question_en.toLowerCase().includes(quizSearch.toLowerCase())
   );
   const pagedQuestions = filteredQuestions.slice(quizPage * QUIZ_PAGE_SIZE, (quizPage+1) * QUIZ_PAGE_SIZE);
   const totalPages = Math.ceil(filteredQuestions.length / QUIZ_PAGE_SIZE);
- 
+
   const filtered = users.filter(u => {
     const matchSearch = u.email?.toLowerCase().includes(search.toLowerCase()) || u.display_name?.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === "all" || u.role === filter || (filter === "online" && u.is_online);
@@ -537,17 +509,17 @@ Explanation: ${q.explanation_en}`;
     const av = String((a as any)[sortField]||""); const bv = String((b as any)[sortField]||"");
     return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
   });
- 
+
   const SortIcon = ({ field }: { field: SortField }) => (
     <span className="inline-flex flex-col ml-1">
       <ChevronUp className={`w-2.5 h-2.5 ${sortField===field&&sortDir==="asc"?"text-primary":"opacity-20"}`}/>
       <ChevronDown className={`w-2.5 h-2.5 ${sortField===field&&sortDir==="desc"?"text-primary":"opacity-20"}`}/>
     </span>
   );
- 
+
   return (
     <div className="min-h-screen bg-background pb-24">
- 
+
       {/* TOAST */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm shadow-xl text-white flex items-center gap-2 ${toast.type==="error"?"bg-red-500":"bg-green-600"}`}>
@@ -555,7 +527,7 @@ Explanation: ${q.explanation_en}`;
           {toast.msg}
         </div>
       )}
- 
+
       {/* USER DETAIL PANEL */}
       {selectedUser && (
         <div className="fixed inset-0 z-40 flex justify-end">
@@ -627,7 +599,7 @@ Explanation: ${q.explanation_en}`;
           </div>
         </div>
       )}
- 
+
       {/* HERO */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-primary/5 to-background"/>
@@ -668,9 +640,9 @@ Explanation: ${q.explanation_en}`;
           </div>
         </div>
       </div>
- 
+
       <div className="px-4 md:px-8 max-w-7xl mx-auto space-y-5">
- 
+
         {/* TABS */}
         <div className="flex gap-0 border-b border-border overflow-x-auto">
           {([
@@ -692,7 +664,7 @@ Explanation: ${q.explanation_en}`;
             </button>
           ))}
         </div>
- 
+
         {/* ══ ANVÄNDARE ══ */}
         {tab === "users" && (
           <div className="space-y-4">
@@ -831,7 +803,7 @@ Explanation: ${q.explanation_en}`;
             )}
           </div>
         )}
- 
+
         {/* ══ STATISTIK ══ */}
         {tab === "stats" && (
           <div className="space-y-4">
@@ -931,7 +903,7 @@ Explanation: ${q.explanation_en}`;
             </div>
           </div>
         )}
- 
+
         {/* ══ LEADERBOARD ══ */}
         {tab === "leaderboard" && (
           <div className="space-y-5">
@@ -948,7 +920,7 @@ Explanation: ${q.explanation_en}`;
                 <Share2 className="w-4 h-4"/> Dela
               </button>
             </div>
- 
+
             <div className="rounded-3xl overflow-hidden" style={{ background:"linear-gradient(135deg, #0a0612 0%, #1a0a08 50%, #0a0612 100%)", border:"1px solid rgba(200,169,110,0.25)" }}>
               <div className="px-6 pt-6 pb-4 text-center" style={{ borderBottom:"1px solid rgba(200,169,110,0.15)" }}>
                 <div className="flex items-center justify-center gap-2 mb-1">
@@ -1041,7 +1013,7 @@ Explanation: ${q.explanation_en}`;
                 <p className="text-[10px]" style={{ color:"rgba(200,169,110,0.35)" }}>empireai10.vercel.app · {new Date().toLocaleDateString("sv-SE")}</p>
               </div>
             </div>
- 
+
             <div className="grid grid-cols-2 gap-3">
               <button onClick={shareLeaderboard} className="py-3 rounded-2xl border border-border hover:bg-secondary transition-colors text-sm flex items-center justify-center gap-2">
                 <Share2 className="w-4 h-4"/> 📱 Dela på Instagram
@@ -1052,7 +1024,7 @@ Explanation: ${q.explanation_en}`;
             </div>
           </div>
         )}
- 
+
         {/* ══ QUIZ ══ */}
         {tab === "quiz" && (
           <div className="space-y-4">
@@ -1080,20 +1052,20 @@ Explanation: ${q.explanation_en}`;
                 </button>
               </div>
             </div>
- 
+
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground"/>
               <input value={quizSearch} onChange={e=>{setQuizSearch(e.target.value);setQuizPage(0);}} placeholder="Sök bland frågor..."
                 className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"/>
             </div>
- 
+
             <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/15 rounded-xl">
               <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 <strong className="text-foreground">Auto-översättning:</strong> Skriv frågor på engelska. AI genererar SV och TR automatiskt vid sparning. Quizzen väljer 12 slumpmässiga frågor per session, max 3 spel per dag.
               </p>
             </div>
- 
+
             {addingQ && (
               <QuestionForm
                 q={{ ...newQ, empire_id: quizEmpire }}
@@ -1103,7 +1075,7 @@ Explanation: ${q.explanation_en}`;
                 savingQ={savingQ}
               />
             )}
- 
+
             {loadingQuiz ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div>
             ) : filteredQuestions.length === 0 ? (
@@ -1169,7 +1141,7 @@ Explanation: ${q.explanation_en}`;
             )}
           </div>
         )}
- 
+
         {/* ══ INNEHÅLL ══ */}
         {tab === "content" && (
           <div className="space-y-4">
@@ -1182,7 +1154,7 @@ Explanation: ${q.explanation_en}`;
                 <Plus className="w-4 h-4"/> Nytt innehåll
               </button>
             </div>
- 
+
             {addingContent && (
               <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center justify-between">
@@ -1225,7 +1197,7 @@ Explanation: ${q.explanation_en}`;
                 </button>
               </div>
             )}
- 
+
             {loadingContent ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div>
             ) : contentItems.length === 0 ? (
@@ -1272,7 +1244,7 @@ Explanation: ${q.explanation_en}`;
             )}
           </div>
         )}
- 
+
         {/* ══ MODERATION ══ */}
         {tab === "moderation" && (
           <div className="space-y-4">
@@ -1318,7 +1290,7 @@ Explanation: ${q.explanation_en}`;
             </div>
           </div>
         )}
- 
+
         {/* ══ LOGG ══ */}
         {tab === "logs" && (
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
@@ -1344,7 +1316,7 @@ Explanation: ${q.explanation_en}`;
             )}
           </div>
         )}
- 
+
         {/* ══ INSTÄLLNINGAR ══ */}
         {tab === "settings" && (
           <div className="space-y-4">
@@ -1385,9 +1357,8 @@ Explanation: ${q.explanation_en}`;
             </div>
           </div>
         )}
- 
+
       </div>
     </div>
   );
 }
- 
