@@ -1,27 +1,23 @@
-<!doctype html>
-<html lang="en">
+html
+<!DOCTYPE html>
+<html lang="sv">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Empire AI - Legendary Slash</title>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Empire AI</title>
 <style>
-*,
-*::before,
-*::after {
+* {
 margin: 0;
 padding: 0;
 box-sizing: border-box;
+user-select: none;
+-webkit-tap-highlight-color: transparent;
 }
 
 body {
 background: #000;
 overflow: hidden;
-font-family: 'Segoe UI', system-ui, sans-serif;
-}
-
-#root {
-padding-top: env(safe-area-inset-top);
+font-family: system-ui, -apple-system, sans-serif;
 }
 
 /* SPLASH SCREEN */
@@ -31,168 +27,145 @@ inset: 0;
 display: flex;
 justify-content: center;
 align-items: center;
-background: radial-gradient(circle at center, #1a0000 0%, #000 100%);
+background: radial-gradient(circle at center, #0a0505 0%, #000000 100%);
 z-index: 9999;
-overflow: hidden;
-transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+cursor: pointer;
 }
 
-/* LOGO MED FÖRBÄTTRAD GLOW */
+/* LOGO CONTAINER */
+.logo-container {
+position: relative;
+display: flex;
+justify-content: center;
+align-items: center;
+animation: bounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+@keyframes bounce {
+0% {
+transform: translateY(0) scale(1);
+}
+40% {
+transform: translateY(-30px) scale(1.05);
+}
+60% {
+transform: translateY(-15px) scale(1.02);
+}
+80% {
+transform: translateY(-5px) scale(1.01);
+}
+100% {
+transform: translateY(0) scale(1);
+}
+}
+
 .logo {
-width: min(140px, 25vw);
-z-index: 5;
-transform: translateZ(0);
-animation: logoPulse 2s ease-in-out infinite;
-filter: drop-shadow(0 0 10px rgba(139, 0, 0, 0.8));
+width: min(160px, 35vw);
+height: auto;
+display: block;
+position: relative;
+z-index: 2;
+filter: drop-shadow(0 0 15px rgba(139, 0, 0, 0.5));
 }
 
-@keyframes logoPulse {
-0%, 100% {
-filter: drop-shadow(0 0 8px #8B0000);
-transform: scale(1);
-}
-50% {
-filter: drop-shadow(0 0 35px #ff0000);
-transform: scale(1.05);
-}
-}
-
-/* SVÄRD */
-.sword {
-position: absolute;
-width: min(200px, 40vw);
-top: 50%;
-left: -250px;
-transform: translateY(-50%) rotate(25deg);
-opacity: 0;
-z-index: 10;
-will-change: transform, left;
-filter: drop-shadow(0 0 5px rgba(255, 0, 0, 0.5));
-transition: left 0.9s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease;
-}
-
-/* SLÄPSPÅR - FÖRBÄTTRAT */
-.trail {
-position: absolute;
-width: 350px;
-height: 6px;
-top: 50%;
-left: -300px;
-transform: translateY(-50%) rotate(25deg);
-background: linear-gradient(90deg, transparent, #ff3300, #ff0000, #ff3300, transparent);
-opacity: 0;
-z-index: 6;
-filter: blur(3px);
-box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
-transition: left 0.9s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.5s ease;
-}
-
-/* LOGGSNITT - NY EFFEKT! */
-.log-slice {
+/* ÄRR - Två diagonala linjer */
+.scar {
 position: absolute;
 top: 50%;
 left: 50%;
-transform: translate(-50%, -50%) scaleX(0);
-width: 100%;
-height: 100%;
-background: repeating-linear-gradient(
-90deg,
-transparent,
-transparent 20px,
-rgba(255, 100, 0, 0.6) 20px,
-rgba(255, 50, 0, 0.8) 25px,
-transparent 25px,
-transparent 45px
+width: 0%;
+height: 4px;
+background: linear-gradient(90deg,
+rgba(255, 80, 40, 0) 0%,
+rgba(255, 60, 20, 0.95) 20%,
+rgba(255, 100, 50, 1) 50%,
+rgba(255, 60, 20, 0.95) 80%,
+rgba(255, 80, 40, 0) 100%
 );
-pointer-events: none;
-z-index: 15;
+box-shadow: 0 0 12px rgba(255, 50, 0, 0.8);
+border-radius: 4px;
+transform-origin: center;
 opacity: 0;
-transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease;
+z-index: 10;
+pointer-events: none;
 }
 
-/* FLASH - STARKARE */
+.scar-1 {
+transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.scar-2 {
+transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+@keyframes slashScar {
+0% {
+width: 0%;
+opacity: 0;
+}
+30% {
+opacity: 1;
+}
+70% {
+width: 140%;
+opacity: 1;
+}
+100% {
+width: 150%;
+opacity: 0.7;
+}
+}
+
+.scar-active {
+animation: slashScar 0.35s cubic-bezier(0.25, 0.1, 0.15, 1) forwards;
+}
+
+/* FLASH */
 .flash {
 position: absolute;
 inset: 0;
-background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 100, 0, 0.7) 50%, transparent 100%);
+background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 100, 0, 0.6) 60%, transparent 100%);
 opacity: 0;
 z-index: 20;
 pointer-events: none;
-transition: opacity 0.05s linear;
+transition: opacity 0.08s ease-out;
 }
 
-/* RÖK - MER DRAMATISK */
-.smoke {
-position: absolute;
-width: 250px;
-height: 250px;
-top: 50%;
-left: 50%;
-transform: translate(-50%, -50%) scale(0.3);
-background: radial-gradient(circle, rgba(255, 60, 0, 0.5), rgba(100, 0, 0, 0.3), transparent);
-border-radius: 50%;
-opacity: 0;
-z-index: 4;
-filter: blur(20px);
-transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* PARTIKEL-CANVAS */
-canvas {
-position: absolute;
-inset: 0;
-z-index: 3;
-pointer-events: none;
-}
-
-/* SKAKA ANIMATION - MER REALISTISK */
-.shake-active {
-animation: violentShake 0.25s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
-}
-
-@keyframes violentShake {
-0% { transform: translate(0, 0) rotate(0deg); }
-20% { transform: translate(-6px, 2px) rotate(-1deg); }
-40% { transform: translate(6px, -3px) rotate(1deg); }
-60% { transform: translate(-4px, 1px) rotate(-0.5deg); }
-80% { transform: translate(4px, -1px) rotate(0.5deg); }
-100% { transform: translate(0, 0) rotate(0); }
-}
-
-/* FADEOUT */
+/* FADE OUT */
 .fade-out {
 opacity: 0;
 pointer-events: none;
 }
 
-/* RESPONSIV */
-@media (max-width: 768px) {
-.trail {
-width: 250px;
-height: 4px;
-}
-
-.sword {
-width: 150px;
-}
-
-.smoke {
-width: 180px;
-height: 180px;
-}
+/* HIDDEN AUDIO CONTEXT */
+#audioInit {
+position: fixed;
+bottom: 20px;
+right: 20px;
+background: rgba(255,255,255,0.1);
+color: white;
+border: none;
+padding: 8px 16px;
+border-radius: 20px;
+font-size: 12px;
+z-index: 10000;
+cursor: pointer;
+backdrop-filter: blur(10px);
+opacity: 0;
+pointer-events: none;
 }
 </style>
 </head>
 <body>
 
 <div id="splash">
+<div class="logo-container" id="logoContainer">
 <img src="/icon-192.png" class="logo" id="logo" alt="Empire AI">
-<img src="/sword.png" class="sword" id="sword" alt="Sword">
-<div class="trail" id="trail"></div>
-<div class="log-slice" id="logSlice"></div>
+<div class="scar scar-1" id="scar1"></div>
+<div class="scar scar-2" id="scar2"></div>
+</div>
 <div class="flash" id="flash"></div>
-<div class="smoke" id="smoke"></div>
-<canvas id="particles"></canvas>
 <audio id="sound" src="/sword.mp3" preload="auto"></audio>
 </div>
 
@@ -204,207 +177,129 @@ height: 180px;
 (function() {
 'use strict';
 
-// DOM-element
-const sword = document.getElementById('sword');
-const trail = document.getElementById('trail');
-const flash = document.getElementById('flash');
-const smoke = document.getElementById('smoke');
 const splash = document.getElementById('splash');
+const logoContainer = document.getElementById('logoContainer');
+const scar1 = document.getElementById('scar1');
+const scar2 = document.getElementById('scar2');
+const flash = document.getElementById('flash');
 const sound = document.getElementById('sound');
-const logSlice = document.getElementById('logSlice');
-const canvas = document.getElementById('particles');
-const ctx = canvas.getContext('2d');
 
-// Ljudspelare med felhantering
-function playSound(audio) {
-if (!audio) return;
-const playPromise = audio.play();
+let audioUnlocked = false;
+let sliceTriggered = false;
+
+// Ladda och "lås upp" ljudet
+function unlockAudio() {
+if (audioUnlocked) return;
+
+// Skapa en tyst ljudkontext för att låsa upp Web Audio API
+if (window.AudioContext || window.webkitAudioContext) {
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const buffer = audioCtx.createBuffer(1, 1, 22050);
+const source = audioCtx.createBufferSource();
+source.buffer = buffer;
+source.connect(audioCtx.destination);
+source.start();
+audioCtx.suspend();
+}
+
+// Försök spela och pausa ljudet direkt
+if (sound) {
+const playPromise = sound.play();
 if (playPromise !== undefined) {
-playPromise.catch(e => console.log('Audio play failed:', e));
+playPromise.then(() => {
+sound.pause();
+sound.currentTime = 0;
+audioUnlocked = true;
+console.log('Audio unlocked');
+}).catch(() => {
+console.log('Audio still locked, waiting for interaction');
+});
 }
-}
-
-// Partikelsystem - Optimera med object pooling
-class Particle {
-constructor(x, y) {
-this.reset(x, y);
-}
-
-reset(x, y) {
-this.x = x;
-this.y = y;
-this.vx = (Math.random() - 0.5) * 8;
-this.vy = (Math.random() - 0.5) * 8 - 3;
-this.life = 45 + Math.random() * 20;
-this.size = 2 + Math.random() * 3;
-this.alpha = 1;
-}
-
-update() {
-this.x += this.vx;
-this.y += this.vy;
-this.vy += 0.2; // gravitation
-this.life -= 1.5;
-this.alpha = Math.min(1, this.life / 30);
-}
-
-draw(ctx) {
-ctx.save();
-ctx.globalAlpha = this.alpha;
-ctx.fillStyle = `hsl(${10 + Math.random() * 20}, 100%, 55%)`;
-ctx.fillRect(this.x, this.y, this.size, this.size);
-
-// Glow-effekt för partiklar
-ctx.shadowBlur = 8;
-ctx.shadowColor = '#ff3300';
-ctx.fillStyle = '#ff6600';
-ctx.fillRect(this.x - 1, this.y - 1, this.size + 1, this.size + 1);
-ctx.shadowBlur = 0;
-ctx.restore();
 }
 }
 
-// Particle pool för bättre prestanda
-let particles = [];
-let particlePool = [];
-const MAX_PARTICLES = 80;
+// Spela slice-ljudet (används vid rätt tidpunkt)
+function playSliceSound() {
+if (!sound) return;
 
-function initParticlePool() {
-for (let i = 0; i < MAX_PARTICLES; i++) {
-particlePool.push(new Particle(0, 0));
-}
-}
+sound.currentTime = 0;
+const playPromise = sound.play();
 
-function spawnParticles(x, y, count = 60) {
-for (let i = 0; i < Math.min(count, particlePool.length); i++) {
-let p = particlePool[i];
-p.reset(x, y);
-particles.push(p);
-}
-}
-
-// Canvas setup
-function resizeCanvas() {
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-initParticlePool();
-
-// Animation loop - optimerad
-function animateParticles() {
-if (!ctx) return;
-ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-for (let i = particles.length - 1; i >= 0; i--) {
-const p = particles[i];
-p.update();
-p.draw(ctx);
-
-if (p.life <= 0) {
-particles.splice(i, 1);
-}
-}
-requestAnimationFrame(animateParticles);
-}
-animateParticles();
-
-// ========== LOGGSNITT ANIMATION ==========
-function triggerLogSlice() {
-if (!logSlice) return;
-
-// Aktivera loggsnittet
-logSlice.style.opacity = '1';
-logSlice.style.transform = 'translate(-50%, -50%) scaleX(1)';
-
-// Snabbt tillbaka
+if (playPromise !== undefined) {
+playPromise.catch(() => {
+// Om ljudet fortfarande är låst, försök låsa upp
+if (!audioUnlocked) {
+unlockAudio();
 setTimeout(() => {
-logSlice.style.transform = 'translate(-50%, -50%) scaleX(0)';
-setTimeout(() => {
-logSlice.style.opacity = '0';
-}, 100);
-}, 150);
+sound.currentTime = 0;
+sound.play().catch(() => {});
+}, 50);
+}
+});
+}
 }
 
-// ========== TIMELINE - FÖRBÄTTRAD ==========
-
-// 1. Uppladdning - svärdet visas
-setTimeout(() => {
-sword.style.opacity = '1';
-sword.style.left = '-100px';
-}, 1000);
-
-// 2. Svärdet svingas
-setTimeout(() => {
-sword.style.left = '120%';
-trail.style.opacity = '1';
-trail.style.left = '120%';
-}, 1500);
-
-// 3. IMPACT - ALLA EFFEKTER SAMTIDIGT
-setTimeout(() => {
-// Flash - intensiv
+// Flash-effekt
+function triggerFlash() {
 flash.style.opacity = '1';
 setTimeout(() => {
 flash.style.opacity = '0';
 }, 120);
-
-// Rök som exploderar
-smoke.style.opacity = '1';
-smoke.style.transform = 'translate(-50%, -50%) scale(2.2)';
-
-// LOGGSNITT - NYA EFFEKTEN NÄR SVÄRDET GÅR IGENOM!
-triggerLogSlice();
-
-// Partiklar - massor!
-const centerX = canvas.width / 2;
-const centerY = canvas.height / 2;
-spawnParticles(centerX, centerY, 70);
-
-// Skaka skärmen kraftigt
-document.body.classList.add('shake-active');
-setTimeout(() => {
-document.body.classList.remove('shake-active');
-}, 300);
-
-// Vibrera om tillgängligt
-if (navigator.vibrate) {
-navigator.vibrate([80, 40, 100]);
 }
 
-// Spela ljud
-playSound(sound);
+// Kör ärr-effekten MED LJUD
+function triggerScars() {
+if (sliceTriggered) return;
+sliceTriggered = true;
 
-// Extra: explosionseffekt på smoke
+// Aktivera ärren
+scar1.classList.add('scar-active');
+scar2.classList.add('scar-active');
+
+// Flash
+triggerFlash();
+
+// SPELA LJUDET EXAKT NÄR ÄRREN KOMMER!
+playSliceSound();
+}
+
+// Lås upp ljud vid första touch/click på splash
+splash.addEventListener('click', function unlockOnFirstClick() {
+unlockAudio();
+splash.style.cursor = 'default';
+// Ta bort eventet efter första interaktion
+splash.removeEventListener('click', unlockOnFirstClick);
+});
+
+splash.addEventListener('touchstart', function unlockOnFirstTouch() {
+unlockAudio();
+splash.removeEventListener('touchstart', unlockOnFirstTouch);
+});
+
+// ========== TIMELINE ==========
+
+// Bounce animeras via CSS
+
+// Ärr vid 0.7s - LJUDET SPELAS HÄR!
 setTimeout(() => {
-smoke.style.opacity = '0';
-smoke.style.transform = 'translate(-50%, -50%) scale(2.5)';
-}, 600);
+triggerScars();
+}, 700);
 
-}, 1900);
-
-// 4. Rensa trail efter slash
-setTimeout(() => {
-trail.style.opacity = '0';
-sword.style.opacity = '0';
-}, 2400);
-
-// 5. EXIT - Fade out splash
+// Fade out splash efter ärr-effekten
 setTimeout(() => {
 splash.classList.add('fade-out');
 setTimeout(() => {
 if (splash && splash.remove) splash.remove();
-}, 800);
-}, 3000);
+}, 600);
+}, 1500);
 
-// Fallback: Om något går fel, ta bort splash efter 5 sek
+// Fallback: Ta bort splash efter 3s
 setTimeout(() => {
-if (splash && splash.parentNode) {
+if (splash && splash.parentNode && !splash.classList.contains('fade-out')) {
 splash.classList.add('fade-out');
 setTimeout(() => splash.remove(), 500);
 }
-}, 5000);
+}, 3000);
 
 })();
 </script>
