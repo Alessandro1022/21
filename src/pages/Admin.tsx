@@ -145,7 +145,7 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
       </div>
       <button
         onClick={onSave}
-        disabled={savingQ || !q.question_en || q.options_en.some(o => !o) || !q.explanation_en}
+        disabled={savingQ}
         className="w-full py-2.5 rounded-xl gold-gradient text-primary-foreground font-sans font-medium text-sm disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {savingQ
