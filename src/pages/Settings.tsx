@@ -686,4 +686,3 @@ const COUNTRIES = [
       </div>
     </AppLayout>
   );
-}
