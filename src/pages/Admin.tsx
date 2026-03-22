@@ -89,7 +89,6 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
 }) {
   return (
     <div className="h-screen overflow-y-auto">
-    <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-primary"/>
