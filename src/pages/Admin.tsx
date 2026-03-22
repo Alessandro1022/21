@@ -133,7 +133,6 @@ function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
           </div>
         ))}
       </div>
-      <div>
         <label className="text-xs text-muted-foreground mb-1 block">Förklaring (engelska)</label>
         <textarea
           value={q.explanation_en}
