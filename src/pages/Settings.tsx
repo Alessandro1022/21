@@ -215,6 +215,8 @@ const COUNTRIES = [
   { code: "ZM", name: "Zambia", flag: "🇿🇲" },
   { code: "ZW", name: "Zimbabwe", flag: "🇿🇼" },
 ];
+
+export default function Settings() {
   const { user, signOut } = useAuth();
   const { language, setLanguage, level, setLevel } = useChat();
   const { xp, levelInfo, achievements, quizResults } = useProgress();
@@ -686,3 +688,5 @@ const COUNTRIES = [
       </div>
     </AppLayout>
   );
+}
+
