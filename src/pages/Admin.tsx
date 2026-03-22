@@ -1073,6 +1073,8 @@ Explanation: ${q.explanation_en}`;
                 onSave={() => saveQuestion({ ...newQ, empire_id: quizEmpire })}
                 onCancel={() => setAddingQ(false)}
                 savingQ={savingQ}
+                await fetchQuizQuestions();
+                setQuizPage(0);
               />
             )}
 
