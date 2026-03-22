@@ -15,6 +15,7 @@ export interface Conversation {
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>("");
 
   const [language, setLanguageState] = useState<string>(() => {
     try { return localStorage.getItem("empireLanguage") || "en"; } catch { return "en"; }
@@ -84,7 +85,6 @@ export function useChat() {
     await supabase.from("chat_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
   }, []);
 
-  // Original send - unchanged from your working version
   const send = useCallback(async (input: string) => {
     if (!input.trim() || isLoading) return;
 
@@ -92,6 +92,16 @@ export function useChat() {
     setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
     abortRef.current = false;
+
+    // DEBUG - shows in UI what values are being used
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const debugStr = "URL=" + (supabaseUrl ? supabaseUrl.slice(0, 30) + "..." : "MISSING") +
+      " | KEY=" + (supabaseKey ? "OK" : "MISSING") +
+      " | empire=" + (empireId || "ottoman") +
+      " | user=" + (user ? "logged in" : "not logged in");
+    setDebugInfo(debugStr);
+    toast.info(debugStr, { duration: 8000 });
 
     let convId = activeConversationId;
     if (!convId && user) {
@@ -127,29 +137,32 @@ export function useChat() {
         },
         onDone: () => {
           setIsLoading(false);
+          setDebugInfo("");
           if (finalConvId && assistantSoFar) {
             saveMessage(finalConvId, "assistant", assistantSoFar);
             loadConversations();
           }
         },
         onError: (error) => {
-          toast.error(error);
+          const msg = "ERROR: " + error;
+          setDebugInfo(msg);
+          toast.error(msg, { duration: 10000 });
           setIsLoading(false);
         },
       });
-    } catch (e) {
-      console.error(e);
-      toast.error("Failed to get response");
+    } catch (e: any) {
+      const msg = "CATCH: " + (e?.message || String(e));
+      setDebugInfo(msg);
+      toast.error(msg, { duration: 10000 });
       setIsLoading(false);
     }
   }, [messages, isLoading, language, level, empireId, activeConversationId, user, createConversation, saveMessage, loadConversations]);
 
-  // NEW: resetMessages - clears messages without touching conversationId
-  // Used by StoryMode when switching chapters
   const resetMessages = useCallback(() => {
     abortRef.current = true;
     setIsLoading(false);
     setMessages([]);
+    setDebugInfo("");
   }, []);
 
   const clearMessages = useCallback(() => {
@@ -157,6 +170,7 @@ export function useChat() {
     setIsLoading(false);
     setMessages([]);
     setActiveConversationId(null);
+    setDebugInfo("");
   }, []);
 
   const deleteConversation = useCallback(async (convId: string) => {
@@ -170,10 +184,11 @@ export function useChat() {
 
   return {
     messages,
-    setMessages,       // NEW: exposed so StoryMode can inject per-chapter messages
+    setMessages,
     isLoading,
+    debugInfo,
     send,
-    resetMessages,     // NEW
+    resetMessages,
     clearMessages,
     language,
     setLanguage,
