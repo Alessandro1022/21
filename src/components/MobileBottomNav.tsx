@@ -1,113 +1,114 @@
-import { Link, useLocation } from “react-router-dom”;
-import { Home, MessageSquare, Clock, Map, Brain, Users, Crown, BookOpen, Settings, MoreHorizontal, Shield } from “lucide-react”;
-import { useState } from “react”;
-import { useAuth } from “@/hooks/useAuth”;
+import { Link, useLocation } from "react-router-dom";
+import { Home, MessageSquare, Clock, Map, Brain, Users, Crown, BookOpen, Settings, MoreHorizontal, Shield } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 const MAIN_TABS = [
-{ path: “/”, icon: Home, label: { sv: “Hem”, en: “Home”, tr: “Ana” } },
-{ path: “/chat”, icon: MessageSquare, label: { sv: “Chatt”, en: “Chat”, tr: “Sohbet” } },
-{ path: “/timeline”, icon: Clock, label: { sv: “Tidslinje”, en: “Timeline”, tr: “Çizelge” } },
-{ path: “/map”, icon: Map, label: { sv: “Karta”, en: “Map”, tr: “Harita” } },
-{ path: “/more”, icon: MoreHorizontal, label: { sv: “Mer”, en: “More”, tr: “Daha” } },
+  { path: "/", icon: Home, label: { sv: "Hem", en: "Home", tr: "Ana" } },
+  { path: "/chat", icon: MessageSquare, label: { sv: "Chatt", en: "Chat", tr: "Sohbet" } },
+  { path: "/timeline", icon: Clock, label: { sv: "Tidslinje", en: "Timeline", tr: "Çizelge" } },
+  { path: "/map", icon: Map, label: { sv: "Karta", en: "Map", tr: "Harita" } },
+  { path: "/more", icon: MoreHorizontal, label: { sv: "Mer", en: "More", tr: "Daha" } },
 ];
 
 const MORE_ITEMS = [
-{ path: “/quiz”, icon: Brain, label: { sv: “Quiz”, en: “Quiz”, tr: “Quiz” } },
-{ path: “/profiles”, icon: Users, label: { sv: “Profiler”, en: “Profiles”, tr: “Profiller” } },
-{ path: “/lineage”, icon: Crown, label: { sv: “Stamtavla”, en: “Lineage”, tr: “Soy Ağacı” } },
-{ path: “/story”, icon: BookOpen, label: { sv: “Berättelse”, en: “Story”, tr: “Hikaye” } },
-{ path: “/settings”, icon: Settings, label: { sv: “Inställningar”, en: “Settings”, tr: “Ayarlar” } },
+  { path: "/quiz", icon: Brain, label: { sv: "Quiz", en: "Quiz", tr: "Quiz" } },
+  { path: "/profiles", icon: Users, label: { sv: "Profiler", en: "Profiles", tr: "Profiller" } },
+  { path: "/lineage", icon: Crown, label: { sv: "Stamtavla", en: "Lineage", tr: "Soy Ağacı" } },
+  { path: "/story", icon: BookOpen, label: { sv: "Berättelse", en: "Story", tr: "Hikaye" } },
+  { path: "/settings", icon: Settings, label: { sv: "Inställningar", en: "Settings", tr: "Ayarlar" } },
 ];
 
-const ADMIN_ITEM = { path: “/admin”, icon: Shield, label: { sv: “Admin”, en: “Admin”, tr: “Admin” } };
+const ADMIN_ITEM = { path: "/admin", icon: Shield, label: { sv: "Admin", en: "Admin", tr: "Admin" } };
 
 interface Props {
-language: string;
+  language: string;
 }
 
 export function MobileBottomNav({ language }: Props) {
-const location = useLocation();
-const [moreOpen, setMoreOpen] = useState(false);
-const { isAdmin } = useAuth();
+  const location = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const { isAdmin } = useAuth();
 
-const allMoreItems = isAdmin ? […MORE_ITEMS, ADMIN_ITEM] : MORE_ITEMS;
-const isMoreActive = allMoreItems.some((item) => location.pathname === item.path);
+  const allMoreItems = isAdmin ? [...MORE_ITEMS, ADMIN_ITEM] : MORE_ITEMS;
+  const isMoreActive = allMoreItems.some((item) => location.pathname === item.path);
 
-return (
-<>
-{moreOpen && (
-<div className=“fixed inset-0 z-40 md:hidden” onClick={() => setMoreOpen(false)}>
-<div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-<div
-className=“absolute bottom-[68px] left-4 right-4 bg-background/98 backdrop-blur-xl rounded-2xl border border-border p-4 animate-fade-in shadow-2xl”
-onClick={(e) => e.stopPropagation()}
->
-<div className="grid grid-cols-4 gap-2">
-{allMoreItems.map((item) => {
-const active = location.pathname === item.path;
-return (
-<Link
-key={item.path}
-to={item.path}
-onClick={() => setMoreOpen(false)}
-className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-all ${ active ? "bg-primary/20 text-primary" : "text-foreground hover:text-foreground hover:bg-muted/70" }`}
->
-<item.icon className=“w-5 h-5” />
-<span className="text-[10px] font-sans font-medium">
-{item.label[language as keyof typeof item.label] || item.label.en}
-</span>
-</Link>
-);
-})}
-</div>
-</div>
-</div>
-)}
-
-```
-  <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card/95 backdrop-blur-xl border-t border-border safe-area-bottom">
-    <div className="flex items-center justify-around px-2 pt-1.5 pb-1">
-      {MAIN_TABS.map((tab) => {
-        if (tab.path === "/more") {
-          return (
-            <button
-              key="more"
-              onClick={() => setMoreOpen(!moreOpen)}
-              className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-all min-w-[56px] ${
-                isMoreActive || moreOpen ? "text-primary" : "text-muted-foreground"
-              }`}
-            >
-              <tab.icon className="w-5 h-5" />
-              <span className="text-[10px] font-sans font-medium">
-                {tab.label[language as keyof typeof tab.label] || tab.label.en}
-              </span>
-            </button>
-          );
-        }
-
-        const active = location.pathname === tab.path;
-        return (
-          <Link
-            key={tab.path}
-            to={tab.path}
-            onClick={() => setMoreOpen(false)}
-            className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-all min-w-[56px] ${
-              active ? "text-primary" : "text-muted-foreground"
-            }`}
+  return (
+    <>
+      {moreOpen && (
+        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMoreOpen(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="absolute bottom-[68px] left-4 right-4 bg-background/98 backdrop-blur-xl rounded-2xl border border-border p-4 animate-fade-in shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className={`p-1 rounded-full transition-all ${active ? "bg-primary/15" : ""}`}>
-              <tab.icon className="w-5 h-5" />
+            <div className="grid grid-cols-4 gap-2">
+              {allMoreItems.map((item) => {
+                const active = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMoreOpen(false)}
+                    className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-all ${
+                      active
+                        ? "bg-primary/20 text-primary"
+                        : "text-foreground hover:text-foreground hover:bg-muted/70"
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="text-[10px] font-sans font-medium">
+                      {item.label[language as keyof typeof item.label] || item.label.en}
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
-            <span className="text-[10px] font-sans font-medium">
-              {tab.label[language as keyof typeof tab.label] || tab.label.en}
-            </span>
-          </Link>
-        );
-      })}
-    </div>
-  </nav>
-</>
-```
+          </div>
+        </div>
+      )}
 
-);
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card/95 backdrop-blur-xl border-t border-border safe-area-bottom">
+        <div className="flex items-center justify-around px-2 pt-1.5 pb-1">
+          {MAIN_TABS.map((tab) => {
+            if (tab.path === "/more") {
+              return (
+                <button
+                  key="more"
+                  onClick={() => setMoreOpen(!moreOpen)}
+                  className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-all min-w-[56px] ${
+                    isMoreActive || moreOpen ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  <tab.icon className="w-5 h-5" />
+                  <span className="text-[10px] font-sans font-medium">
+                    {tab.label[language as keyof typeof tab.label] || tab.label.en}
+                  </span>
+                </button>
+              );
+            }
+
+            const active = location.pathname === tab.path;
+            return (
+              <Link
+                key={tab.path}
+                to={tab.path}
+                onClick={() => setMoreOpen(false)}
+                className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-lg transition-all min-w-[56px] ${
+                  active ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                <div className={`p-1 rounded-full transition-all ${active ? "bg-primary/15" : ""}`}>
+                  <tab.icon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-sans font-medium">
+                  {tab.label[language as keyof typeof tab.label] || tab.label.en}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
+  );
 }
