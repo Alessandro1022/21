@@ -1,47 +1,16 @@
 {
-  "id": "empire-ai-app",
   "name": "Empire AI",
   "short_name": "Empire AI",
-  "description": "Historisk intelligens. Driven av AI.",
+  "description": "Utforska Osmanska rikets historia med AI-driven analys.",
   "lang": "sv",
   "dir": "ltr",
-
   "start_url": "/",
   "scope": "/",
-  "scope_extensions": [
-    {
-      "origin": "https://empireai10.vercel.app"
-    }
-  ],
-
   "display": "standalone",
-  "display_override": [
-    "window-controls-overlay",
-    "standalone",
-    "minimal-ui"
-  ],
-
   "orientation": "portrait",
   "background_color": "#8B0000",
   "theme_color": "#8B0000",
-
-  "categories": [
-    "education",
-    "productivity",
-    "utilities",
-    "history"
-  ],
-
-  "iarc_rating_id": "e86d4c5d-1234-5678-9abc-def012345678",
-
-  "prefer_related_applications": false,
-  "related_applications": [
-    {
-      "platform": "webapp",
-      "url": "https://empireai10.vercel.app/manifest.json"
-    }
-  ],
-
+  "categories": ["education", "productivity", "history", "utilities"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -56,7 +25,6 @@
       "purpose": "any"
     }
   ],
-
   "shortcuts": [
     {
       "name": "Quiz",
@@ -65,7 +33,8 @@
       "icons": [
         {
           "src": "/icon-192.png",
-          "sizes": "192x192"
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
@@ -76,7 +45,8 @@
       "icons": [
         {
           "src": "/icon-192.png",
-          "sizes": "192x192"
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
@@ -87,50 +57,10 @@
       "icons": [
         {
           "src": "/icon-192.png",
-          "sizes": "192x192"
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     }
-  ],
-
-  "file_handlers": [
-    {
-      "action": "/",
-      "accept": {
-        "text/plain": [".txt"],
-        "application/json": [".json"]
-      }
-    }
-  ],
-
-  "launch_handler": {
-    "client_mode": "single"
-  },
-
-  "protocol_handlers": [
-    {
-      "protocol": "mailto",
-      "url": "/send-email?to=%s"
-    }
-  ],
-
-  "share_target": {
-    "action": "/share",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "title": "name",
-      "text": "description",
-      "url": "link"
-    }
-  },
-
-  "edge_side_panel": {
-    "preferred_width": 320,
-    "default_state": "open"
-  },
-
-  "note_taking": {
-    "new_note_url": "/new-note"
-  }
+  ]
 }
