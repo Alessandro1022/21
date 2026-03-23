@@ -62,8 +62,8 @@ serve(async (req) => {
   try {
     const { messages, language, level, empire } = await req.json();
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+    const GROK_API_KEY = Deno.env.get("GROK_API_KEY");
+    if (!GROK_API_KEY) throw new Error("GROK_API_KEY is not configured");
 
     const empireContext = EMPIRE_CONTEXTS[empire || "ottoman"] || EMPIRE_CONTEXTS.ottoman;
     const systemPrompt = `${BASE_SYSTEM_PROMPT}\n\nEXPERT DOMAIN\n${empireContext}`;
@@ -94,27 +94,29 @@ serve(async (req) => {
       );
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${GROK_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
+        model: "grok-beta",
         max_tokens: 1024,
-        system: systemPrompt,
-        messages: cleanMessages,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...cleanMessages
+        ],
         stream: true,
+        temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
       const t = await response.text();
-      console.error("Claude error:", response.status, t);
+      console.error("Grok error:", response.status, t);
       return new Response(
-        JSON.stringify({ error: "Claude API error: " + response.status }),
+        JSON.stringify({ error: "Grok API error: " + response.status }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -142,14 +144,14 @@ serve(async (req) => {
 
               try {
                 const parsed = JSON.parse(jsonStr);
-                if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
-                  const text = parsed.delta.text;
+                if (parsed.choices?.[0]?.delta?.content) {
+                  const text = parsed.choices[0].delta.content;
                   if (text) {
                     const openaiChunk = { choices: [{ delta: { content: text } }] };
                     controller.enqueue(encoder.encode("data: " + JSON.stringify(openaiChunk) + "\n\n"));
                   }
                 }
-                if (parsed.type === "message_stop") {
+                if (parsed.choices?.[0]?.finish_reason) {
                   controller.enqueue(encoder.encode("data: [DONE]\n\n"));
                 }
               } catch {
