@@ -63,7 +63,6 @@ serve(async (req) => {
     const { messages, language, level, empire } = await req.json();
 
     // ── ÄNDRAT: Gemini istället för Grok ──
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const empireContext = EMPIRE_CONTEXTS[empire || "ottoman"] || EMPIRE_CONTEXTS.ottoman;
