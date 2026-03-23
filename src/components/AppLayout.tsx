@@ -117,7 +117,7 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 overflow-hidden pb-[68px] md:pb-0">
+      <main className="relative z-10 flex-1 overflow-hidden pb-[calc(68px+env(safe-area-inset-bottom))] md:pb-0">
         {children}
       </main>
 
