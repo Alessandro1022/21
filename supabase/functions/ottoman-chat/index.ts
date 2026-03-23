@@ -6,41 +6,55 @@ const corsHeaders = {
 };
 
 const EMPIRE_CONTEXTS: Record<string, string> = {
-  ottoman: `Du ar expert pa Osmanska rikets historia (1299-1923).
-Inkludera perspektiv pa osmansk administration, militar, kultur, expansion och nedgang.
-Referera till sultaner, vizierer, janitsjarer, millet-systemet och andra osmanska institutioner.`,
-  roman: `Du ar expert pa Romerska rikets historia (753 f.Kr.-476 e.Kr.).
-Inkludera perspektiv pa romersk republik, principat, militar, kultur, lag och imperiums fall.
-Referera till kejsare, senaten, legioner, provinsforvaltning och andra romerska institutioner.`,
+  ottoman: `You are an expert on the history of the Ottoman Empire (1299-1923).
+Include perspectives on Ottoman administration, military, culture, expansion and decline.
+Refer to sultans, viziers, janissaries, the millet system and other Ottoman institutions.`,
+  roman: `You are an expert on the history of the Roman Empire (753 BC - 476 AD).
+Include perspectives on the Roman Republic, principate, military, culture, law and the fall of the empire.
+Refer to emperors, the Senate, legions, provincial administration and other Roman institutions.`,
 };
 
-const BASE_SYSTEM_PROMPT = `Du ar huvudmodellen i applikationen "Empire AI".
+const BASE_SYSTEM_PROMPT = `You are the main AI model in the application "Empire AI".
 
-Ditt uppdrag ar att svara progressivt, koncist och strukturerat med naturlig flodeskansla, optimerad for realtids-streaming.
-
-SPRAKREGLER
-Anvand alltid det sprak som anvandaren valt i granssnittet:
-- Svenska
+LANGUAGE RULES
+Always use the language the user has selected:
+- Svenska (Swedish)
 - English
-- Turkce
-Blanda aldrig sprak.
+- Türkçe (Turkish)
+Never mix languages.
 
-SVARNIVA
-Anpassa djup baserat pa vald niva:
-KORT - 3-6 meningar, karnpoang
-GYMNASIE - Tydlig struktur, forklarande, historisk kontext
-FORDJUPAD - Akademisk ton, perspektivanalys, orsak-verkan, historiografisk reflektion
+ANSWER LEVEL
+BRIEF - 3-6 sentences, key points only
+STANDARD - Clear structure, explanatory, historical context
+IN-DEPTH - Academic tone, perspective analysis, cause-effect
 
-STREAMING-OPTIMERAD STIL
-- Skriv i korta segment (1-2 meningar per stycke).
-- Undvik langa kompakta block.
-- Lat resonemang byggas stegvis.
-- Prioritera rytm och flode.
+STYLE
+- Short paragraphs, markdown for readability
+- Elegant, intellectual, authoritative tone
+- No emojis, no disclaimers`;
 
-TON & FORMAT
-- Elegant, intellektuell, tydlig, auktoritativ
-- Korta stycken, markdown for lasbarhet
-- Inga emojis, inga disclaimers`;
+// Sanitize messages for Claude: must alternate user/assistant, start with user
+function sanitizeMessages(messages: any[]) {
+  // Filter out empty messages
+  const filtered = messages.filter((m: any) => m.content && m.content.trim());
+
+  // Remove consecutive duplicate roles by merging content
+  const merged: any[] = [];
+  for (const msg of filtered) {
+    if (merged.length > 0 && merged[merged.length - 1].role === msg.role) {
+      merged[merged.length - 1].content += "\n" + msg.content;
+    } else {
+      merged.push({ role: msg.role, content: msg.content });
+    }
+  }
+
+  // Must start with user
+  while (merged.length > 0 && merged[0].role !== "user") {
+    merged.shift();
+  }
+
+  return merged;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -48,61 +62,63 @@ serve(async (req) => {
   try {
     const { messages, language, level, empire } = await req.json();
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
     const empireContext = EMPIRE_CONTEXTS[empire || "ottoman"] || EMPIRE_CONTEXTS.ottoman;
-    const systemPrompt = `${BASE_SYSTEM_PROMPT}\n\nEXPERTOMRADE\n${empireContext}`;
+    const systemPrompt = `${BASE_SYSTEM_PROMPT}\n\nEXPERT DOMAIN\n${empireContext}`;
 
-    const langMap: Record<string, string> = { sv: "Svenska", en: "English", tr: "Turkce" };
+    const langMap: Record<string, string> = { sv: "Swedish", en: "English", tr: "Turkish" };
     const levelMap: Record<string, string> = {
-      short: "Kort svar",
-      high_school: "Gymnasieniva",
-      deep: "Fordjupad analys",
+      short: "Brief", brief: "Brief",
+      high_school: "Standard", standard: "Standard",
+      deep: "In-depth", academic: "In-depth",
     };
-    const contextPrefix = `Sprak: ${langMap[language] || "English"}. Niva: ${levelMap[level] || "Fordjupad analys"}.\n\n`;
 
-    const enrichedMessages = messages.map((m: any, i: number) => {
+    const contextPrefix = `Language: ${langMap[language] || "English"}. Level: ${levelMap[level] || "In-depth"}.\n\n`;
+
+    // Add context to last user message and sanitize
+    const rawMessages = messages.map((m: any, i: number) => {
       if (i === messages.length - 1 && m.role === "user") {
-        return { ...m, content: contextPrefix + m.content };
+        return { role: m.role, content: contextPrefix + m.content };
       }
-      return m;
+      return { role: m.role, content: m.content };
     });
 
-    // Convert messages to Gemini format
-    const geminiContents = enrichedMessages.map((m: any) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
+    const cleanMessages = sanitizeMessages(rawMessages);
 
-    const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=" +
-      GEMINI_API_KEY;
+    if (cleanMessages.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "No valid messages" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    const response = await fetch(url, {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: geminiContents,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1024,
-        },
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: cleanMessages,
+        stream: true,
       }),
     });
 
     if (!response.ok) {
       const t = await response.text();
-      console.error("Gemini error:", response.status, t);
+      console.error("Claude error:", response.status, t);
       return new Response(
-        JSON.stringify({ error: "Gemini API error: " + response.status }),
+        JSON.stringify({ error: "Claude API error: " + response.status }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Transform Gemini SSE to OpenAI-compatible SSE format
-    // so existing streamChat.ts works without changes
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     const encoder = new TextEncoder();
@@ -126,24 +142,18 @@ serve(async (req) => {
 
               try {
                 const parsed = JSON.parse(jsonStr);
-                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) {
-                  // Convert to OpenAI SSE format so existing frontend works
-                  const openaiChunk = {
-                    choices: [{ delta: { content: text } }],
-                  };
-                  controller.enqueue(
-                    encoder.encode("data: " + JSON.stringify(openaiChunk) + "\n\n")
-                  );
+                if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+                  const text = parsed.delta.text;
+                  if (text) {
+                    const openaiChunk = { choices: [{ delta: { content: text } }] };
+                    controller.enqueue(encoder.encode("data: " + JSON.stringify(openaiChunk) + "\n\n"));
+                  }
                 }
-
-                // Check if done
-                const finishReason = parsed.candidates?.[0]?.finishReason;
-                if (finishReason && finishReason !== "STOP" && finishReason !== "") {
-                  console.log("Gemini finish reason:", finishReason);
+                if (parsed.type === "message_stop") {
+                  controller.enqueue(encoder.encode("data: [DONE]\n\n"));
                 }
               } catch {
-                // ignore parse errors on individual chunks
+                // ignore
               }
             }
           }
@@ -155,12 +165,9 @@ serve(async (req) => {
     });
 
     return new Response(stream, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-      },
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
     });
+
   } catch (e) {
     console.error("ottoman-chat error:", e);
     return new Response(
