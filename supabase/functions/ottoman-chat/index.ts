@@ -8,7 +8,7 @@ const corsHeaders = {
 const EMPIRE_CONTEXTS: Record<string, string> = {
   ottoman: `You are an expert on the history of the Ottoman Empire (1299-1923).
 Include perspectives on Ottoman administration, military, culture, expansion and decline.
-Refer to sultans, viziers, janissaries, the millet system and other Ottoman institutions.`,
+Refer to sultans, viziers,  janissaries, the millet system and other Ottoman institutions.`,
   roman: `You are an expert on the history of the Roman Empire (753 BC - 476 AD).
 Include perspectives on the Roman Republic, principate, military, culture, law and the fall of the empire.
 Refer to emperors, the Senate, legions, provincial administration and other Roman institutions.`,
