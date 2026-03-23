@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Loader2, Trash2 } from "lucide-react";
 import { ChatMessage } from "@/components/ChatMessage";
 import { useChat } from "@/hooks/useChat";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import hagiaSofia from "@/assets/hagia-sofia.jpg";
 import ottomanCrest from "@/assets/ottoman-crest.jpg";
 
@@ -143,7 +144,7 @@ export default function Index() {
       </header>
 
       {/* Chat area */}
-      <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto pb-[76px]">
         {isEmpty && (
           <div className="flex flex-col items-center justify-center h-full px-4">
             <div className="relative w-32 h-32 mb-6 rounded-full overflow-hidden ottoman-glow">
@@ -218,7 +219,7 @@ export default function Index() {
       )}
 
       {/* Input */}
-      <div className="relative z-10 flex-shrink-0 border-t border-border px-4 pt-3 bg-background/60 backdrop-blur-md" style={{ paddingBottom: "max(calc(env(safe-area-inset-bottom) + 80px), 80px)" }}>
+      <div className="relative z-10 flex-shrink-0 border-t border-border px-4 py-3 bg-background/60 backdrop-blur-md" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}>
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex gap-2">
           <input
             type="text"
@@ -241,6 +242,8 @@ export default function Index() {
           </button>
         </form>
       </div>
+
+      <MobileBottomNav language={language} />
     </div>
   );
 }
