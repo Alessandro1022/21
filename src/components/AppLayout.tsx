@@ -125,3 +125,4 @@ export function AppLayout({ children, language, setLanguage, hideNav }: AppLayou
     </div>
   );
 }
+
