@@ -73,10 +73,12 @@ export default function Index() {
         backgroundImage: `url(${hagiaSofia})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
+        // ←←← NYTT: Safe-area-top fix (pushar hela appen under status bar)
+        paddingTop: "env(safe-area-inset-top)",
       }}
     >
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-background/85 z-0" />
+      {/* Dark overlay – nu mörkare som du ville */}
+      <div className="absolute inset-0 bg-background/95 z-0" />
 
       {/* Header */}
       <header className="relative z-10 flex-shrink-0 border-b border-border px-4 bg-background/60 backdrop-blur-md" style={{ paddingTop: "max(env(safe-area-inset-top), 12px)", paddingBottom: "12px" }}>
