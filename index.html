@@ -1,256 +1,246 @@
-<!DOCTYPE html>
-<html lang="sv">
-<head> 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+import { useState, useRef, useEffect } from "react";
+import { Send, Loader2, Trash2 } from "lucide-react";
+import { ChatMessage } from "@/components/ChatMessage";
+import { useChat } from "@/hooks/useChat";
+import hagiaSofia from "@/assets/hagia-sofia.jpg";
+import ottomanCrest from "@/assets/ottoman-crest.jpg";
 
-  <!-- PWA / Safari standalone -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Empire AI">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#8B0000">
+const LANGUAGES = [
+  { value: "sv", label: "Svenska" },
+  { value: "en", label: "English" },
+  { value: "tr", label: "Türkçe" },
+];
 
-  <!-- Icons -->
-  <link rel="apple-touch-icon" href="/icon-192.png">
-  <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
-  <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png">
-  <link rel="icon" type="image/png" href="/icon-192.png">
+const LEVELS = [
+  { value: "short", label: "Kort", labelEn: "Brief" },
+  { value: "high_school", label: "Gymnasie", labelEn: "Standard" },
+  { value: "deep", label: "Fördjupad", labelEn: "In-depth" },
+];
 
-  <!-- Manifest -->
-  <link rel="manifest" href="/manifest.json">
+const PLACEHOLDERS: Record<string, string> = {
+  sv: "Ställ en fråga om Osmanska riket...",
+  en: "Ask a question about the Ottoman Empire...",
+  tr: "Osmanlı İmparatorluğu hakkında bir soru sorun...",
+};
 
-  <title>Empire AI</title>
-  <style>
-* {
-margin: 0;
-padding: 0;
-box-sizing: border-box;
-user-select: none;
--webkit-tap-highlight-color: transparent;
+const SUGGESTIONS: Record<string, string[]> = {
+  sv: [
+    "Vad var orsakerna till Osmanska rikets nedgång?",
+    "Berätta om Süleyman den stores regeringstid",
+    "Hur var millet-systemet uppbyggt?",
+  ],
+  en: [
+    "What caused the fall of the Ottoman Empire?",
+    "Tell me about the reign of Suleiman the Magnificent",
+    "How did the millet system work?",
+  ],
+  tr: [
+    "Osmanlı İmparatorluğu'nun çöküş nedenleri nelerdir?",
+    "Kanuni Sultan Süleyman dönemi hakkında bilgi verin",
+    "Millet sistemi nasıl işliyordu?",
+  ],
+};
+
+export default function Index() {
+  const { messages, isLoading, send, language, setLanguage, level, setLevel, clearMessages } = useChat();
+  const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    send(input);
+    setInput("");
+  };
+
+  const handleSuggestion = (q: string) => {
+    send(q);
+  };
+
+  const isEmpty = messages.length === 0;
+
+  return (
+    <div
+      className="flex flex-col h-screen bg-background relative"
+      style={{
+        backgroundImage: `url(${hagiaSofia})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-background/85 z-0" />
+
+      {/* Header */}
+      <header className="relative z-10 flex-shrink-0 border-b border-border px-4 py-3 bg-background/60 backdrop-blur-md">
+        <div className="max-w-3xl mx-auto flex flex-col gap-2">
+          
+          {/* Rad 1: Logo + Trash */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src={ottomanCrest}
+                alt="Ottoman coat of arms"
+                className="w-9 h-9 rounded-lg object-cover"
+              />
+              <div>
+                <h1 className="text-lg font-serif text-primary leading-tight">Ottoman Intelligence</h1>
+                <p className="text-xs text-muted-foreground font-sans">1299–1922</p>
+              </div>
+            </div>
+            {messages.length > 0 && (
+              <button
+                onClick={clearMessages}
+                className="p-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-muted transition-colors"
+                title="Clear chat"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Rad 2: Språk + Nivå */}
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg overflow-hidden ottoman-border">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.value}
+                  onClick={() => setLanguage(lang.value)}
+                  className={`px-3 py-1.5 text-xs font-sans transition-colors ${
+                    language === lang.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-muted"
+                  }`}
+                >
+                  {lang.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex rounded-lg overflow-hidden ottoman-border">
+              {LEVELS.map((l) => (
+                <button
+                  key={l.value}
+                  onClick={() => setLevel(l.value)}
+                  className={`px-3 py-1.5 text-xs font-sans transition-colors ${
+                    level === l.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-muted"
+                  }`}
+                >
+                  {language === "en" ? l.labelEn : l.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </header>
+
+      {/* Chat area */}
+      <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto">
+        {isEmpty && (
+          <div className="flex flex-col items-center justify-center h-full px-4">
+            <div className="relative w-32 h-32 mb-6 rounded-full overflow-hidden ottoman-glow">
+              <img
+                src={ottomanCrest}
+                alt="Ottoman coat of arms"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <h2 className="text-2xl font-serif text-primary mb-2">Ottoman Intelligence</h2>
+            <p className="text-muted-foreground text-sm font-sans mb-8 text-center max-w-md">
+              {language === "sv" && "Utforska Osmanska rikets historia med AI-driven analys. Välj språk och detaljnivå ovan."}
+              {language === "en" && "Explore the history of the Ottoman Empire with AI-powered analysis. Choose language and detail level above."}
+              {language === "tr" && "Yapay zeka destekli analizle Osmanlı İmparatorluğu tarihini keşfedin. Dili ve detay seviyesini yukarıdan seçin."}
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+              {SUGGESTIONS[language]?.map((q, i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSuggestion(q)}
+                  className="px-4 py-2 rounded-xl text-sm font-sans bg-card/80 backdrop-blur-sm ottoman-border text-foreground hover:bg-muted transition-colors text-left"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!isEmpty && (
+          <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+            {messages.map((msg, i) => (
+              <ChatMessage
+                key={i}
+                message={msg}
+                isStreaming={isLoading && i === messages.length - 1}
+              />
+            ))}
+            {isLoading && messages[messages.length - 1]?.role === "user" && (
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full gold-gradient flex items-center justify-center">
+                  <Loader2 className="w-4 h-4 text-primary-foreground animate-spin" />
+                </div>
+                <div className="bg-card ottoman-border rounded-2xl px-4 py-3">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse [animation-delay:0.2s]" />
+                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse [animation-delay:0.4s]" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Suggestions bar */}
+      {!isEmpty && !isLoading && (
+        <div className="relative z-10 border-t border-border px-4 py-2 bg-background/60 backdrop-blur-md">
+          <div className="max-w-3xl mx-auto flex gap-2 overflow-x-auto">
+            {SUGGESTIONS[language]?.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => handleSuggestion(q)}
+                className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-sans bg-card/80 ottoman-border text-foreground hover:bg-muted transition-colors"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Input */}
+      <div className="relative z-10 flex-shrink-0 border-t border-border px-4 pt-3 bg-background/60 backdrop-blur-md" style={{ paddingBottom: "max(calc(env(safe-area-inset-bottom) + 80px), 80px)" }}>
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={PLACEHOLDERS[language]}
+            disabled={isLoading}
+            className="flex-1 bg-card/80 backdrop-blur-sm ottoman-border rounded-xl px-4 py-3 text-sm font-sans text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="px-4 py-3 rounded-xl gold-gradient text-primary-foreground font-sans text-sm font-medium disabled:opacity-50 transition-opacity hover:opacity-90"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
-
-body {
-background: #000;
-overflow: hidden;
-font-family: system-ui, -apple-system, sans-serif;
-}
-
-/* SPLASH SCREEN */
-#splash {
-position: fixed;
-inset: 0;
-display: flex;
-justify-content: center;
-align-items: center;
-background: radial-gradient(circle at center, #0a0505 0%, #000000 100%);
-z-index: 9999;
-transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* LOGO CONTAINER - För ärr och bounce */
-.logo-container {
-position: relative;
-display: flex;
-justify-content: center;
-align-items: center;
-animation: bounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
-}
-
-@keyframes bounce {
-0% {
-transform: translateY(0) scale(1);
-}
-40% {
-transform: translateY(-30px) scale(1.05);
-}
-60% {
-transform: translateY(-15px) scale(1.02);
-}
-80% {
-transform: translateY(-5px) scale(1.01);
-}
-100% {
-transform: translateY(0) scale(1);
-}
-}
-
-.logo {
-width: min(160px, 35vw);
-height: auto;
-display: block;
-position: relative;
-z-index: 2;
-filter: drop-shadow(0 0 15px rgba(139, 0, 0, 0.5));
-}
-
-/* ÄRR - Två diagonala linjer som skär icon */
-.scar {
-position: absolute;
-top: 50%;
-left: 50%;
-width: 0%;
-height: 4px;
-background: linear-gradient(90deg,
-rgba(255, 80, 40, 0) 0%,
-rgba(255, 60, 20, 0.95) 20%,
-rgba(255, 100, 50, 1) 50%,
-rgba(255, 60, 20, 0.95) 80%,
-rgba(255, 80, 40, 0) 100%
-);
-box-shadow: 0 0 12px rgba(255, 50, 0, 0.8);
-border-radius: 4px;
-transform-origin: center;
-opacity: 0;
-z-index: 10;
-pointer-events: none;
-}
-
-/* Ärr 1 - Diagonal från vänster-övre till höger-nedre */
-.scar-1 {
-transform: translate(-50%, -50%) rotate(45deg);
-}
-
-/* Ärr 2 - Diagonal från höger-övre till vänster-nedre */
-.scar-2 {
-transform: translate(-50%, -50%) rotate(-45deg);
-}
-
-/* Ärr animation - skär genom icon */
-@keyframes slashScar {
-0% {
-width: 0%;
-opacity: 0;
-}
-30% {
-opacity: 1;
-}
-70% {
-width: 140%;
-opacity: 1;
-}
-100% {
-width: 150%;
-opacity: 0.7;
-}
-}
-
-.scar-active {
-animation: slashScar 0.35s cubic-bezier(0.25, 0.1, 0.15, 1) forwards;
-}
-
-/* FLASH - Kort vit blixt när ärren träffar */
-.flash {
-position: absolute;
-inset: 0;
-background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 100, 0, 0.6) 60%, transparent 100%);
-opacity: 0;
-z-index: 20;
-pointer-events: none;
-transition: opacity 0.08s ease-out;
-}
-
-/* FADE OUT */
-.fade-out {
-opacity: 0;
-pointer-events: none;
-}
-  </style>
-</head>
-<body>
-
-<div id="splash">
-<div class="logo-container" id="logoContainer">
-<img src="/icon-192.png" class="logo" id="logo" alt="Empire AI">
-<div class="scar scar-1" id="scar1"></div>
-<div class="scar scar-2" id="scar2"></div>
-</div>
-<div class="flash" id="flash"></div>
-<audio id="sound" src="/sword.mp3" preload="auto"></audio>
-</div>
-
-<div id="root"></div>
-<div id="dashboard-stats"></div>
-<div id="dashboard-payments"></div>
-<script type="module" src="/src/main.tsx"></script>
-
-<script>
-(function() {
-'use strict';
-
-const splash = document.getElementById('splash');
-const logoContainer = document.getElementById('logoContainer');
-const scar1 = document.getElementById('scar1');
-const scar2 = document.getElementById('scar2');
-const flash = document.getElementById('flash');
-const sound = document.getElementById('sound');
-
-// Spela ljud med felhantering
-function playSlashSound() {
-if (!sound) return;
-sound.currentTime = 0;
-const playPromise = sound.play();
-if (playPromise !== undefined) {
-playPromise.catch(() => {
-// Autoplay blockerat - försök igen vid användarinteraktion
-document.body.addEventListener('click', function once() {
-sound.play().catch(() => {});
-document.body.removeEventListener('click', once);
-}, { once: true });
-});
-}
-}
-
-// Flash-effekt
-function triggerFlash() {
-flash.style.opacity = '1';
-setTimeout(() => {
-flash.style.opacity = '0';
-}, 120);
-}
-
-// Kör ärr-effekten
-function triggerScars() {
-// Aktivera båda ärren samtidigt
-scar1.classList.add('scar-active');
-scar2.classList.add('scar-active');
-
-// Flash samtidigt
-triggerFlash();
-
-// Spela sword-ljudet
-playSlashSound();
-}
-
-// ========== TIMELINE ==========
-
-// 1. Bounce-effekt på icon (startar direkt)
-// Bounce animeras via CSS redan från start
-
-// 2. Ärr skär icon vid 0.7s (efter bounce peak)
-setTimeout(() => {
-triggerScars();
-}, 700);
-
-// 3. Fade out splash efter ärr-effekten
-setTimeout(() => {
-splash.classList.add('fade-out');
-setTimeout(() => {
-if (splash && splash.remove) splash.remove();
-}, 600);
-}, 1500);
-
-// 4. Fallback: Om något går fel, ta bort splash efter 3s
-setTimeout(() => {
-if (splash && splash.parentNode && !splash.classList.contains('fade-out')) {
-splash.classList.add('fade-out');
-setTimeout(() => splash.remove(), 500);
-}
-}, 3000);
-
-})();
-</script>
-
-</body>
-</html>
