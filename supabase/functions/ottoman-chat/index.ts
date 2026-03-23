@@ -90,7 +90,7 @@ serve(async (req) => {
     }));
 
     const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:streamGenerateContent?alt=sse&key=" +
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=" +
       GEMINI_API_KEY;
 
     const response = await fetch(url, {
