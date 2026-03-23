@@ -78,7 +78,7 @@ export default function Index() {
       <div className="absolute inset-0 bg-background/85 z-0" />
 
       {/* Header */}
-      <header className="relative z-10 flex-shrink-0 border-b border-border px-4 py-3 bg-background/60 backdrop-blur-md">
+      <header className="relative z-10 flex-shrink-0 border-b border-border px-4 bg-background/60 backdrop-blur-md" style={{ paddingTop: "max(env(safe-area-inset-top), 12px)", paddingBottom: "12px" }}>
         <div className="max-w-3xl mx-auto flex flex-col gap-2">
           
           {/* Rad 1: Logo + Trash */}
