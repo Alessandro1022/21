@@ -121,52 +121,8 @@ serve(async (req) => {
       );
     }
 
-    const reader = response.body!.getReader();
-    const decoder = new TextDecoder();
-    const encoder = new TextEncoder();
-
-    const stream = new ReadableStream({
-      async start(controller) {
-        let buffer = "";
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              if (!line.startsWith("data: ")) continue;
-              const jsonStr = line.slice(6).trim();
-              if (!jsonStr || jsonStr === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(jsonStr);
-                if (parsed.choices?.[0]?.delta?.content) {
-                  const text = parsed.choices[0].delta.content;
-                  if (text) {
-                    const openaiChunk = { choices: [{ delta: { content: text } }] };
-                    controller.enqueue(encoder.encode("data: " + JSON.stringify(openaiChunk) + "\n\n"));
-                  }
-                }
-                if (parsed.choices?.[0]?.finish_reason) {
-                  controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-                }
-              } catch {
-                // ignore
-              }
-            }
-          }
-        } finally {
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(stream, {
+    // === DIREKT PIPE (detta fixar loading-problemet) ===
+    return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
     });
 
