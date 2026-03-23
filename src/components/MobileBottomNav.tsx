@@ -61,7 +61,8 @@ export function MobileBottomNav({ language }: Props) {
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMoreOpen(false)}>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
           <div
-            className="absolute bottom-[68px] left-4 right-4 bg-background/98 backdrop-blur-xl rounded-2xl border border-border p-4 animate-fade-in shadow-2xl"
+            className="absolute left-4 right-4 bg-background/98 backdrop-blur-xl rounded-2xl border border-border p-4 animate-fade-in shadow-2xl"
+            style={{ bottom: "calc(68px + env(safe-area-inset-bottom) + 8px)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="grid grid-cols-4 gap-2">
@@ -90,7 +91,7 @@ export function MobileBottomNav({ language }: Props) {
         </div>
       )}
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card/95 backdrop-blur-xl border-t border-border safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card/95 backdrop-blur-xl border-t border-border" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 4px)" }}>
         <div className="flex items-center justify-around px-2 pt-1.5 pb-1">
           {MAIN_TABS.map((tab) => {
             if (tab.path === "/more") {
