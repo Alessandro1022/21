@@ -11,7 +11,7 @@ Include perspectives on Ottoman administration, military, culture, expansion and
 Refer to sultans, viziers, janissaries, the millet system and other Ottoman institutions.`,
   roman: `You are an expert on the history of the Roman Empire (753 BC - 476 AD).
 Include perspectives on the Roman Republic, principate, military, culture, law and the fall of the empire.
-Refer to emperors, the Senate, legions, provincial administration and other Roman institutions.`,
+Refer to emperors, the Senate, legions, provincial  administration and other Roman institutions.`,
 };
 
 const BASE_SYSTEM_PROMPT = `You are the main AI model in the application "Empire AI".
