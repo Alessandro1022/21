@@ -48,7 +48,6 @@ export default function Home() {
       <header className="relative z-10 flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-3">
           {crestImage && <img src={crestImage} alt="Empire crest" className="w-8 h-8 rounded-lg object-cover" />}
-          <h1 className="text-lg sm:text-xl md:text-2xl font-serif text-primary">{appTitle}</h1>
         </div>
         <div className="flex items-center gap-3">
           <FlagSelector language={language} setLanguage={setLanguage} />
