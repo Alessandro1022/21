@@ -96,8 +96,7 @@ export function useChat() {
     // DEBUG - shows in UI what values are being used
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    const debugStr = "URL=" + (supabaseUrl ? supabaseUrl.slice(0, 30) + "..." : "MISSING") +
-      " | KEY=" + (supabaseKey ? "OK" : "MISSING") +
+    const debugStr = `SUPABASE_URL=${supabaseUrl ? supabaseUrl.slice(0,30)+"..." : "MISSING"} | SUPABASE_KEY=${supabaseKey ? "OK" : "MISSING"} | EMPIRE=${empireId || "ottoman"} | USER=${user ? "logged in" : "not logged in"}`;      " | KEY=" + (supabaseKey ? "OK" : "MISSING") +
       " | empire=" + (empireId || "ottoman") +
       " | user=" + (user ? "logged in" : "not logged in");
     setDebugInfo(debugStr);
