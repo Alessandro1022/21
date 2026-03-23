@@ -62,8 +62,9 @@ serve(async (req) => {
   try {
     const { messages, language, level, empire } = await req.json();
 
-    const GROK_API_KEY = Deno.env.get("GROK_API_KEY");
-    if (!GROK_API_KEY) throw new Error("GROK_API_KEY is not configured");
+    // ── ÄNDRAT: Gemini istället för Grok ──
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
 
     const empireContext = EMPIRE_CONTEXTS[empire || "ottoman"] || EMPIRE_CONTEXTS.ottoman;
     const systemPrompt = `${BASE_SYSTEM_PROMPT}\n\nEXPERT DOMAIN\n${empireContext}`;
@@ -94,29 +95,31 @@ serve(async (req) => {
       );
     }
 
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
+    // ── ÄNDRAT: Gemini-format istället för Grok/OpenAI-format ──
+    const geminiContents = cleanMessages.map((m: any) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+    const url =
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=" +
+      GEMINI_API_KEY;
+
+    const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${GROK_API_KEY}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "grok-beta",
-        max_tokens: 1024,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...cleanMessages
-        ],
-        stream: true,
-        temperature: 0.7,
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: geminiContents,
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
       }),
     });
 
     if (!response.ok) {
       const t = await response.text();
-      console.error("Grok error:", response.status, t);
+      console.error("Gemini error:", response.status, t);
       return new Response(
-        JSON.stringify({ error: "Grok API error: " + response.status }),
+        JSON.stringify({ error: "Gemini API error: " + response.status }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -144,14 +147,13 @@ serve(async (req) => {
 
               try {
                 const parsed = JSON.parse(jsonStr);
-                if (parsed.choices?.[0]?.delta?.content) {
-                  const text = parsed.choices[0].delta.content;
-                  if (text) {
-                    const openaiChunk = { choices: [{ delta: { content: text } }] };
-                    controller.enqueue(encoder.encode("data: " + JSON.stringify(openaiChunk) + "\n\n"));
-                  }
+                // ── ÄNDRAT: Gemini svarar via candidates istället för choices ──
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  const openaiChunk = { choices: [{ delta: { content: text } }] };
+                  controller.enqueue(encoder.encode("data: " + JSON.stringify(openaiChunk) + "\n\n"));
                 }
-                if (parsed.choices?.[0]?.finish_reason) {
+                if (parsed.candidates?.[0]?.finishReason) {
                   controller.enqueue(encoder.encode("data: [DONE]\n\n"));
                 }
               } catch {
