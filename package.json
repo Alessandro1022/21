@@ -1,95 +1,261 @@
-{
-  "name": "vite_react_shadcn_ts",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  },
-  "dependencies": {
-    "@hookform/resolvers": "^3.10.0",
-    "@lovable.dev/cloud-auth-js": "^0.0.3",
-    "@radix-ui/react-accordion": "^1.2.11",
-    "@radix-ui/react-alert-dialog": "^1.1.14",
-    "@radix-ui/react-aspect-ratio": "^1.1.7",
-    "@radix-ui/react-avatar": "^1.1.10",
-    "@radix-ui/react-checkbox": "^1.3.2",
-    "@radix-ui/react-collapsible": "^1.1.11",
-    "@radix-ui/react-context-menu": "^2.2.15",
-    "@radix-ui/react-dialog": "^1.1.14",
-    "@radix-ui/react-dropdown-menu": "^2.1.15",
-    "@radix-ui/react-hover-card": "^1.1.14",
-    "@radix-ui/react-label": "^2.1.7",
-    "@radix-ui/react-menubar": "^1.1.15",
-    "@radix-ui/react-navigation-menu": "^1.2.13",
-    "@radix-ui/react-popover": "^1.1.14",
-    "@radix-ui/react-progress": "^1.1.7",
-    "@radix-ui/react-radio-group": "^1.3.7",
-    "@radix-ui/react-scroll-area": "^1.2.9",
-    "@radix-ui/react-select": "^2.2.5",
-    "@radix-ui/react-separator": "^1.1.7",
-    "@radix-ui/react-slider": "^1.3.5",
-    "@radix-ui/react-slot": "^1.2.3",
-    "@radix-ui/react-switch": "^1.2.5",
-    "@radix-ui/react-tabs": "^1.1.12",
-    "@radix-ui/react-toast": "^1.2.14",
-    "@radix-ui/react-toggle": "^1.1.9",
-    "@radix-ui/react-toggle-group": "^1.1.10",
-    "@radix-ui/react-tooltip": "^1.2.7",
-    "@supabase/supabase-js": "^2.97.0",
-    "@tanstack/react-query": "^5.83.0",
-    "@types/leaflet": "^1.9.21",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
-    "date-fns": "^3.6.0",
-    "embla-carousel-react": "^8.6.0",
-    "input-otp": "^1.4.2",
-    "leaflet": "^1.9.4",
-    "lucide-react": "^0.511.0",
-    "next-themes": "^0.3.0",
-    "react": "^18.2.0",
-    "react-day-picker": "^9.4.0",
-    "react-dom": "^18.2.0",
-    "react-hook-form": "^7.61.1",
-    "react-leaflet": "^4.2.0",
-    "react-markdown": "^10.1.0",
-    "react-resizable-panels": "^2.1.9",
-    "react-router-dom": "^6.30.1",
-    "recharts": "^2.15.4",
-    "sonner": "^1.7.4",
-    "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7",
-    "vaul": "^0.9.9",
-    "zod": "^3.25.76"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.32.0",
-    "@tailwindcss/typography": "^0.5.16",
-    "@testing-library/jest-dom": "^6.6.0",
-    "@testing-library/react": "^14.3.0",
-    "@types/node": "^22.16.5",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "@vitejs/plugin-react-swc": "^3.11.0",
-    "autoprefixer": "^10.4.21",
-    "eslint": "^9.32.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
-    "globals": "^15.15.0",
-    "jsdom": "^24.1.3",
-    "lovable-tagger": "^1.1.13",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.38.0",
-    "vite": "^5.4.19",
-    "vitest": "^3.2.4"
-  }
+<!DOCTYPE html>
+
+<html lang="sv">
+<head> 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+
+<!-- PWA / Safari standalone -->
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Empire AI">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#8B0000">
+
+<!-- Icons -->
+
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
+
+<!-- Manifest -->
+
+<link rel="manifest" href="/manifest.json">
+
+<title>Empire AI</title>
+<style>
+* {
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+user-select: none;
+-webkit-tap-highlight-color: transparent;
 }
+
+body {
+background: #000;
+overflow: hidden;
+font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* SPLASH SCREEN */
+#splash {
+position: fixed;
+inset: 0;
+display: flex;
+justify-content: center;
+align-items: center;
+background: radial-gradient(circle at center, #0a0505 0%, #000000 100%);
+z-index: 9999;
+transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* LOGO CONTAINER - För ärr och bounce */
+.logo-container {
+position: relative;
+display: flex;
+justify-content: center;
+align-items: center;
+animation: bounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+@keyframes bounce {
+0% {
+transform: translateY(0) scale(1);
+}
+40% {
+transform: translateY(-30px) scale(1.05);
+}
+60% {
+transform: translateY(-15px) scale(1.02);
+}
+80% {
+transform: translateY(-5px) scale(1.01);
+}
+100% {
+transform: translateY(0) scale(1);
+}
+}
+
+.logo {
+width: min(160px, 35vw);
+height: auto;
+display: block;
+position: relative;
+z-index: 2;
+filter: drop-shadow(0 0 15px rgba(139, 0, 0, 0.5));
+}
+
+/* ÄRR - Två diagonala linjer som skär icon */
+.scar {
+position: absolute;
+top: 50%;
+left: 50%;
+width: 0%;
+height: 4px;
+background: linear-gradient(90deg,
+rgba(255, 80, 40, 0) 0%,
+rgba(255, 60, 20, 0.95) 20%,
+rgba(255, 100, 50, 1) 50%,
+rgba(255, 60, 20, 0.95) 80%,
+rgba(255, 80, 40, 0) 100%
+);
+box-shadow: 0 0 12px rgba(255, 50, 0, 0.8);
+border-radius: 4px;
+transform-origin: center;
+opacity: 0;
+z-index: 10;
+pointer-events: none;
+}
+
+/* Ärr 1 - Diagonal från vänster-övre till höger-nedre */
+.scar-1 {
+transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* Ärr 2 - Diagonal från höger-övre till vänster-nedre */
+.scar-2 {
+transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* Ärr animation - skär genom icon */
+@keyframes slashScar {
+0% {
+width: 0%;
+opacity: 0;
+}
+30% {
+opacity: 1;
+}
+70% {
+width: 140%;
+opacity: 1;
+}
+100% {
+width: 150%;
+opacity: 0.7;
+}
+}
+
+.scar-active {
+animation: slashScar 0.35s cubic-bezier(0.25, 0.1, 0.15, 1) forwards;
+}
+
+/* FLASH - Kort vit blixt när ärren träffar */
+.flash {
+position: absolute;
+inset: 0;
+background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 100, 0, 0.6) 60%, transparent 100%);
+opacity: 0;
+z-index: 20;
+pointer-events: none;
+transition: opacity 0.08s ease-out;
+}
+
+/* FADE OUT */
+.fade-out {
+opacity: 0;
+pointer-events: none;
+}
+</style>
+
+</head>
+<body>
+
+<div id="splash">
+<div class="logo-container" id="logoContainer">
+<img src="/icon-192.png" class="logo" id="logo" alt="Empire AI">
+<div class="scar scar-1" id="scar1"></div>
+<div class="scar scar-2" id="scar2"></div>
+</div>
+<div class="flash" id="flash"></div>
+<audio id="sound" src="/sword.mp3" preload="auto"></audio>
+</div>
+
+<div id="root"></div>
+<div id="dashboard-stats"></div>
+<div id="dashboard-payments"></div>
+<script type="module" src="/src/main.tsx"></script>
+
+<script>
+(function() {
+'use strict';
+
+const splash = document.getElementById('splash');
+const logoContainer = document.getElementById('logoContainer');
+const scar1 = document.getElementById('scar1');
+const scar2 = document.getElementById('scar2');
+const flash = document.getElementById('flash');
+const sound = document.getElementById('sound');
+
+// Spela ljud med felhantering
+function playSlashSound() {
+if (!sound) return;
+sound.currentTime = 0;
+const playPromise = sound.play();
+if (playPromise !== undefined) {
+playPromise.catch(() => {
+// Autoplay blockerat - försök igen vid användarinteraktion
+document.body.addEventListener('click', function once() {
+sound.play().catch(() => {});
+document.body.removeEventListener('click', once);
+}, { once: true });
+});
+}
+}
+
+// Flash-effekt
+function triggerFlash() {
+flash.style.opacity = '1';
+setTimeout(() => {
+flash.style.opacity = '0';
+}, 120);
+}
+
+// Kör ärr-effekten
+function triggerScars() {
+// Aktivera båda ärren samtidigt
+scar1.classList.add('scar-active');
+scar2.classList.add('scar-active');
+
+// Flash samtidigt
+triggerFlash();
+
+// Spela sword-ljudet
+playSlashSound();
+}
+
+// ========== TIMELINE ==========
+
+// 1. Bounce-effekt på icon (startar direkt)
+// Bounce animeras via CSS redan från start
+
+// 2. Ärr skär icon vid 0.7s (efter bounce peak)
+setTimeout(() => {
+triggerScars();
+}, 700);
+
+// 3. Fade out splash efter ärr-effekten
+setTimeout(() => {
+splash.classList.add('fade-out');
+setTimeout(() => {
+if (splash && splash.remove) splash.remove();
+}, 600);
+}, 1500);
+
+// 4. Fallback: Om något går fel, ta bort splash efter 3s
+setTimeout(() => {
+if (splash && splash.parentNode && !splash.classList.contains('fade-out')) {
+splash.classList.add('fade-out');
+setTimeout(() => splash.remove(), 500);
+}
+}, 3000);
+
+})();
+</script>
+
+</body>
+</html>
