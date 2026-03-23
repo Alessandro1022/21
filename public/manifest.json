@@ -20,47 +20,27 @@
   ],
 
   "orientation": "portrait",
-
-  "background_color": "#8B0000",
+    "background_color": "#8B0000",
   "theme_color": "#8B0000",
 
 @@ -31,30 +35,13 @@
   "iarc_rating_id": "e86d4c5d-1234-5678-9abc-def012345678",
 
   "prefer_related_applications": false,
-
   "related_applications": [
     {
       "platform": "webapp",
       "url": "https://empireai10.vercel.app/manifest.json"
     }
   ],
-
-  "scope_extensions": [
-    {
-      "origin": "https://empireai10.vercel.app"
-    }
-  ],
-
-  "file_handlers": [
-    {
-      "action": "/",
-      "accept": {
-        "text/plain": [".txt"],
-        "application/json": [".json"]
-      }
-    }
-  ],
-
-  "icons": [
+"icons": [
     {
       "src": "/icon-192.png",
 @@ -104,5 +91,46 @@
         }
       ]
     }
-  ]
-  ],
+ ],
 
   "file_handlers": [
     {
