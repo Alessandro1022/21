@@ -85,7 +85,7 @@ export default function Leaderboard() {
       const xpMap: Record<string, number> = {};
       (progress || []).forEach((p: any) => { xpMap[p.user_id] = p.xp || 0; });
       lb = (profiles || []).map((p: any) => ({
-        id: p.id, display_name: p.display_name || "Explorer",
+        id: p.id, display_name: p.display_name || "Anonymous",
         avatar_url: p.avatar_url || "", country: p.country || "", country_code: p.country_code || "",
         xp: xpMap[p.id] || 0, level: getLevelInfo(xpMap[p.id] || 0).level,
       })).filter(p => p.xp > 0).sort((a, b) => b.xp - a.xp).slice(0, 50);
@@ -97,7 +97,7 @@ export default function Leaderboard() {
       const xpMap: Record<string, number> = {};
       (results || []).forEach((r: any) => { xpMap[r.user_id] = (xpMap[r.user_id] || 0) + (r.xp_earned || 0); });
       lb = (profiles || []).filter((p: any) => xpMap[p.id] > 0).map((p: any) => ({
-        id: p.id, display_name: p.display_name || "Explorer",
+        id: p.id, display_name: p.display_name || "Anonymous",
         avatar_url: p.avatar_url || "", country: p.country || "", country_code: p.country_code || "",
         xp: xpMap[p.id] || 0, level: getLevelInfo(xpMap[p.id] || 0).level,
       })).sort((a, b) => b.xp - a.xp).slice(0, 50);
