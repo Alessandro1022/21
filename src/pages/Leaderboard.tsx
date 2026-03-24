@@ -112,17 +112,25 @@ const load = async () => {
     });
   }
 
-  const lb: Leader[] = Object.keys(xpMap).map((userId) => {
-    const p = profileMap[userId] || {};
+  // ✅ FIX: inkludera ALLA users + säkerställ namn + flagga
+  const allUserIds = Array.from(
+    new Set([
+      ...Object.keys(profileMap),
+      ...Object.keys(xpMap)
+    ])
+  );
+
+  const lb: Leader[] = allUserIds.map((userId) => {
+    const p = profileMap[userId];
 
     return {
       id: userId,
-      display_name: p.display_name || "Explorer",
-      avatar_url: p.avatar_url || "",
-      country: p.country || "",
-      country_code: p.country_code || "",
-      xp: xpMap[userId],
-      level: getLevelInfo(xpMap[userId]).level,
+      display_name: p?.display_name?.trim() || `User ${userId.slice(0, 4)}`, // ✅ FIX namn
+      avatar_url: p?.avatar_url || "",
+      country: p?.country || "",
+      country_code: p?.country_code || "", // ✅ FIX flagga
+      xp: xpMap[userId] || 0,
+      level: getLevelInfo(xpMap[userId] || 0).level,
     };
   })
   .sort((a, b) => b.xp - a.xp)
@@ -137,7 +145,6 @@ const load = async () => {
 
   setLoading(false);
 };
-
   useEffect(() => { load(); }, [period]);
 
   const share = async () => {
