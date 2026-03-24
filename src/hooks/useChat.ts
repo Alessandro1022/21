@@ -93,12 +93,12 @@ export function useChat() {
     setIsLoading(true);
     abortRef.current = false;
 
-    // DEBUG - only in console, no popup
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    const debugStr = `SUPABASE_URL=${supabaseUrl ? supabaseUrl.slice(0, 30) + "..." : "MISSING"} | SUPABASE_KEY=${supabaseKey ? "OK" : "MISSING"} | EMPIRE=${empireId || "ottoman"} | USER=${user ? "logged in" : "not logged in"}`;
-    setDebugInfo(debugStr);
-    console.log("[DEBUG]", debugStr);
+    // DEBUG
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const debugStr = `SUPABASE_URL=${supabaseUrl ? supabaseUrl.slice(0, 30) + "..." : "MISSING"} | SUPABASE_KEY=${supabaseKey ? "OK" : "MISSING"} | EMPIRE=${empireId || "ottoman"} | USER=${user ? "logged in" : "not logged in"}`;
+setDebugInfo(debugStr);
+toast.info(debugStr, { duration: 80 });
 
     let convId = activeConversationId;
     if (!convId && user) {
