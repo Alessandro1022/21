@@ -4,16 +4,16 @@ import { AppLayout } from "@/components/AppLayout";
 import { useChat } from "@/hooks/useChat";
 import { useAuth } from "@/hooks/useAuth";
 import { getLevelInfo } from "@/hooks/useProgress";
-import { Crown, Share2, Zap, RefreshCw, Loader2 } from "lucide-react";
+import { Crown, Share2, Zap, RefreshCw, Loader2, AlertCircle } from "lucide-react";
 
 type Period = "alltime" | "month" | "week";
 
 interface Leader {
   id: string;
   display_name: string;
-  avatar_url?: string;
-  country?: string;
-  country_code?: string;
+  avatar_url: string;
+  country: string;
+  country_code: string;
   xp: number;
   level: number;
 }
@@ -40,38 +40,44 @@ const FLAG_MAP: Record<string, string> = {
   US:"🇺🇸",UY:"🇺🇾",UZ:"🇺🇿",VU:"🇻🇺",VE:"🇻🇪",VN:"🇻🇳",YE:"🇾🇪",ZM:"🇿🇲",ZW:"🇿🇼",
 };
 
-// ── Avatar: profilbild eller initialer, med landflagga i hörnet ──
 function Avatar({ u, size = 56 }: { u: Leader; size?: number }) {
   const [imgError, setImgError] = useState(false);
-  const flag = u.country_code ? FLAG_MAP[u.country_code.toUpperCase()] : null;
-  const fs = Math.round(size * 0.36);
-  const initials = (u.display_name || "??").slice(0, 2).toUpperCase();
+  const code = u.country_code?.toUpperCase();
+  const flag = code ? FLAG_MAP[code] : null;
+  const badgeSize = Math.round(size * 0.42);
+  const initials = (u.display_name || "?").slice(0, 2).toUpperCase();
   const showImg = !!u.avatar_url && !imgError;
 
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       <div
-        className="w-full h-full rounded-full overflow-hidden flex items-center justify-center font-bold text-white"
+        className="w-full h-full rounded-full overflow-hidden flex items-center justify-center font-bold text-white select-none"
         style={{
-          background: showImg ? undefined : "linear-gradient(135deg,#c8a96e,#8B4513)",
+          background: showImg ? "#000" : "linear-gradient(135deg,#c8a96e,#8B4513)",
           fontSize: size * 0.32,
         }}
       >
         {showImg ? (
           <img
             src={u.avatar_url}
-            alt={u.display_name}
+            alt={initials}
             className="w-full h-full object-cover"
             onError={() => setImgError(true)}
           />
-        ) : (
-          initials
-        )}
+        ) : initials}
       </div>
+
       {flag && (
         <div
-          className="absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-background flex items-center justify-center"
-          style={{ width: fs + 6, height: fs + 6, background: "rgba(0,0,0,0.75)", fontSize: fs, lineHeight: 1 }}
+          className="absolute -bottom-0.5 -right-0.5 rounded-full flex items-center justify-center"
+          style={{
+            width: badgeSize,
+            height: badgeSize,
+            background: "rgba(0,0,0,0.8)",
+            border: "2px solid rgba(0,0,0,0.9)",
+            fontSize: badgeSize * 0.72,
+            lineHeight: 1,
+          }}
         >
           {flag}
         </div>
@@ -87,82 +93,103 @@ export default function Leaderboard() {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loading, setLoading] = useState(true);
   const [myRank, setMyRank] = useState<number | null>(null);
+  // Debug state — sätt till false i produktion
+  const [debugInfo, setDebugInfo] = useState<string>("");
+  const [showDebug, setShowDebug] = useState(false);
 
-  const l =
-    ({
-      sv: { alltime:"All tid", month:"Månad", week:"Vecka", share:"Dela", title:"Topplista", sub:"Vem samlar mest XP?" },
-      en: { alltime:"All time", month:"Month", week:"Week", share:"Share", title:"Leaderboard", sub:"Who collects the most XP?" },
-      tr: { alltime:"Tüm zamanlar", month:"Ay", week:"Hafta", share:"Paylaş", title:"Liderlik Tablosu", sub:"En çok XP kim topluyor?" },
-    } as Record<string, any>)[language] ||
-    { alltime:"All time", month:"Month", week:"Week", share:"Share", title:"Leaderboard", sub:"" };
+  const strings: Record<string, any> = {
+    sv: { alltime:"All tid", month:"Månad", week:"Vecka", share:"Dela", title:"Topplista", sub:"Vem samlar mest XP?" },
+    en: { alltime:"All time", month:"Month", week:"Week", share:"Share", title:"Leaderboard", sub:"Who collects the most XP?" },
+    tr: { alltime:"Tüm zamanlar", month:"Ay", week:"Hafta", share:"Paylaş", title:"Liderlik Tablosu", sub:"En çok XP kim topluyor?" },
+  };
+  const l = strings[language] || strings["en"];
 
   const load = async () => {
     setLoading(true);
+    const logs: string[] = [];
 
-    // STEG 1 – bygg xpMap utifrån vald period
-    let xpMap: Record<string, number> = {};
+    try {
+      // ── STEG 1: Hämta XP ──────────────────────────────────────────
+      let xpMap: Record<string, number> = {};
 
-    if (period === "alltime") {
-      const { data: progress } = await supabase
-        .from("user_progress")
-        .select("user_id, xp");
-      (progress || []).forEach((p: any) => {
-        xpMap[p.user_id] = p.xp || 0;
-      });
-    } else {
-      const from = new Date();
-      if (period === "week") from.setDate(from.getDate() - 7);
-      if (period === "month") from.setDate(from.getDate() - 30);
-      const { data: results } = await supabase
-        .from("quiz_results")
-        .select("user_id, xp_earned")
-        .gte("created_at", from.toISOString());
-      (results || []).forEach((r: any) => {
-        xpMap[r.user_id] = (xpMap[r.user_id] || 0) + (r.xp_earned || 0);
-      });
+      if (period === "alltime") {
+        const { data, error } = await supabase
+          .from("user_progress")
+          .select("user_id, xp");
+        logs.push(`user_progress → ${data?.length ?? 0} rader, fel: ${error?.message ?? "inget"}`);
+        (data || []).forEach((p: any) => { xpMap[p.user_id] = p.xp || 0; });
+      } else {
+        const from = new Date();
+        if (period === "week")  from.setDate(from.getDate() - 7);
+        if (period === "month") from.setDate(from.getDate() - 30);
+        const { data, error } = await supabase
+          .from("quiz_results")
+          .select("user_id, xp_earned")
+          .gte("created_at", from.toISOString());
+        logs.push(`quiz_results → ${data?.length ?? 0} rader, fel: ${error?.message ?? "inget"}`);
+        (data || []).forEach((r: any) => {
+          xpMap[r.user_id] = (xpMap[r.user_id] || 0) + (r.xp_earned || 0);
+        });
+      }
+
+      const userIds = Object.keys(xpMap);
+      logs.push(`Unika user-IDs med XP: ${userIds.length}`);
+
+      // ── STEG 2: Hämta profiler ────────────────────────────────────
+      const profileMap: Record<string, any> = {};
+
+      if (userIds.length > 0) {
+        // Dela upp i batchar om 50 (Supabase .in() har begränsning)
+        const BATCH = 50;
+        for (let i = 0; i < userIds.length; i += BATCH) {
+          const batch = userIds.slice(i, i + BATCH);
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("id, display_name, avatar_url, country, country_code")
+            .in("id", batch);
+
+          logs.push(`profiles batch ${Math.floor(i/BATCH)+1} → ${data?.length ?? 0} rader, fel: ${error?.message ?? "inget"}`);
+
+          if (data && data.length > 0) {
+            logs.push(`Exempel profil: ${JSON.stringify(data[0])}`);
+          }
+
+          (data || []).forEach((p: any) => { profileMap[p.id] = p; });
+        }
+      }
+
+      logs.push(`Profiler hittade: ${Object.keys(profileMap).length} av ${userIds.length}`);
+
+      // ── STEG 3: Bygg leaderboard ──────────────────────────────────
+      const lb: Leader[] = userIds
+        .map((uid) => {
+          const p = profileMap[uid];
+          const name = p?.display_name?.trim();
+          return {
+            id: uid,
+            display_name: name && name.length > 0 ? name : `Anonym_${uid.slice(0, 4)}`,
+            avatar_url:   p?.avatar_url   || "",
+            country:      p?.country      || "",
+            country_code: p?.country_code ? p.country_code.toUpperCase() : "",
+            xp:           xpMap[uid],
+            level:        getLevelInfo(xpMap[uid]).level,
+          };
+        })
+        .sort((a, b) => b.xp - a.xp)
+        .slice(0, 50);
+
+      setLeaders(lb);
+
+      if (user) {
+        const rank = lb.findIndex((e) => e.id === user.id);
+        setMyRank(rank >= 0 ? rank + 1 : null);
+      }
+
+    } catch (err: any) {
+      logs.push(`EXCEPTION: ${err?.message}`);
     }
 
-    const userIds = Object.keys(xpMap);
-    const profileMap: Record<string, any> = {};
-
-    // STEG 2 – hämta profiler ENBART för de user-IDs vi har (löser RLS-problemet)
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, display_name, avatar_url, country, country_code")
-        .in("id", userIds);
-      (profiles || []).forEach((p: any) => {
-        profileMap[p.id] = p;
-      });
-    }
-
-    // STEG 3 – bygg leaderboard med namn, profilbild och land
-    const lb: Leader[] = userIds
-      .map((userId) => {
-        const p = profileMap[userId];
-        return {
-          id: userId,
-          display_name:
-            p?.display_name?.trim().length > 0
-              ? p.display_name.trim()
-              : `User_${userId.slice(0, 6)}`,
-          avatar_url: p?.avatar_url || "",
-          country: p?.country || "",
-          country_code: p?.country_code ? p.country_code.toUpperCase() : "",
-          xp: xpMap[userId],
-          level: getLevelInfo(xpMap[userId]).level,
-        };
-      })
-      .sort((a, b) => b.xp - a.xp)
-      .slice(0, 50);
-
-    setLeaders(lb);
-
-    if (user) {
-      const rank = lb.findIndex((entry) => entry.id === user.id);
-      setMyRank(rank >= 0 ? rank + 1 : null);
-    }
-
+    setDebugInfo(logs.join("\n"));
     setLoading(false);
   };
 
@@ -183,7 +210,7 @@ export default function Leaderboard() {
   };
 
   const top3 = leaders.slice(0, 3);
-  const rest = leaders.slice(3);
+  const rest  = leaders.slice(3);
   const maxXp = leaders[0]?.xp || 1;
 
   const podiumOrder =
@@ -198,48 +225,63 @@ export default function Leaderboard() {
 
   return (
     <AppLayout language={language} setLanguage={setLanguage}>
-      <div className="h-full overflow-y-auto" style={{ background: "linear-gradient(180deg, #06030f 0%, #0d0608 100%)" }}>
+      <div className="h-full overflow-y-auto"
+        style={{ background: "linear-gradient(180deg,#06030f 0%,#0d0608 100%)" }}>
 
-        {/* Bakgrundsglöd */}
+        {/* BG-glöd */}
         <div className="fixed top-0 right-0 w-72 h-72 pointer-events-none opacity-20 -z-0"
-          style={{ background: "radial-gradient(circle, #c8a96e 0%, transparent 65%)", transform: "translate(35%,-35%)" }} />
+          style={{ background: "radial-gradient(circle,#c8a96e 0%,transparent 65%)", transform:"translate(35%,-35%)" }} />
         <div className="fixed bottom-20 left-0 w-56 h-56 pointer-events-none opacity-10 -z-0"
-          style={{ background: "radial-gradient(circle, #8B1a1a 0%, transparent 65%)", transform: "translate(-35%,0)" }} />
+          style={{ background: "radial-gradient(circle,#8B1a1a 0%,transparent 65%)", transform:"translate(-35%,0)" }} />
 
         <div className="relative z-10 max-w-lg mx-auto px-4 pt-5 pb-24">
 
           {/* ── Header ── */}
           <div className="flex items-start justify-between mb-5">
             <div>
-              <h1 className="text-2xl font-serif flex items-center gap-2" style={{ color: "#c8a96e" }}>
+              <h1 className="text-2xl font-serif flex items-center gap-2" style={{ color:"#c8a96e" }}>
                 <Crown className="w-6 h-6" /> {l.title}
               </h1>
-              <p className="text-xs mt-0.5" style={{ color: "rgba(200,169,110,0.45)" }}>{l.sub}</p>
+              <p className="text-xs mt-0.5" style={{ color:"rgba(200,169,110,0.45)" }}>{l.sub}</p>
             </div>
             <div className="flex gap-2">
-              <button onClick={load} className="p-2 rounded-xl"
-                style={{ background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.1)" }}>
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} style={{ color: "rgba(255,255,255,0.5)" }} />
+              <button onClick={() => setShowDebug(!showDebug)} className="p-2 rounded-xl"
+                style={{ background:"rgba(255,255,255,0.04)", border:"0.5px solid rgba(255,255,255,0.08)" }}>
+                <AlertCircle className="w-4 h-4" style={{ color:"rgba(255,100,100,0.6)" }} />
               </button>
-              <button onClick={share} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-sans font-medium text-black"
-                style={{ background: "linear-gradient(135deg,#c8a96e,#e8c98e)" }}>
+              <button onClick={load} className="p-2 rounded-xl"
+                style={{ background:"rgba(255,255,255,0.06)", border:"0.5px solid rgba(255,255,255,0.1)" }}>
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                  style={{ color:"rgba(255,255,255,0.5)" }} />
+              </button>
+              <button onClick={share}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-sans font-medium text-black"
+                style={{ background:"linear-gradient(135deg,#c8a96e,#e8c98e)" }}>
                 <Share2 className="w-3.5 h-3.5" /> {l.share}
               </button>
             </div>
           </div>
 
+          {/* ── Debug-panel (tryck på ⚠️-ikonen) ── */}
+          {showDebug && debugInfo && (
+            <div className="mb-4 p-3 rounded-xl text-[10px] font-mono whitespace-pre-wrap break-all"
+              style={{ background:"rgba(255,50,50,0.08)", border:"0.5px solid rgba(255,50,50,0.2)", color:"rgba(255,180,180,0.8)" }}>
+              {debugInfo}
+            </div>
+          )}
+
           {/* ── Periodväljare ── */}
           <div className="flex gap-1 p-1 rounded-2xl mb-6"
-            style={{ background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(255,255,255,0.08)" }}>
+            style={{ background:"rgba(255,255,255,0.05)", border:"0.5px solid rgba(255,255,255,0.08)" }}>
             {(["alltime","month","week"] as Period[]).map((p) => (
               <button key={p} onClick={() => setPeriod(p)}
                 className="flex-1 py-2.5 rounded-xl text-sm font-sans font-medium transition-all"
                 style={{
-                  background: period === p ? "linear-gradient(135deg,#c8a96e,#a07040)" : "transparent",
-                  color: period === p ? "#000" : "rgba(255,255,255,0.45)",
-                  boxShadow: period === p ? "0 2px 12px rgba(200,169,110,0.3)" : "none",
+                  background: period===p ? "linear-gradient(135deg,#c8a96e,#a07040)" : "transparent",
+                  color:      period===p ? "#000" : "rgba(255,255,255,0.45)",
+                  boxShadow:  period===p ? "0 2px 12px rgba(200,169,110,0.3)" : "none",
                 }}>
-                {p === "alltime" ? l.alltime : p === "month" ? l.month : l.week}
+                {p==="alltime" ? l.alltime : p==="month" ? l.month : l.week}
               </button>
             ))}
           </div>
@@ -247,12 +289,12 @@ export default function Leaderboard() {
           {/* ── Innehåll ── */}
           {loading ? (
             <div className="flex items-center justify-center py-24">
-              <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#c8a96e" }} />
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color:"#c8a96e" }} />
             </div>
           ) : leaders.length === 0 ? (
-            <div className="text-center py-24" style={{ color: "rgba(255,255,255,0.3)" }}>
+            <div className="text-center py-24" style={{ color:"rgba(255,255,255,0.3)" }}>
               <Crown className="w-12 h-12 mx-auto mb-3 opacity-20" />
-              <p className="font-sans text-sm">No players yet for this period</p>
+              <p className="font-sans text-sm">Inga spelare för denna period</p>
             </div>
           ) : (
             <>
@@ -267,37 +309,40 @@ export default function Leaderboard() {
                       <div key={u.id} className="flex flex-col items-center gap-2 flex-1">
                         {isFirst && (
                           <Crown className="w-5 h-5 mb-0.5"
-                            style={{ color: "#FFD700", filter: "drop-shadow(0 0 6px rgba(255,215,0,0.6))" }} />
+                            style={{ color:"#FFD700", filter:"drop-shadow(0 0 6px rgba(255,215,0,0.6))" }} />
                         )}
                         <div className="relative">
                           <div className="rounded-full p-[2px]"
-                            style={{ background: meta.border, boxShadow: `0 0 ${isFirst ? "24px" : "16px"} ${meta.glow}` }}>
+                            style={{ background:meta.border, boxShadow:`0 0 ${isFirst?"24px":"16px"} ${meta.glow}` }}>
                             <Avatar u={u} size={meta.size} />
                           </div>
-                          <span className="absolute -top-2 -right-1" style={{ fontSize: isFirst ? "22px" : "18px" }}>
-                            {meta.medal}
-                          </span>
+                          <span className="absolute -top-2 -right-1"
+                            style={{ fontSize: isFirst ? "22px" : "18px" }}>{meta.medal}</span>
                         </div>
                         <div className="text-center">
                           <p className="font-medium text-white truncate"
-                            style={{ fontSize: isFirst ? 13 : 11, maxWidth: isFirst ? 90 : 76 }}>
+                            style={{ fontSize: isFirst?13:11, maxWidth: isFirst?90:76 }}>
                             {u.display_name}
                           </p>
-                          {u.country && (
+                          {u.country ? (
                             <p className="truncate"
-                              style={{ fontSize: isFirst ? 10 : 9, color: "rgba(255,255,255,0.35)", maxWidth: isFirst ? 90 : 76 }}>
+                              style={{ fontSize: isFirst?10:9, color:"rgba(255,255,255,0.4)", maxWidth: isFirst?90:76 }}>
                               {u.country}
                             </p>
-                          )}
-                          <p style={{ fontSize: isFirst ? 12 : 10, color: meta.border, fontWeight: 700 }}>
+                          ) : null}
+                          <p style={{ fontSize: isFirst?12:10, color:meta.border, fontWeight:700 }}>
                             {u.xp} XP
                           </p>
                         </div>
                         <div className="w-full rounded-t-2xl flex items-end justify-center"
-                          style={{ background: meta.bg, minHeight: meta.h, border: `0.5px solid ${meta.border}25`, borderBottom: "none", paddingBottom: 10 }}>
+                          style={{ background:meta.bg, minHeight:meta.h,
+                            border:`0.5px solid ${meta.border}25`, borderBottom:"none", paddingBottom:10 }}>
                           {isFirst
-                            ? <Crown className="w-5 h-5" style={{ color: `${meta.border}50` }} />
-                            : <span className="text-xl font-serif" style={{ color: "rgba(255,255,255,0.15)" }}>{meta.origRank + 1}</span>}
+                            ? <Crown className="w-5 h-5" style={{ color:`${meta.border}50` }} />
+                            : <span className="text-xl font-serif" style={{ color:"rgba(255,255,255,0.15)" }}>
+                                {meta.origRank+1}
+                              </span>
+                          }
                         </div>
                       </div>
                     );
@@ -308,11 +353,11 @@ export default function Leaderboard() {
               {/* ── LISTA plats 4–50 ── */}
               <div className="space-y-2">
                 {rest.map((u, i) => {
-                  const isMe = user?.id === u.id;
-                  const rank = i + 4;
-                  const li = getLevelInfo(u.xp);
-                  const bar = Math.round((u.xp / maxXp) * 100);
-                  const flag = u.country_code ? FLAG_MAP[u.country_code] : null;
+                  const isMe  = user?.id === u.id;
+                  const rank  = i + 4;
+                  const li    = getLevelInfo(u.xp);
+                  const bar   = Math.round((u.xp / maxXp) * 100);
+                  const flag  = u.country_code ? FLAG_MAP[u.country_code] : null;
 
                   return (
                     <div key={u.id}
@@ -321,40 +366,41 @@ export default function Leaderboard() {
                         background: isMe
                           ? "linear-gradient(135deg,rgba(200,169,110,0.18),rgba(200,169,110,0.06))"
                           : "rgba(255,255,255,0.04)",
-                        border: `0.5px solid ${isMe ? "rgba(200,169,110,0.4)" : "rgba(255,255,255,0.07)"}`,
+                        border:`0.5px solid ${isMe?"rgba(200,169,110,0.4)":"rgba(255,255,255,0.07)"}`,
                       }}>
+
                       <span className="text-sm font-serif w-6 text-center flex-shrink-0"
-                        style={{ color: "rgba(200,169,110,0.55)" }}>{rank}</span>
+                        style={{ color:"rgba(200,169,110,0.55)" }}>{rank}</span>
 
                       <Avatar u={u} size={44} />
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="text-sm font-medium text-white truncate">{u.display_name}</p>
-                          {flag && <span style={{ fontSize: 13 }}>{flag}</span>}
+                          {flag && <span style={{ fontSize:14, lineHeight:1 }}>{flag}</span>}
                           {u.country && (
-                            <span className="text-[9px] truncate" style={{ color: "rgba(255,255,255,0.3)", maxWidth: 70 }}>
+                            <span className="text-[9px]" style={{ color:"rgba(255,255,255,0.3)" }}>
                               {u.country}
                             </span>
                           )}
                           {isMe && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full font-sans font-medium flex-shrink-0"
-                              style={{ background: "rgba(200,169,110,0.2)", color: "#c8a96e" }}>YOU</span>
+                              style={{ background:"rgba(200,169,110,0.2)", color:"#c8a96e" }}>YOU</span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <div className="h-1 rounded-full overflow-hidden flex-1"
-                            style={{ background: "rgba(255,255,255,0.07)" }}>
+                            style={{ background:"rgba(255,255,255,0.07)" }}>
                             <div className="h-full rounded-full"
-                              style={{ width: `${bar}%`, background: "linear-gradient(90deg,#c8a96e,#e8c98e)" }} />
+                              style={{ width:`${bar}%`, background:"linear-gradient(90deg,#c8a96e,#e8c98e)" }} />
                           </div>
-                          <span className="text-[9px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          <span className="text-[9px] flex-shrink-0" style={{ color:"rgba(255,255,255,0.3)" }}>
                             Lv.{li.level}
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1 flex-shrink-0" style={{ color: "#c8a96e" }}>
+                      <div className="flex items-center gap-1 flex-shrink-0" style={{ color:"#c8a96e" }}>
                         <Zap className="w-3 h-3" />
                         <span className="text-sm font-serif tabular-nums font-medium">{u.xp}</span>
                       </div>
@@ -363,18 +409,17 @@ export default function Leaderboard() {
                 })}
               </div>
 
-              {/* Din rank om du är utanför topp 50 */}
               {myRank && myRank > 50 && (
                 <div className="mt-3 py-3 rounded-2xl text-center"
-                  style={{ background: "rgba(200,169,110,0.08)", border: "0.5px solid rgba(200,169,110,0.25)" }}>
-                  <p className="text-sm font-sans" style={{ color: "rgba(255,255,255,0.5)" }}>
-                    Your rank: <span style={{ color: "#c8a96e", fontWeight: 600 }}>#{myRank}</span>
+                  style={{ background:"rgba(200,169,110,0.08)", border:"0.5px solid rgba(200,169,110,0.25)" }}>
+                  <p className="text-sm font-sans" style={{ color:"rgba(255,255,255,0.5)" }}>
+                    Din rank: <span style={{ color:"#c8a96e", fontWeight:600 }}>#{myRank}</span>
                   </p>
                 </div>
               )}
 
               <div className="text-center mt-5">
-                <p className="text-[10px]" style={{ color: "rgba(200,169,110,0.25)" }}>Empire Ai</p>
+                <p className="text-[10px]" style={{ color:"rgba(200,169,110,0.25)" }}>Empire Ai</p>
               </div>
             </>
           )}
