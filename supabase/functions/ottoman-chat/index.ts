@@ -91,7 +91,6 @@ serve(async (req) => {
       parts: [{ text: m.content }],
     }));
 
-    // Använd INTE SSE streaming utan vanlig generateContent för stabilitet
     const url =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=" +
       GEMINI_API_KEY;
@@ -115,22 +114,44 @@ serve(async (req) => {
       );
     }
 
-    const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-    // Skicka som fake-stream i OpenAI-format så frontend fungerar som vanligt
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
     const encoder = new TextEncoder();
+
     const stream = new ReadableStream({
-      start(controller) {
-        // Skicka texten i bitar om 50 tecken för att simulera streaming
-        const chunkSize = 50;
-        for (let i = 0; i < text.length; i += chunkSize) {
-          const chunk = text.slice(i, i + chunkSize);
-          const openaiChunk = { choices: [{ delta: { content: chunk } }] };
-          controller.enqueue(encoder.encode("data: " + JSON.stringify(openaiChunk) + "\n\n"));
+      async start(controller) {
+        let buffer = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data:")) continue;
+              const jsonStr = trimmed.slice(5).trim();
+              if (!jsonStr || jsonStr === "[DONE]") continue;
+
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                  const chunk = { choices: [{ delta: { content: text } }] };
+                  controller.enqueue(encoder.encode("data: " + JSON.stringify(chunk) + "\n\n"));
+                }
+              } catch {
+                // ignorera trasiga JSON-rader
+              }
+            }
+          }
+        } finally {
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
         }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
       },
     });
 
