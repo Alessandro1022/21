@@ -330,7 +330,7 @@ const load = async () => {
 
               {/* Watermark */}
               <div className="text-center mt-5">
-                <p className="text-[10px]" style={{ color: "rgba(200,169,110,0.25)" }}>empireai10.vercel.app</p>
+                <p className="text-[10px]" style={{ color: "rgba(200,169,110,0.25)" }}>Empire Ai</p>
               </div>
             </>
           )}
