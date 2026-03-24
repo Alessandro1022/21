@@ -120,17 +120,23 @@ const load = async () => {
     ])
   );
 
-  const lb: Leader[] = allUserIds.map((userId) => {
-    const p = profileMap[userId];
+  const lb: Leader[] = Object.keys(xpMap).map((userId) => {
+  const p = profileMap[userId];
 
-    return {
-      id: userId,
-      display_name: p?.display_name?.trim() || `User ${userId.slice(0, 4)}`, // ✅ FIX namn
-      avatar_url: p?.avatar_url || "",
-      country: p?.country || "",
-      country_code: p?.country_code || "", // ✅ FIX flagga
-      xp: xpMap[userId] || 0,
-      level: getLevelInfo(xpMap[userId] || 0).level,
+  return {
+    id: userId,
+
+ 
+    display_name:
+      (p && p.display_name && p.display_name.trim().length > 0)
+        ? p.display_name
+        : `User_${userId.slice(0, 6)}`, // fallback istället för raw id
+
+    avatar_url: p?.avatar_url || "",
+    country: p?.country || "",
+    country_code: p?.country_code || "",
+    xp: xpMap[userId],
+    level: getLevelInfo(xpMap[userId]).level,
     };
   })
   .sort((a, b) => b.xp - a.xp)
