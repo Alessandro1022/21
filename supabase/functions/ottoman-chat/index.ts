@@ -93,7 +93,7 @@ serve(async (req) => {
 
     // Använd INTE SSE streaming utan vanlig generateContent för stabilitet
     const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" +
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
       GEMINI_API_KEY;
 
     const response = await fetch(url, {
