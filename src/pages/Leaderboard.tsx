@@ -77,15 +77,7 @@ export default function Leaderboard() {
 const load = async () => {
   setLoading(true);
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, display_name, avatar_url, country, country_code");
-
-  const profileMap: Record<string, any> = {};
-  (profiles || []).forEach((p: any) => {
-    profileMap[p.id] = p;
-  });
-
+  // ✅ STEG 1: Bygg xpMap först
   let xpMap: Record<string, number> = {};
 
   if (period === "alltime") {
@@ -112,31 +104,35 @@ const load = async () => {
     });
   }
 
-  // ✅ FIX: inkludera ALLA users + säkerställ namn + flagga
-  const allUserIds = Array.from(
-    new Set([
-      ...Object.keys(profileMap),
-      ...Object.keys(xpMap)
-    ])
-  );
+  // ✅ STEG 2: Hämta profiler för exakt de user-IDs vi har – undviker RLS-problem
+  const userIds = Object.keys(xpMap);
+  const profileMap: Record<string, any> = {};
 
-  const lb: Leader[] = Object.keys(xpMap).map((userId) => {
-  const p = profileMap[userId];
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, display_name, avatar_url, country, country_code")
+      .in("id", userIds);
 
-  return {
-    id: userId,
+    (profiles || []).forEach((p: any) => {
+      profileMap[p.id] = p;
+    });
+  }
 
- 
-    display_name:
-      (p && p.display_name && p.display_name.trim().length > 0)
-        ? p.display_name
-        : `User_${userId.slice(0, 6)}`, // fallback istället för raw id
-
-    avatar_url: p?.avatar_url || "",
-    country: p?.country || "",
-    country_code: p?.country_code || "",
-    xp: xpMap[userId],
-    level: getLevelInfo(xpMap[userId]).level,
+  // ✅ STEG 3: Bygg leaderboard med korrekt profilnamn
+  const lb: Leader[] = userIds.map((userId) => {
+    const p = profileMap[userId];
+    return {
+      id: userId,
+      display_name:
+        (p && p.display_name && p.display_name.trim().length > 0)
+          ? p.display_name
+          : `User_${userId.slice(0, 6)}`,
+      avatar_url: p?.avatar_url || "",
+      country: p?.country || "",
+      country_code: p?.country_code || "",
+      xp: xpMap[userId],
+      level: getLevelInfo(xpMap[userId]).level,
     };
   })
   .sort((a, b) => b.xp - a.xp)
@@ -151,6 +147,7 @@ const load = async () => {
 
   setLoading(false);
 };
+
   useEffect(() => { load(); }, [period]);
 
   const share = async () => {
@@ -237,12 +234,9 @@ const load = async () => {
                     if (!u) return <div key={displayIdx} className="flex-1" />;
                     return (
                       <div key={u.id} className="flex flex-col items-center gap-2 flex-1">
-                        {/* Crown for #1 */}
                         {isFirst && (
                           <Crown className="w-5 h-5 mb-0.5" style={{ color: "#FFD700", filter: "drop-shadow(0 0 6px rgba(255,215,0,0.6))" }} />
                         )}
-
-                        {/* Avatar ring */}
                         <div className="relative">
                           <div className="rounded-full p-[2px]"
                             style={{ background: meta.border, boxShadow: `0 0 ${isFirst?"24px":"16px"} ${meta.glow}` }}>
@@ -250,16 +244,12 @@ const load = async () => {
                           </div>
                           <span className="absolute -top-2 -right-1" style={{ fontSize: isFirst ? "22px" : "18px" }}>{meta.medal}</span>
                         </div>
-
-                        {/* Name & XP */}
                         <div className="text-center">
                           <p className="font-medium text-white truncate" style={{ fontSize: isFirst ? 13 : 11, maxWidth: isFirst ? 90 : 76 }}>
                             {u.display_name}
                           </p>
                           <p style={{ fontSize: isFirst ? 12 : 10, color: meta.border, fontWeight: 700 }}>{u.xp} XP</p>
                         </div>
-
-                        {/* Podium block */}
                         <div className="w-full rounded-t-2xl flex items-end justify-center"
                           style={{ background: meta.bg, minHeight: meta.h, border: `0.5px solid ${meta.border}25`, borderBottom: "none", paddingBottom: 10 }}>
                           {isFirst
@@ -289,9 +279,7 @@ const load = async () => {
                         border: `0.5px solid ${isMe ? "rgba(200,169,110,0.4)" : "rgba(255,255,255,0.07)"}`,
                       }}>
                       <span className="text-sm font-serif w-6 text-center flex-shrink-0" style={{ color: "rgba(200,169,110,0.55)" }}>{rank}</span>
-
                       <Avatar u={u} size={42} />
-
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
                           <p className="text-sm font-medium text-white truncate">{u.display_name}</p>
@@ -308,7 +296,6 @@ const load = async () => {
                           <span className="text-[9px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.3)" }}>Lv.{li.level}</span>
                         </div>
                       </div>
-
                       <div className="flex items-center gap-1 flex-shrink-0" style={{ color: "#c8a96e" }}>
                         <Zap className="w-3 h-3" />
                         <span className="text-sm font-serif tabular-nums font-medium">{u.xp}</span>
@@ -318,7 +305,6 @@ const load = async () => {
                 })}
               </div>
 
-              {/* Min rank om ej top 50 */}
               {myRank && myRank > 50 && (
                 <div className="mt-3 py-3 rounded-2xl text-center"
                   style={{ background: "rgba(200,169,110,0.08)", border: "0.5px solid rgba(200,169,110,0.25)" }}>
@@ -328,7 +314,6 @@ const load = async () => {
                 </div>
               )}
 
-              {/* Watermark */}
               <div className="text-center mt-5">
                 <p className="text-[10px]" style={{ color: "rgba(200,169,110,0.25)" }}>Empire Ai</p>
               </div>
