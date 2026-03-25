@@ -245,10 +245,7 @@ export default function Leaderboard() {
               <p className="text-xs mt-0.5" style={{ color:"rgba(200,169,110,0.45)" }}>{l.sub}</p>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setShowDebug(!showDebug)} className="p-2 rounded-xl"
-                style={{ background:"rgba(255,255,255,0.04)", border:"0.5px solid rgba(255,255,255,0.08)" }}>
-                <AlertCircle className="w-4 h-4" style={{ color:"rgba(255,100,100,0.6)" }} />
-              </button>
+              
               <button onClick={load} className="p-2 rounded-xl"
                 style={{ background:"rgba(255,255,255,0.06)", border:"0.5px solid rgba(255,255,255,0.1)" }}>
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
