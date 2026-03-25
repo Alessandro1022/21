@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useEmpire } from "@/contexts/EmpireContext";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
@@ -65,8 +65,10 @@ export default function Quiz() {
   }, [eId]);
  
   const current = questions[currentIndex];
-  const currentText = current ? getQuestionText(current, language) : null;
- 
+const currentText = useMemo(
+  () => (current ? getQuestionText(current, language) : null),
+  [current, language]
+); 
   useEffect(() => {
     if (!started || !timedMode || showResult || finished || !current) return;
     setTimeLeft(15);
