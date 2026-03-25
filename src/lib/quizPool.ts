@@ -43,14 +43,7 @@ export async function fetchDailyQuiz(empireId: string, count = 12): Promise<DBQu
   if (error || !data || data.length === 0) return [];
 
   // Shuffle with daily seed for consistent daily quiz
-  const seed = getDailySeed();
-  const seeded = (data as DBQuizQuestion[]).sort((a, b) => {
-    const ha = hashCode(a.id + seed);
-    const hb = hashCode(b.id + seed);
-    return ha - hb;
-  });
-
-  return seeded.slice(0, Math.min(count, seeded.length));
+return shuffle(data as DBQuizQuestion[]).slice(0, Math.min(count, data.length));
 }
 
 function hashCode(s: string): number {
