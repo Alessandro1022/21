@@ -98,6 +98,26 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const debugStr = `SUPABASE_URL=${supabaseUrl ? supabaseUrl.slice(0, 30) + "..." : "MISSING"} | SUPABASE_KEY=${supabaseKey ? "OK" : "MISSING"} | EMPIRE=${empireId || "ottoman"} | USER=${user ? "logged in" : "not logged in"}`;
 setDebugInfo(debugStr);
+// ← KLISTRA IN HÄR (efter debug-toasten)
+if (user) {
+  const { data, error } = await supabase.rpc("use_chat_credit", {
+    p_user_id: user.id,
+  });
+  if (error || !data?.allowed) {
+    toast.error(
+      language === "sv"
+        ? `Du har använt dina 5 dagliga frågor. Kom tillbaka imorgon!`
+        : language === "tr"
+        ? `Gunluk 5 sorunuzu kullandınız. Yarın tekrar gelin!`
+        : `You have used your 5 daily questions. Come back tomorrow!`
+    );
+    setIsLoading(false);
+    setMessages((prev) => prev.slice(0, -1));
+    return;
+  }
+}
+// ← SLUT PÅ TILLÄGG
+
 toast.info(debugStr, { duration: 1 });
 
     let convId = activeConversationId;
