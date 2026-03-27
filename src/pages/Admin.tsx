@@ -330,6 +330,7 @@ export default function Admin() {
             questions_asked: qStats?.count ?? p.questions_asked ?? 0,
             quiz_score: quizPct || (p.quiz_score ?? 0),
             is_banned: p.is_banned ?? false,
+            is_premium: p.is_premium ?? false,
             avatar_url: p.avatar_url ?? "",
           };
         });
