@@ -451,6 +451,14 @@ export default function Admin() {
   };
 
   const toggleAdmin = async (user: UserProfile) => {
+  const togglePremium = async (user: UserProfile) => {
+  const newValue = !user.is_premium;
+  await supabase.from("profiles").update({ is_premium: newValue }).eq("id", user.id);
+  setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_premium: newValue } : u));
+  showToast(`${user.display_name} är nu ${newValue ? "Premium ⭐" : "Gratis"}`);
+  addLog(`Premium: ${user.email} → ${newValue ? "premium" : "gratis"}`, "info");
+};
+
     const newRole = user.role === "admin" ? "user" : "admin";
     await supabase.from("user_roles").upsert({ user_id: user.id, role: newRole });
     showToast(`${user.display_name} är nu ${newRole}`);
