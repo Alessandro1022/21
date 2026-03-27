@@ -23,6 +23,7 @@ interface UserProfile {
   questions_asked?: number;
   quiz_score?: number;
   is_banned?: boolean;
+  is_premium?: boolean;
   avatar_url?: string;
 }
 
