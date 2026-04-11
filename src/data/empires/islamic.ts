@@ -978,8 +978,8 @@ export const islamicEmpire: EmpireConfig = {
   },
   theme: "ottoman",
   appTitle: "Islamic Caliphate Intelligence",
-  crestImage: "",
-  backgroundImage: "",
+  crestImage: islamicCrest,           // ✅ ändrad
+  backgroundImage: islamicBackground, // ✅ ändrad
   leaderTitle: { sv: "Kalif", en: "Caliph", tr: "Halife" },
   dynastyTitle: {
     sv: "Islamisk Dynasti",
@@ -1023,9 +1023,9 @@ export const islamicEmpire: EmpireConfig = {
     ],
   },
   homeDescription: {
-    sv: "Utforska det islamiska kalifatets historia (610–1258 e.Kr.) — från Profeten Muhammads ﷺ uppenbarelse till Bagdads guldålder — med AI-driven analys, tidslinje, kartor och quiz.",
-    en: "Explore Islamic Caliphate history (610–1258 AD) — from Prophet Muhammad's ﷺ revelation to Baghdad's Golden Age — with AI-driven analysis, timeline, maps and quiz.",
-    tr: "İslam Halifeliği tarihini (MS 610–1258) — Hz. Muhammed'in ﷺ vahyinden Bağdat'ın Altın Çağına kadar — AI destekli analiz ile keşfedin.",
+    sv: "Utforska det islamiska kalifatets historia (610–1258 e.Kr.) — från Profeten Muhammads ﷺ uppenbarelse till Bagdads guldålder.",
+    en: "Explore Islamic Caliphate history (610–1258 AD) — from Prophet Muhammad's ﷺ revelation to Baghdad's Golden Age.",
+    tr: "İslam Halifeliği tarihini (MS 610–1258) keşfedin.",
   },
   mapTitle: {
     sv: "Islamiska kalifatets territorium",
