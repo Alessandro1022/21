@@ -1,5 +1,5 @@
-import ottomanCrest from "@/assets/ottoman-crest.jpg";
-import hagiaSofia from "@/assets/hagia-sofia.jpg";
+import islamicBackground from "@/assets/islamic.jpg";
+import islamicLogo from "@/assets/mecca.png";
 import type {
   EmpireConfig,
   TimelineEvent,
