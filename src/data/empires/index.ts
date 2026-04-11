@@ -3,7 +3,7 @@ import { romanEmpire } from "./roman";
 import { islamicEmpire } from "./islamic";
 import { mongolEmpire } from "./mongol";
 import { egyptEmpire } from "./egypt";
-import { britishEmpire } from "./brittishempire";
+import { britishEmpire } from "./britishEmpire";
 import type { EmpireConfig } from "./types";
 
 export type { EmpireConfig };
