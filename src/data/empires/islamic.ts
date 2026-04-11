@@ -978,8 +978,8 @@ export const islamicEmpire: EmpireConfig = {
   },
   theme: "ottoman",
   appTitle: "Islamic Caliphate Intelligence",
-  crestImage: islamicCrest,           // ✅ ändrad
-  backgroundImage: islamicBackground, // ✅ ändrad
+  crestImage: islamicLogo,           // ✅ var: islamicCrest
+  backgroundImage: islamicBackground, // ✅ denna är rätt redan
   leaderTitle: { sv: "Kalif", en: "Caliph", tr: "Halife" },
   dynastyTitle: {
     sv: "Islamisk Dynasti",
