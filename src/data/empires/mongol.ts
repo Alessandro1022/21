@@ -1,5 +1,5 @@
 import mongolBackground from "@/assets/mongolBackground.jpg";
-import mongolCrest from "@/assets/mongolCrest.png";
+import mongolCrest from "@/assets/mongolCrest.jpg";
 import type {
   EmpireConfig,
   TimelineEvent,
