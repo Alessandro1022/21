@@ -1,5 +1,5 @@
 import islamicBackground from "@/assets/islamic.jpg";
-import islamicLogo from "@/assets/mecca.png";
+import islamicLogo from "@/assets/mecca.jpg";
 import type {
   EmpireConfig,
   TimelineEvent,
