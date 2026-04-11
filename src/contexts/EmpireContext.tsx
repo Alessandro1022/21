@@ -56,7 +56,18 @@ const EmpireContext = createContext<EmpireContextValue>({
 // =============================================================================
 // PROVIDER
 // =============================================================================
+export const islamicConfig: EmpireConfig = {
+  id: "islamic",
+  name: "Islamic Caliphate",
 
+  // ✅ Bakgrundsbild
+  backgroundImage: islamicBackground,
+
+  // ✅ Logo
+  logo: islamicLogo,
+
+  // ... resten av din config
+};
 export function EmpireProvider({ children }: { children: ReactNode }) {
 
   // Initialize empireId from localStorage, validate against known empires
