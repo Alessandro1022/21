@@ -9,6 +9,6 @@ export const empires: Record<string, EmpireConfig> = {
   ottoman: ottomanEmpire,
   roman: romanEmpire,
   islamic_caliphate: islamicEmpire,
-  mongol: mongolEmpire,
+  mongol_empire: mongolEmpire, 
 };
 export const empireList: EmpireConfig[] = Object.values(empires);
