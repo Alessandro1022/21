@@ -1,3 +1,5 @@
+import ottomanCrest from "@/assets/ottoman-crest.jpg";
+import hagiaSofia from "@/assets/hagia-sofia.jpg";
 import type {
   EmpireConfig,
   TimelineEvent,
@@ -741,81 +743,150 @@ const islamicBadges: Badge[] = [
 // PROFILES
 // =============================================================================
 
-const islamicProfiles: HistoricalProfile[] = [
+import type { HistoricalFigure } from "@/data/figures/types";
+
+const islamicFigures: HistoricalFigure[] = [
   {
-    id: "harun-al-rashid",
-    name: "Harun al-Rashid",
-    years: "763–809 e.Kr.",
-    title: {
-      sv: "Guldålderns kalif",
-      en: "Caliph of the Golden Age",
-      tr: "Altın Çağın Halifesi",
-    },
+    id: "prophet-muhammad",
+    name: "Prophet Muhammad ﷺ",
+    title: { sv: "Guds sändebud", en: "Messenger of God", tr: "Allah'ın Resulü" },
+    years: "570–632 e.Kr.",
     portrait: "🌙",
-    bio: {
-      sv: "Harun al-Rashid var den femte Abbasidiska kalifen och styrde imperiet vid dess absoluta höjdpunkt. Hans hov i Bagdad var världens mest lysande — filosofer, poeter, musikanter och vetenskapsmän samlades från hela den kända världen. Han korresponderade med Karl den store och sände exotiska gåvor inklusive en elefant till det Frankiska hovet.",
-      en: "Harun al-Rashid was the fifth Abbasid Caliph and ruled the empire at its absolute peak. His court in Baghdad was the world's most brilliant — philosophers, poets, musicians and scientists gathered from across the known world. He corresponded with Charlemagne and sent exotic gifts including an elephant to the Frankish court.",
-      tr: "Harun Reşid, beşinci Abbasi Halifesiydi ve imparatorluğu mutlak zirvesinde yönetti. Bağdat'taki sarayı dünyanın en parlak sarayıydı — bilinen dünyanın dört bir yanından filozoflar, şairler, müzisyenler ve bilim insanları toplandı.",
+    shortBio: {
+      sv: "Profeten Muhammad ﷺ är islams grundare och Guds sändebud. Hans liv, karaktär och lära är ett evigt föredöme för hela mänskligheten.",
+      en: "Prophet Muhammad ﷺ is the founder of Islam and the Messenger of God. His life, character and teachings are an eternal example for all of humanity.",
+      tr: "Hz. Muhammed ﷺ İslam'ın kurucusu ve Allah'ın Resulü'dür. Hayatı, karakteri ve öğretileri tüm insanlık için ebedi bir örnektir.",
     },
-    reforms: {
-      sv: ["Patronage av vetenskap och konst", "Utvidgning av handelsvägar", "Diplomatiska relationer med Europa och Kina", "Stöd till Visdomens hus"],
-      en: ["Patronage of science and arts", "Expansion of trade routes", "Diplomatic relations with Europe and China", "Support of the House of Wisdom"],
-      tr: ["Bilim ve sanata destek", "Ticaret yollarının genişletilmesi", "Avrupa ve Çin ile diplomatik ilişkiler", "Bilgelik Evi'ne destek"],
-    },
-    campaigns: {
-      sv: ["Kampanjer mot Bysantinerna", "Befästning av nordgränserna", "Upprätthållande av rikets enhet"],
-      en: ["Campaigns against the Byzantines", "Fortification of northern borders", "Maintaining the empire's unity"],
-      tr: ["Bizanslılara karşı seferler", "Kuzey sınırlarının tahkimi", "İmparatorluğun birliğinin korunması"],
-    },
-    leadershipStyle: {
-      sv: "Harun al-Rashid kombinerade kunglig prakt med personlig fromhet. Han ska ha utfört pilgrimage till fots flera gånger. Hans styre präglades av generositet mot lärde och konstnärer och en genuin kärlek till kunskap.",
-      en: "Harun al-Rashid combined royal splendor with personal piety. He is said to have performed the pilgrimage on foot several times. His rule was characterized by generosity toward scholars and artists and a genuine love of knowledge.",
-      tr: "Harun Reşid, kraliyet ihtişamını kişisel takvayla birleştirdi. Birkaç kez yürüyerek hac yaptığı söylenir. Yönetimi, alimlere ve sanatçılara cömertlik ve gerçek bir bilgi sevgisi ile karakterize edildi.",
-    },
-    criticalPerspectives: {
-      sv: "Hans styre såg också interna maktkamper, inklusive fallet för den mäktiga Barmakid-familjen som han avsatte år 803. Imperiet visade tecken på sprickor mot slutet av hans styre.",
-      en: "His reign also saw internal power struggles, including the fall of the powerful Barmakid family whom he dismissed in 803. The empire showed signs of fracture toward the end of his rule.",
-      tr: "Saltanatı aynı zamanda 803'te görevden aldığı güçlü Bermekî ailesinin çöküşü de dahil olmak üzere iç güç mücadelelerine sahne oldu.",
-    },
+    tags: ["prophet", "founder", "mecca", "medina"],
+    empire: "islamic_caliphate",
   },
   {
-    id: "al-mamun",
-    name: "Al-Mamun",
-    years: "786–833 e.Kr.",
-    title: {
-      sv: "Vetenskapens kalif",
-      en: "The Caliph of Science",
-      tr: "Bilimin Halifesi",
+    id: "abu-bakr",
+    name: "Abu Bakr al-Siddiq (ra)",
+    title: { sv: "Den Sanne — Förste kalif", en: "The Truthful — First Caliph", tr: "Sıddık — İlk Halife" },
+    years: "573–634 e.Kr.",
+    portrait: "⭐",
+    shortBio: {
+      sv: "Abu Bakr al-Siddiq (ra) var Profetens ﷺ närmaste vän och den förste rättledde kalifen. Hans mod och visdom räddade den muslimska gemenskapen vid en kritisk tid.",
+      en: "Abu Bakr al-Siddiq (ra) was the Prophet's ﷺ closest companion and the first Rightly Guided Caliph. His courage and wisdom saved the Muslim community at a critical time.",
+      tr: "Hz. Ebu Bekir el-Sıddık (ra), Hz. Peygamber'in ﷺ en yakın dostu ve ilk Raşid Halifeydi. Cesareti ve hikmeti, kritik bir dönemde Müslüman toplumu kurtardı.",
     },
-    portrait: "🔭",
-    bio: {
-      sv: "Al-Mamun var en av historiens mest intellektuellt extraordinära härskare. Han grundade och utvidgade Visdomens hus i Bagdad, finansierade översättning av grekiska, persiska och indiska verk till arabiska, och samlade de yppersta lärde i sin tid. Under hans styre lades grunderna för modern matematik, astronomi och medicin.",
-      en: "Al-Mamun was one of history's most intellectually extraordinary rulers. He founded and expanded the House of Wisdom in Baghdad, financed translation of Greek, Persian and Indian works into Arabic, and gathered the finest scholars of his time. Under his rule the foundations of modern mathematics, astronomy and medicine were laid.",
-      tr: "El-Memun, tarihin en entelektüel açıdan olağanüstü yöneticilerinden biriydi. Bağdat'taki Bilgelik Evi'ni kurdu ve genişletti, Rum, Fars ve Hint eserlerinin Arapçaya çevrilmesini finanse etti ve zamanının en seçkin alimlerini bir araya getirdi.",
+    tags: ["caliph", "companion", "rashidun"],
+    empire: "islamic_caliphate",
+  },
+  {
+    id: "umar-ibn-al-khattab",
+    name: "Umar ibn al-Khattab (ra)",
+    title: { sv: "Al-Faruq — Andre kalif", en: "Al-Farouq — Second Caliph", tr: "el-Faruk — İkinci Halife" },
+    years: "584–644 e.Kr.",
+    portrait: "⚔️",
+    shortBio: {
+      sv: "Umar ibn al-Khattab (ra), känd som 'Al-Faruq', var den andre rättledde kalifen. Hans rättvisa och ledarskap är legendarisk — han patrullerade personligen på nätterna för att säkerställa folkets välmående.",
+      en: "Umar ibn al-Khattab (ra), known as 'Al-Farouq', was the second Rightly Guided Caliph. His justice and leadership are legendary — he personally patrolled at night to ensure the people's wellbeing.",
+      tr: "'el-Faruk' lakaplı Hz. Ömer ibn el-Hattab (ra), ikinci Raşid Halifeydi. Adaleti ve liderliği efsanedir — halkın refahını sağlamak için bizzat geceleri devriye gezdi.",
     },
-    reforms: {
-      sv: ["Grundandet av Visdomens hus", "Finansiering av massiva översättningsprojekt", "Statlig finansiering av vetenskaplig forskning", "Astronomiska observationer och kartografi"],
-      en: ["Founding of the House of Wisdom", "Financing of massive translation projects", "State funding of scientific research", "Astronomical observations and cartography"],
-      tr: ["Bilgelik Evi'nin kurulması", "Büyük çeviri projelerinin finansmanı", "Bilimsel araştırmaların devlet tarafından desteklenmesi", "Astronomik gözlemler ve kartografya"],
+    tags: ["caliph", "companion", "rashidun", "justice"],
+    empire: "islamic_caliphate",
+  },
+  {
+    id: "uthman-ibn-affan",
+    name: "Uthman ibn Affan (ra)",
+    title: { sv: "Dhul-Nurayn — Tredje kalif", en: "Dhul-Nurayn — Third Caliph", tr: "Zü'n-Nureyn — Üçüncü Halife" },
+    years: "576–656 e.Kr.",
+    portrait: "📖",
+    shortBio: {
+      sv: "Uthman ibn Affan (ra), 'Dhul-Nurayn' (den med två ljus), var den tredje rättledde kalifen. Hans viktigaste arv är sammanställningen av den standardiserade Koranen som bevarar Guds ord för evigheten.",
+      en: "Uthman ibn Affan (ra), 'Dhul-Nurayn' (the one with two lights), was the third Rightly Guided Caliph. His greatest legacy is compiling the standardized Quran, preserving God's word for eternity.",
+      tr: "'Zü'n-Nureyn' (iki nur sahibi) lakaplı Hz. Osman ibn Affan (ra), üçüncü Raşid Halifeydi. En büyük mirası, Allah'ın sözünü ebediyet için koruyan standart Kur'an'ı derlemesidir.",
     },
-    campaigns: {
-      sv: ["Segern i inbördeskriget mot brodern al-Amin", "Kampanjer mot Bysantinerna"],
-      en: ["Victory in the civil war against his brother al-Amin", "Campaigns against the Byzantines"],
-      tr: ["Kardeşi el-Emin'e karşı iç savaşta zafer", "Bizanslılara karşı seferler"],
+    tags: ["caliph", "companion", "rashidun", "quran"],
+    empire: "islamic_caliphate",
+  },
+  {
+    id: "ali-ibn-abi-talib",
+    name: "Ali ibn Abi Talib (ra)",
+    title: { sv: "Lejonets kalif — Fjärde kalif", en: "The Lion Caliph — Fourth Caliph", tr: "Aslan Halife — Dördüncü Halife" },
+    years: "601–661 e.Kr.",
+    portrait: "🦁",
+    shortBio: {
+      sv: "Ali ibn Abi Talib (ra), Profetens ﷺ kusin och svärson, var den fjärde rättledde kalifen. Profeten ﷺ sade: 'Jag är visdomens stad och Ali är dess port.' Han var känd för sin extraordinära tapperhet, visdom och rättvisa.",
+      en: "Ali ibn Abi Talib (ra), the Prophet's ﷺ cousin and son-in-law, was the fourth Rightly Guided Caliph. The Prophet ﷺ said: 'I am the city of knowledge and Ali is its gate.' He was renowned for his extraordinary courage, wisdom and justice.",
+      tr: "Hz. Peygamber'in ﷺ amcaoğlu ve damadı Hz. Ali ibn Ebi Talib (ra), dördüncü Raşid Halifeydi. Hz. Peygamber ﷺ şöyle buyurdu: 'Ben ilmin şehriyim, Ali ise kapısıdır.'",
     },
-    leadershipStyle: {
-      sv: "Al-Mamun var djupt intellektuell och engagerade sig personligen i teologiska och filosofiska debatter. Han finansierade forskning med statliga medel på ett sätt som inte hade någon motsvarighet i dåtidens värld.",
-      en: "Al-Mamun was deeply intellectual and personally engaged in theological and philosophical debates. He funded research with state resources in a way that had no parallel in the world of his time.",
-      tr: "El-Memun derin bir entelektüeldi ve ilahiyat ve felsefe tartışmalarına bizzat katılırdı. Zamanının dünyasında eşi görülmemiş biçimde devlet kaynaklarıyla araştırmaları finanse etti.",
+    tags: ["caliph", "companion", "rashidun", "wisdom"],
+    empire: "islamic_caliphate",
+  },
+  {
+    id: "khalid-ibn-al-walid",
+    name: "Khalid ibn al-Walid (ra)",
+    title: { sv: "Guds svärd — Befälhavaren", en: "Sword of God — The Commander", tr: "Seyfullah — Komutan" },
+    years: "585–642 e.Kr.",
+    portrait: "⚔️",
+    shortBio: {
+      sv: "Khalid ibn al-Walid (ra) fick av Profeten ﷺ hederstitel 'Sayf Allah' — Guds svärd. Han förlorade aldrig ett slag i sin karriär och är en av historiens mest briljanta militära befälhavare.",
+      en: "Khalid ibn al-Walid (ra) was given the honorary title 'Sayf Allah' — Sword of God — by the Prophet ﷺ. He never lost a battle in his career and is one of history's most brilliant military commanders.",
+      tr: "Halid ibn Velid (ra), Hz. Peygamber ﷺ tarafından 'Seyfullah' — Allah'ın Kılıcı — onur unvanını aldı. Kariyerinde hiç savaş kaybetmedi ve tarihin en parlak komutanlarından biridir.",
     },
-    criticalPerspectives: {
-      sv: "Al-Mamun påtvingade den teologiska doktrinen om Koranens skapadhet (Mutazilism) och förföljde lärde som Ibn Hanbal som vägrade acceptera detta. Denna period, känd som Mihna, är en mörk del av hans arv.",
-      en: "Al-Mamun imposed the theological doctrine of the created Quran (Mutazilism) and persecuted scholars like Ibn Hanbal who refused to accept this. This period, known as the Mihna, is a dark part of his legacy.",
-      tr: "El-Memun, Kur'an'ın yaratılmışlığı (Mutezile) teolojik doktrinini zorla kabul ettirdi ve bunu kabul etmeyi reddeden İbn Hanbel gibi alimleri zulme uğrattı.",
+    tags: ["commander", "companion", "military"],
+    empire: "islamic_caliphate",
+  },
+  {
+    id: "harun-al-rashid-figure",
+    name: "Harun al-Rashid",
+    title: { sv: "Guldålderns kalif", en: "Caliph of the Golden Age", tr: "Altın Çağın Halifesi" },
+    years: "763–809 e.Kr.",
+    portrait: "🌟",
+    shortBio: {
+      sv: "Harun al-Rashid styrde Abbasidkalifatet vid dess absoluta höjdpunkt. Hans hov i Bagdad var världens mest lysande centrum för vetenskap, konst och kultur.",
+      en: "Harun al-Rashid ruled the Abbasid Caliphate at its absolute peak. His court in Baghdad was the world's most brilliant center for science, art and culture.",
+      tr: "Harun Reşid, Abbasi Halifeliğini mutlak zirvesinde yönetti. Bağdat'taki sarayı, bilim, sanat ve kültür için dünyanın en parlak merkeziydi.",
     },
+    tags: ["caliph", "abbasid", "golden-age"],
+    empire: "islamic_caliphate",
+  },
+  {
+    id: "al-khwarizmi",
+    name: "Al-Khwarizmi",
+    title: { sv: "Algebrans fader", en: "Father of Algebra", tr: "Cebirin Babası" },
+    years: "780–850 e.Kr.",
+    portrait: "🔢",
+    shortBio: {
+      sv: "Al-Khwarizmi var en persisk matematiker och vetenskapsman verksam vid Visdomens hus i Bagdad. Hans verk gav algebra sitt namn och lade grunden för modern matematik. Ordet 'algoritm' kommer från hans namn.",
+      en: "Al-Khwarizmi was a Persian mathematician and scientist working at the House of Wisdom in Baghdad. His work gave algebra its name and laid the foundation for modern mathematics. The word 'algorithm' comes from his name.",
+      tr: "El-Harezmî, Bağdat'taki Bilgelik Evi'nde çalışan Farsli bir matematikçi ve bilim insanıydı. Eseri cebire adını verdi ve modern matematiğin temelini attı. 'Algoritma' kelimesi onun adından gelmektedir.",
+    },
+    tags: ["scholar", "mathematics", "golden-age", "baghdad"],
+    empire: "islamic_caliphate",
+  },
+  {
+    id: "ibn-sina",
+    name: "Ibn Sina (Avicenna)",
+    title: { sv: "Medicinens furste", en: "Prince of Medicine", tr: "Tıbbın Prensi" },
+    years: "980–1037 e.Kr.",
+    portrait: "⚕️",
+    shortBio: {
+      sv: "Ibn Sina, känd i väst som Avicenna, är en av historiens mest inflytelserika läkare och filosofer. Hans verk 'Medicinens kanon' användes som standardlärobok vid europeiska medicinska fakulteter i 600 år.",
+      en: "Ibn Sina, known in the West as Avicenna, is one of history's most influential physicians and philosophers. His work 'The Canon of Medicine' was used as a standard textbook at European medical faculties for 600 years.",
+      tr: "Batı'da Avicenna olarak bilinen İbn Sina, tarihin en etkili hekimi ve filozoflarından biridir. 'Tıp Kanonu' adlı eseri 600 yıl boyunca Avrupa tıp fakültelerinde standart ders kitabı olarak kullanıldı.",
+    },
+    tags: ["scholar", "medicine", "philosophy", "golden-age"],
+    empire: "islamic_caliphate",
+  },
+  {
+    id: "tariq-ibn-ziyad",
+    name: "Tariq ibn Ziyad",
+    title: { sv: "Andalusiens erövrare", en: "Conqueror of Andalusia", tr: "Endülüs'ün Fatihi" },
+    years: "670–720 e.Kr.",
+    portrait: "🏔️",
+    shortBio: {
+      sv: "Tariq ibn Ziyad korsade Gibraltar med 7 000 man år 711 och erövrade Spanien åt islam. Han brände sina skepp och höll sitt legendariska tal: 'Havet är bakom er, fienden är framför er.' Gibraltar är uppkallat efter honom — Jabal al-Tariq.",
+      en: "Tariq ibn Ziyad crossed Gibraltar with 7,000 men in 711 and conquered Spain for Islam. He burned his ships and gave his legendary speech: 'The sea is behind you, the enemy is before you.' Gibraltar is named after him — Jabal al-Tariq.",
+      tr: "Tarık ibn Ziyad, 711'de 7.000 askerle Cebelitarık'ı geçerek İspanya'yı İslam için fethetti. Gemilerini yaktı ve efsanevi konuşmasını yaptı: 'Arkanda deniz var, önünde düşman.' Cebelitarık onun adıyla anılır — Cebel-i Tarık.",
+    },
+    tags: ["commander", "umayyad", "andalusia", "military"],
+    empire: "islamic_caliphate",
   },
 ];
-
 // =============================================================================
 // TERRITORIES
 // =============================================================================
