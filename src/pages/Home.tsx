@@ -401,7 +401,7 @@ export default function Home() {
               <img src={crestImage} alt="Crest" className="w-8 h-8 rounded-lg object-cover opacity-90" />
             )}
             <span style={{ fontFamily: "'Cinzel', serif", fontSize: "0.7rem", letterSpacing: "0.25em", color: "var(--gold-dim)", opacity: 0.8 }}>
-              IMPERIUM
+              
             </span>
           </div>
  
