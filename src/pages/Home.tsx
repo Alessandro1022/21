@@ -1,189 +1,700 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEmpire } from "@/contexts/EmpireContext";
 import {
-  MessageSquare,
-  LogIn,
-  Shield,
-  Crown,
-  Sparkles,
-  Globe,
-  ChevronRight,
-  Zap,
-  Clock,
+  MessageSquare, LogIn, Shield, Clock, Map, Brain,
+  Users, Crown, BookOpen, Sparkles, Globe, ChevronRight, Zap,
 } from "lucide-react";
 import { FlagSelector } from "@/components/FlagSelector";
-
+ 
+/* ─────────────────────────────────────────
+   DATA
+───────────────────────────────────────── */
+const MODULES = [
+  { path: "/chat",      icon: MessageSquare, label: { sv: "AI-chatt",    en: "AI Chat",    tr: "AI Sohbet"         }, desc: { sv: "Intelligenta samtal",    en: "Intelligent conversations", tr: "Akıllı sohbetler"          } },
+  { path: "/timeline",  icon: Clock,         label: { sv: "Tidslinje",   en: "Timeline",   tr: "Zaman Çizelgesi"   }, desc: { sv: "Interaktiv historik",    en: "Interactive history",       tr: "İnteraktif tarih"          } },
+  { path: "/map",       icon: Map,           label: { sv: "Karta",       en: "Map",        tr: "Harita"            }, desc: { sv: "Territoriell expansion", en: "Territorial expansion",     tr: "Toprak genişlemesi"        } },
+  { path: "/quiz",      icon: Brain,         label: { sv: "Quiz",        en: "Quiz",       tr: "Quiz"              }, desc: { sv: "Testa din kunskap",      en: "Test your knowledge",       tr: "Bilginizi test edin"       } },
+  { path: "/profiles",  icon: Users,         label: { sv: "Profiler",    en: "Profiles",   tr: "Profiller"         }, desc: { sv: "Historiska ledare",      en: "Historical leaders",        tr: "Tarihi liderler"          } },
+  { path: "/lineage",   icon: Crown,         label: { sv: "Stamtavla",   en: "Lineage",    tr: "Soy Ağacı"         }, desc: { sv: "Dynastisk linje",        en: "Dynastic line",             tr: "Hanedan çizgisi"          } },
+  { path: "/story",     icon: BookOpen,      label: { sv: "Berättelse",  en: "Story",      tr: "Hikaye"            }, desc: { sv: "Guidad resa",            en: "Guided journey",            tr: "Rehberli yolculuk"        } },
+];
+ 
+const FEATURES = [
+  { icon: Sparkles, title: { sv: "AI-driven analys",    en: "AI-Powered Analysis",   tr: "AI Destekli Analiz"   }, desc: { sv: "Djupgående historisk analys med streaming AI", en: "Deep historical analysis with streaming AI",          tr: "Streaming AI ile derinlemesine tarihsel analiz" } },
+  { icon: Globe,    title: { sv: "Multi-imperium",      en: "Multi-Empire",          tr: "Çoklu İmparatorluk"   }, desc: { sv: "Utforska flera civilisationer",               en: "Explore multiple civilizations",                       tr: "Birden fazla uygarlığı keşfedin"                } },
+  { icon: Zap,      title: { sv: "Interaktivt lärande", en: "Interactive Learning",  tr: "İnteraktif Öğrenme"   }, desc: { sv: "Quiz, kartor och tidslinje",                  en: "Quiz, maps, and timeline",                             tr: "Quiz, haritalar ve zaman çizelgesi"             } },
+];
+ 
+/* ─────────────────────────────────────────
+   PARTICLE CANVAS
+───────────────────────────────────────── */
+function GoldenParticles() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+ 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+ 
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+ 
+    const particles: {
+      x: number; y: number; vx: number; vy: number;
+      alpha: number; size: number; life: number; maxLife: number;
+    }[] = [];
+ 
+    const spawn = () => {
+      const x = Math.random() * canvas.width;
+      const y = canvas.height + 10;
+      particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 0.6,
+        vy: -(Math.random() * 0.8 + 0.3),
+        alpha: 0,
+        size: Math.random() * 2 + 0.5,
+        life: 0,
+        maxLife: Math.random() * 260 + 120,
+      });
+    };
+ 
+    let frame = 0;
+    let raf: number;
+    const tick = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      frame++;
+      if (frame % 4 === 0) spawn();
+ 
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life++;
+        p.x += p.vx;
+        p.y += p.vy;
+        const progress = p.life / p.maxLife;
+        p.alpha = progress < 0.2
+          ? progress / 0.2
+          : progress > 0.7
+          ? (1 - progress) / 0.3
+          : 1;
+ 
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 2);
+        grad.addColorStop(0, `rgba(212,175,55,${p.alpha * 0.9})`);
+        grad.addColorStop(0.5, `rgba(184,142,30,${p.alpha * 0.5})`);
+        grad.addColorStop(1, `rgba(120,90,10,0)`);
+ 
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+ 
+        if (p.life >= p.maxLife) particles.splice(i, 1);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+ 
+    return () => {
+      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+ 
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "fixed",
+        inset: 0,
+        pointerEvents: "none",
+        zIndex: 1,
+        opacity: 0.55,
+      }}
+    />
+  );
+}
+ 
+/* ─────────────────────────────────────────
+   ORNAMENT SVG
+───────────────────────────────────────── */
+function Ornament({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 200 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="0" y1="10" x2="75" y2="10" stroke="url(#og)" strokeWidth="0.75" />
+      <circle cx="85" cy="10" r="2" fill="#D4AF37" opacity="0.7" />
+      <circle cx="100" cy="10" r="3.5" fill="#D4AF37" opacity="0.9" />
+      <circle cx="115" cy="10" r="2" fill="#D4AF37" opacity="0.7" />
+      <line x1="125" y1="10" x2="200" y2="10" stroke="url(#og2)" strokeWidth="0.75" />
+      <defs>
+        <linearGradient id="og" x1="0" y1="0" x2="75" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#D4AF37" stopOpacity="0" />
+          <stop offset="100%" stopColor="#D4AF37" stopOpacity="0.8" />
+        </linearGradient>
+        <linearGradient id="og2" x1="125" y1="0" x2="200" y2="0" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.8" />
+          <stop offset="100%" stopColor="#D4AF37" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+ 
+/* ─────────────────────────────────────────
+   MAIN PAGE
+───────────────────────────────────────── */
 export default function Home() {
   const { user, isAdmin, signOut } = useAuth();
   const { config, empireId } = useEmpire();
-  const [language, setLanguage] = useState("en");
-
+  const [language, setLanguage] = useState("sv");
+  const [mounted, setMounted] = useState(false);
+ 
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 60);
+    return () => clearTimeout(t);
+  }, []);
+ 
   if (user && !empireId) return <Navigate to="/select-empire" replace />;
-
+ 
   const crestImage = config?.crestImage;
-  const bgImage = config?.backgroundImage;
-
+  const bgImage    = config?.backgroundImage;
+  const desc = config?.homeDescription?.[language] ?? config?.homeDescription?.en ?? "Explore history with AI-driven analysis.";
+ 
+  const t = (sv: string, tr: string, en: string) =>
+    language === "sv" ? sv : language === "tr" ? tr : en;
+ 
+  const logoutLabel   = t("Logga ut",           "Çıkış yap",              "Log out");
+  const loginLabel    = t("Logga in",            "Giriş yap",              "Log in");
+  const heroTitle     = t("Historisk intelligens.\nDriven av AI.", "Tarihsel Zekâ.\nAI Destekli.", "Historical Intelligence.\nPowered by AI.");
+  const startLabel    = t("Börja utforska",      "Keşfetmeye başlayın",   "Start Exploring");
+  const chooseLabel   = t("Välj ditt imperium",  "İmparatorluğunuzu seçin", "Choose Your Empire");
+  const featuresLabel = t("Plattformens funktioner", "Platform Özellikleri", "Platform Features");
+  const modulesLabel  = t("Tillgängliga moduler",    "Mevcut Modüller",       "Available Modules");
+ 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-black text-white">
-
-      {/* 🔥 BACKGROUND IMAGE */}
-      {bgImage && (
-        <img
-          src={bgImage}
-          className="absolute inset-0 w-full h-full object-cover opacity-40 scale-110 blur-[3px]"
+    <>
+      {/* ── GLOBAL LUXURY STYLES ─────────────────── */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&family=Cinzel:wght@400;500;600;700&family=Raleway:wght@300;400;500;600&display=swap');
+ 
+        :root {
+          --gold:        #D4AF37;
+          --gold-light:  #F0D060;
+          --gold-dim:    #8B7022;
+          --gold-bg:     rgba(212,175,55,0.07);
+          --ink:         #0A0804;
+          --parchment:   #F5E9C8;
+          --ruby:        #9B1C1C;
+          --card-bg:     rgba(15,10,5,0.72);
+          --border:      rgba(212,175,55,0.22);
+          --border-h:    rgba(212,175,55,0.55);
+        }
+ 
+        * { box-sizing: border-box; }
+ 
+        .lux-root {
+          font-family: 'Raleway', sans-serif;
+          background: #06040200;
+          min-height: 100svh;
+          overflow-x: hidden;
+          color: #EDE0C4;
+          position: relative;
+        }
+ 
+        /* Noise grain overlay */
+        .lux-root::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+          pointer-events: none;
+          z-index: 0;
+          opacity: 0.45;
+        }
+ 
+        /* ── BG gradient mesh ──────────────────── */
+        .lux-bg {
+          position: fixed;
+          inset: 0;
+          z-index: 0;
+          background:
+            radial-gradient(ellipse 80% 60% at 50% -10%,  rgba(180,140,30,0.18) 0%, transparent 65%),
+            radial-gradient(ellipse 60% 40% at 100% 80%,  rgba(120,60,10,0.14) 0%, transparent 60%),
+            radial-gradient(ellipse 50% 50% at 0%   60%,  rgba(100,50,5,0.10)  0%, transparent 55%),
+            linear-gradient(170deg, #09060100 0%, #09060100 100%);
+          background-color: #08050200;
+        }
+ 
+        /* ── Animated shimmer line ─────────────── */
+        @keyframes shimmerX {
+          0%   { transform: translateX(-120%); }
+          100% { transform: translateX(220%);  }
+        }
+        .shimmer-btn::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(100deg, transparent 25%, rgba(255,255,255,0.28) 50%, transparent 75%);
+          animation: shimmerX 2.6s ease-in-out infinite;
+          border-radius: inherit;
+        }
+ 
+        /* ── Fade-up entrance ──────────────────── */
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(28px); }
+          to   { opacity: 1; transform: translateY(0);    }
+        }
+        .fade-up { opacity: 0; animation: fadeUp 0.9s cubic-bezier(0.16,1,0.3,1) forwards; }
+ 
+        /* ── Crest halo pulse ──────────────────── */
+        @keyframes haloPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.0), 0 0 30px 6px rgba(212,175,55,0.25); }
+          50%       { box-shadow: 0 0 0 12px rgba(212,175,55,0.0), 0 0 50px 12px rgba(212,175,55,0.40); }
+        }
+        .crest-halo { animation: haloPulse 3.5s ease-in-out infinite; }
+ 
+        /* ── Title line reveal ─────────────────── */
+        @keyframes lineGrow {
+          from { width: 0; }
+          to   { width: 100%; }
+        }
+ 
+        /* ── Card hover glow ───────────────────── */
+        .mod-card {
+          background: var(--card-bg);
+          border: 1px solid var(--border);
+          backdrop-filter: blur(14px);
+          transition: border-color 0.35s, transform 0.35s, box-shadow 0.35s;
+          position: relative;
+          overflow: hidden;
+        }
+        .mod-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(212,175,55,0.06), transparent 60%);
+          opacity: 0;
+          transition: opacity 0.35s;
+        }
+        .mod-card:hover {
+          border-color: var(--border-h);
+          transform: translateY(-4px) scale(1.015);
+          box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 30px rgba(212,175,55,0.12);
+        }
+        .mod-card:hover::before { opacity: 1; }
+ 
+        .feat-card {
+          background: var(--card-bg);
+          border: 1px solid var(--border);
+          backdrop-filter: blur(18px);
+          transition: border-color 0.4s, box-shadow 0.4s;
+          position: relative;
+        }
+        .feat-card:hover {
+          border-color: rgba(212,175,55,0.5);
+          box-shadow: 0 8px 40px rgba(0,0,0,0.4), 0 0 20px rgba(212,175,55,0.10);
+        }
+ 
+        /* ── Gold text gradient ────────────────── */
+        .gold-text {
+          background: linear-gradient(135deg, #F0D060 0%, #D4AF37 40%, #B8901E 70%, #E8CC55 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+ 
+        /* ── Primary CTA ───────────────────────── */
+        .cta-primary {
+          position: relative;
+          overflow: hidden;
+          background: linear-gradient(135deg, #C9A227 0%, #D4AF37 35%, #E8CC55 60%, #B8901E 100%);
+          color: #08050F;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          border: none;
+          box-shadow: 0 4px 24px rgba(212,175,55,0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .cta-primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 36px rgba(212,175,55,0.55), inset 0 1px 0 rgba(255,255,255,0.3);
+        }
+        .cta-primary:active { transform: translateY(0); }
+ 
+        /* ── Secondary CTA ─────────────────────── */
+        .cta-secondary {
+          background: rgba(212,175,55,0.07);
+          border: 1px solid rgba(212,175,55,0.35);
+          color: #D4AF37;
+          letter-spacing: 0.04em;
+          transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+          backdrop-filter: blur(8px);
+        }
+        .cta-secondary:hover {
+          background: rgba(212,175,55,0.14);
+          border-color: rgba(212,175,55,0.65);
+          box-shadow: 0 4px 20px rgba(212,175,55,0.15);
+        }
+ 
+        /* ── Section label ─────────────────────── */
+        .section-label {
+          font-family: 'Cinzel', serif;
+          font-size: 0.6rem;
+          letter-spacing: 0.35em;
+          text-transform: uppercase;
+          color: var(--gold-dim);
+        }
+ 
+        /* ── Scrollbar ─────────────────────────── */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.3); border-radius: 2px; }
+ 
+        /* ── Icon glow ─────────────────────────── */
+        .icon-gold { color: var(--gold); filter: drop-shadow(0 0 8px rgba(212,175,55,0.55)); }
+ 
+        /* ── Header pill ───────────────────────── */
+        .header-pill {
+          background: rgba(212,175,55,0.10);
+          border: 1px solid rgba(212,175,55,0.25);
+          backdrop-filter: blur(12px);
+          transition: background 0.2s, border-color 0.2s;
+        }
+        .header-pill:hover { background: rgba(212,175,55,0.18); border-color: rgba(212,175,55,0.45); }
+ 
+        /* Corner ornament */
+        .corner-tl, .corner-br {
+          position: absolute;
+          width: 32px;
+          height: 32px;
+          opacity: 0.4;
+        }
+        .corner-tl { top: 8px; left: 8px; border-top: 1px solid var(--gold); border-left: 1px solid var(--gold); }
+        .corner-br { bottom: 8px; right: 8px; border-bottom: 1px solid var(--gold); border-right: 1px solid var(--gold); }
+      `}</style>
+ 
+      <div className="lux-root">
+        {/* Layers */}
+        <div
+          className="lux-bg"
+          style={bgImage ? {
+            backgroundImage: `linear-gradient(to bottom, rgba(8,5,2,0.82) 0%, rgba(8,5,2,0.60) 50%, rgba(8,5,2,0.92) 100%), url(${bgImage})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          } : {}}
         />
-      )}
-
-      {/* 🔥 DEPTH GRADIENT */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black" />
-
-      {/* 🔥 GLOW ORBS */}
-      <div className="absolute w-[700px] h-[700px] bg-yellow-500/10 blur-[160px] top-[-250px] left-[-200px]" />
-      <div className="absolute w-[600px] h-[600px] bg-purple-500/10 blur-[160px] bottom-[-250px] right-[-200px]" />
-
-      {/* HEADER */}
-      <header className="relative z-10 flex justify-between items-center px-8 py-5 backdrop-blur-2xl bg-white/5 border-b border-white/10">
-
-        <div className="flex items-center gap-3">
-          {crestImage && (
-            <img src={crestImage} className="w-10 h-10 rounded-xl shadow-lg" />
-          )}
-          <span className="font-serif text-xl tracking-wide">EmpireAI</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-
-          <FlagSelector language={language} setLanguage={setLanguage} />
-
-          {user ? (
-            <>
-              {isAdmin && (
-                <Link className="px-3 py-1.5 text-xs rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition">
-                  <Shield className="w-4 h-4 inline mr-1" />
-                  Admin
+        <GoldenParticles />
+ 
+        {/* ── HEADER ────────────────────────────── */}
+        <header
+          className="relative z-20 flex items-center justify-between px-5 sm:px-8"
+          style={{ paddingTop: "max(env(safe-area-inset-top), 16px)", paddingBottom: 16 }}
+        >
+          {/* Logo / crest */}
+          <div className="flex items-center gap-3">
+            {crestImage && (
+              <img src={crestImage} alt="Crest" className="w-8 h-8 rounded-lg object-cover opacity-90" />
+            )}
+            <span style={{ fontFamily: "'Cinzel', serif", fontSize: "0.7rem", letterSpacing: "0.25em", color: "var(--gold-dim)", opacity: 0.8 }}>
+              IMPERIUM
+            </span>
+          </div>
+ 
+          {/* Nav actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <FlagSelector language={language} setLanguage={setLanguage} />
+            {user ? (
+              <>
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    className="header-pill px-3 py-1.5 rounded-lg font-sans text-xs flex items-center gap-1.5"
+                    style={{ color: "var(--gold)", fontFamily: "'Cinzel', serif", letterSpacing: "0.12em" }}
+                  >
+                    <Shield className="w-3.5 h-3.5" /> Admin
+                  </Link>
+                )}
+                <span className="hidden sm:block text-xs" style={{ color: "rgba(212,175,55,0.45)", fontFamily: "'Raleway', sans-serif" }}>
+                  {user.email}
+                </span>
+                <button
+                  onClick={signOut}
+                  className="header-pill px-3 py-1.5 rounded-lg text-xs"
+                  style={{ fontFamily: "'Raleway', sans-serif", color: "rgba(212,175,55,0.7)", letterSpacing: "0.06em" }}
+                >
+                  {logoutLabel}
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/auth"
+                className="cta-primary shimmer-btn px-4 py-2 rounded-xl text-xs flex items-center gap-1.5"
+                style={{ fontFamily: "'Cinzel', serif", letterSpacing: "0.12em" }}
+              >
+                <LogIn className="w-3.5 h-3.5" /> {loginLabel}
+              </Link>
+            )}
+          </div>
+        </header>
+ 
+        {/* ── MAIN ──────────────────────────────── */}
+        <main className="relative z-10 flex flex-col items-center px-4 sm:px-8 overflow-y-auto">
+ 
+          {/* ── HERO ────────────────────────────── */}
+          <div className="flex flex-col items-center text-center pt-8 pb-10 max-w-3xl w-full">
+ 
+            {/* Crest seal */}
+            {crestImage && (
+              <div
+                className="crest-halo fade-up"
+                style={{
+                  animationDelay: "0ms",
+                  width: 96, height: 96,
+                  borderRadius: "50%",
+                  border: "1px solid rgba(212,175,55,0.45)",
+                  padding: 4,
+                  marginBottom: 28,
+                  position: "relative",
+                }}
+              >
+                {/* Rotating ring */}
+                <div style={{
+                  position: "absolute", inset: -8,
+                  border: "1px dashed rgba(212,175,55,0.18)",
+                  borderRadius: "50%",
+                  animation: "spin 18s linear infinite",
+                }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                <img src={crestImage} alt="Crest" className="w-full h-full object-cover rounded-full" />
+              </div>
+            )}
+ 
+            {/* Title */}
+            <div className="fade-up" style={{ animationDelay: "100ms" }}>
+              <p className="section-label mb-4">
+                {language === "sv" ? "Imperiets plattform" : language === "tr" ? "İmparatorluk Platformu" : "The Imperial Platform"}
+              </p>
+              <h1
+                style={{
+                  fontFamily: "'Cormorant Garant', serif",
+                  fontSize: "clamp(2.4rem, 6vw, 4.2rem)",
+                  fontWeight: 600,
+                  lineHeight: 1.08,
+                  letterSpacing: "-0.01em",
+                  marginBottom: 20,
+                  whiteSpace: "pre-line",
+                }}
+                className="gold-text"
+              >
+                {heroTitle}
+              </h1>
+            </div>
+ 
+            {/* Ornament */}
+            <div className="fade-up w-48 mb-5" style={{ animationDelay: "180ms" }}>
+              <Ornament />
+            </div>
+ 
+            {/* Description */}
+            <p
+              className="fade-up"
+              style={{
+                animationDelay: "240ms",
+                fontFamily: "'Raleway', sans-serif",
+                fontWeight: 300,
+                fontSize: "clamp(0.8rem, 2vw, 1rem)",
+                color: "rgba(237,224,196,0.65)",
+                maxWidth: 520,
+                lineHeight: 1.75,
+                letterSpacing: "0.03em",
+                marginBottom: 36,
+              }}
+            >
+              {desc}
+            </p>
+ 
+            {/* CTAs */}
+            <div className="fade-up flex flex-wrap gap-3 justify-center" style={{ animationDelay: "320ms" }}>
+              {user ? (
+                <>
+                  <Link
+                    to="/chat"
+                    className="cta-primary shimmer-btn px-7 py-3 rounded-2xl flex items-center gap-2"
+                    style={{ fontFamily: "'Cinzel', serif", fontSize: "0.8rem", letterSpacing: "0.14em" }}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    {startLabel}
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <Link
+                    to="/select-empire"
+                    className="cta-secondary px-6 py-3 rounded-2xl flex items-center gap-2"
+                    style={{ fontFamily: "'Cinzel', serif", fontSize: "0.78rem", letterSpacing: "0.1em" }}
+                  >
+                    <Globe className="w-4 h-4" />
+                    {chooseLabel}
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  to="/auth"
+                  className="cta-primary shimmer-btn px-8 py-3.5 rounded-2xl flex items-center gap-2"
+                  style={{ fontFamily: "'Cinzel', serif", fontSize: "0.82rem", letterSpacing: "0.16em" }}
+                >
+                  <LogIn className="w-4 h-4" />
+                  {startLabel}
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
               )}
-
-              <button
-                onClick={signOut}
-                className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition text-xs"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <Link className="px-5 py-2 rounded-xl bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-medium hover:scale-105 transition shadow-lg">
-              <LogIn className="w-4 h-4 inline mr-1" />
-              Login
-            </Link>
-          )}
-        </div>
-      </header>
-
-      {/* HERO */}
-      <main className="relative z-10 flex flex-col items-center text-center px-6 pt-24">
-
-        {/* CREST */}
-        {crestImage && (
-          <div className="relative mb-8 group">
-            <img
-              src={crestImage}
-              className="w-32 h-32 rounded-full object-cover border border-white/20 shadow-2xl transition-transform duration-500 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 rounded-full bg-yellow-400/20 blur-2xl opacity-70 group-hover:opacity-100 transition" />
-          </div>
-        )}
-
-        {/* TITLE */}
-        <h1 className="text-5xl md:text-7xl font-serif leading-tight mb-6 tracking-tight">
-          Historical Intelligence
-          <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-500 to-orange-500">
-            Powered by AI
-          </span>
-        </h1>
-
-        {/* DESC */}
-        <p className="max-w-2xl text-zinc-400 text-base mb-10 leading-relaxed">
-          Dive into empires, explore powerful leaders, and experience history through cinematic AI.
-        </p>
-
-        {/* CTA */}
-        {user ? (
-          <div className="flex gap-5 flex-wrap justify-center">
-            <Link
-              to="/chat"
-              className="px-8 py-4 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-semibold flex items-center gap-2 hover:scale-105 transition shadow-2xl"
-            >
-              <MessageSquare className="w-5 h-5" />
-              Start Exploring
-              <ChevronRight className="w-4 h-4" />
-            </Link>
-
-            <Link
-              to="/select-empire"
-              className="px-8 py-4 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 hover:bg-white/20 transition"
-            >
-              <Globe className="w-5 h-5 inline mr-2" />
-              Choose Empire
-            </Link>
-          </div>
-        ) : (
-          <Link
-            to="/auth"
-            className="px-10 py-5 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold text-lg hover:scale-105 transition shadow-2xl"
-          >
-            Get Started
-          </Link>
-        )}
-
-        {/* FEATURES */}
-        <div className="grid md:grid-cols-3 gap-8 mt-20 max-w-6xl w-full">
-
-          {[
-            { icon: Sparkles, title: "AI Analysis", desc: "Deep insights powered by AI" },
-            { icon: Globe, title: "Empires", desc: "Rome, Ottomans & more" },
-            { icon: Zap, title: "Interactive", desc: "Maps, quiz & timeline" },
-          ].map((f, i) => (
-            <div
-              key={i}
-              className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-2xl hover:bg-white/10 transition hover:scale-[1.04] hover:shadow-2xl"
-            >
-              <f.icon className="w-8 h-8 mb-4 text-yellow-400" />
-              <h3 className="font-serif text-xl mb-2">{f.title}</h3>
-              <p className="text-zinc-400 text-sm">{f.desc}</p>
             </div>
-          ))}
-        </div>
-
-        {/* MODULES */}
-        {user && (
-          <div className="mt-24 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl w-full">
-            {[
-              { path: "/chat", icon: MessageSquare, name: "Chat" },
-              { path: "/timeline", icon: Clock, name: "Timeline" },
-              { path: "/map", icon: Globe, name: "Map" },
-              { path: "/profiles", icon: Crown, name: "Leaders" },
-            ].map((m, i) => (
-              <Link
-                key={i}
-                to={m.path}
-                className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center hover:bg-white/10 transition hover:scale-105 hover:shadow-xl"
-              >
-                <m.icon className="w-7 h-7 mx-auto mb-3 text-yellow-400" />
-                <span className="text-sm">{m.name}</span>
-              </Link>
-            ))}
           </div>
-        )}
-      </main>
-
-      {/* FOOTER */}
-      <footer className="relative z-10 text-center text-xs text-zinc-500 py-8">
-        © EmpireAI — Premium Historical Intelligence
-      </footer>
-    </div>
+ 
+          {/* ── FEATURES ────────────────────────── */}
+          <section className="max-w-4xl w-full pb-12">
+            <div className="fade-up flex flex-col items-center mb-7" style={{ animationDelay: "400ms" }}>
+              <p className="section-label mb-3">{featuresLabel}</p>
+              <Ornament className="w-40" />
+            </div>
+ 
+            <div className="grid sm:grid-cols-3 gap-4">
+              {FEATURES.map((f, i) => (
+                <div
+                  key={i}
+                  className="feat-card fade-up rounded-2xl p-6 text-center"
+                  style={{ animationDelay: `${440 + i * 90}ms` }}
+                >
+                  {/* Icon ring */}
+                  <div style={{
+                    width: 52, height: 52,
+                    borderRadius: "50%",
+                    border: "1px solid rgba(212,175,55,0.3)",
+                    background: "rgba(212,175,55,0.06)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    margin: "0 auto 16px",
+                  }}>
+                    <f.icon className="icon-gold w-5 h-5" />
+                  </div>
+                  <h4
+                    style={{
+                      fontFamily: "'Cormorant Garant', serif",
+                      fontWeight: 600,
+                      fontSize: "1.05rem",
+                      color: "#EDE0C4",
+                      marginBottom: 8,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {f.title[language as keyof typeof f.title] ?? f.title.en}
+                  </h4>
+                  <p style={{
+                    fontFamily: "'Raleway', sans-serif",
+                    fontWeight: 300,
+                    fontSize: "0.78rem",
+                    color: "rgba(237,224,196,0.52)",
+                    lineHeight: 1.65,
+                    letterSpacing: "0.02em",
+                  }}>
+                    {f.desc[language as keyof typeof f.desc] ?? f.desc.en}
+                  </p>
+                  {/* Bottom accent */}
+                  <div style={{
+                    height: 1,
+                    marginTop: 18,
+                    background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.35), transparent)",
+                  }} />
+                </div>
+              ))}
+            </div>
+          </section>
+ 
+          {/* ── MODULES ─────────────────────────── */}
+          {user && (
+            <section className="max-w-4xl w-full pb-16">
+              <div className="fade-up flex flex-col items-center mb-7" style={{ animationDelay: "550ms" }}>
+                <p className="section-label mb-3">{modulesLabel}</p>
+                <Ornament className="w-40" />
+              </div>
+ 
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {MODULES.map((m, i) => (
+                  <Link
+                    key={m.path}
+                    to={m.path}
+                    className="mod-card fade-up rounded-2xl p-5 flex flex-col items-center text-center"
+                    style={{ animationDelay: `${580 + i * 55}ms` }}
+                  >
+                    <div className="corner-tl" />
+                    <div className="corner-br" />
+ 
+                    {/* Icon */}
+                    <div style={{
+                      width: 44, height: 44,
+                      borderRadius: "50%",
+                      border: "1px solid rgba(212,175,55,0.25)",
+                      background: "rgba(212,175,55,0.05)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      marginBottom: 12,
+                      transition: "border-color 0.3s, background 0.3s",
+                    }}>
+                      <m.icon className="icon-gold w-5 h-5" />
+                    </div>
+ 
+                    <span style={{
+                      fontFamily: "'Cormorant Garant', serif",
+                      fontWeight: 600,
+                      fontSize: "0.95rem",
+                      color: "#EDE0C4",
+                      marginBottom: 4,
+                      letterSpacing: "0.02em",
+                      display: "block",
+                    }}>
+                      {m.label[language as keyof typeof m.label] ?? m.label.en}
+                    </span>
+                    <span style={{
+                      fontFamily: "'Raleway', sans-serif",
+                      fontWeight: 300,
+                      fontSize: "0.7rem",
+                      color: "rgba(237,224,196,0.42)",
+                      lineHeight: 1.5,
+                      letterSpacing: "0.03em",
+                    }}>
+                      {m.desc[language as keyof typeof m.desc] ?? m.desc.en}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+        </main>
+ 
+        {/* ── FOOTER ────────────────────────────── */}
+        <footer
+          className="relative z-10 flex flex-col items-center gap-2 py-6"
+          style={{ borderTop: "1px solid rgba(212,175,55,0.10)" }}
+        >
+          <Ornament className="w-36 opacity-60" />
+          <p style={{
+            fontFamily: "'Cinzel', serif",
+            fontSize: "0.58rem",
+            letterSpacing: "0.4em",
+            color: "rgba(212,175,55,0.3)",
+            textTransform: "uppercase",
+            paddingBottom: "env(safe-area-inset-bottom)",
+          }}>
+            {language === "sv"
+              ? "AI-driven historisk analys"
+              : language === "tr"
+              ? "AI destekli tarihsel analiz"
+              : "AI-driven historical analysis"}
+          </p>
+        </footer>
+      </div>
+    </>
   );
 }
+ 
