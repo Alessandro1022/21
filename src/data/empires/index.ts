@@ -6,6 +6,7 @@ import { egyptEmpire } from "./egypt";
 import { britishEmpire } from "./britishEmpire";
 import { japaneseEmpire } from "./japanese";
 import { maliEmpire } from "./mali";
+import { seljukEmpire } from "./seljuk";
 import type { EmpireConfig } from "./types";
 
 export type { EmpireConfig };
@@ -20,6 +21,8 @@ export const empires: Record<string, EmpireConfig> = {
   british_empire: britishEmpire,
   japanese_empire: japaneseEmpire, 
   mali_empire: maliEmpire, 
+  seljuk_empire: seljukEmpire, 
+
 
 };
 
