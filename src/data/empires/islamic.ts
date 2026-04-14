@@ -970,6 +970,7 @@ const islamicTradeRoutes: TradeRouteGeo[] = [
 // =============================================================================
 
 export const islamicEmpire: EmpireConfig = {
+    premium: true,  
   id: "islamic_caliphate",
   name: {
     sv: "Islamiska Kalifatet",
