@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { empires as appEmpires } from "@/data/empires";
 import {
   Activity,
   AlertTriangle,
@@ -197,7 +198,8 @@ interface SegmentedUserGroup {
 
 const QUIZ_PAGE_SIZE = 12;
 const MONTHLY_PRICE = 78;
-const DEFAULT_EMPIRES = ["ottoman", "roman", "mughal", "byzantine", "persian"] as const;
+const DATA_EMPIRE_IDS = Object.keys(appEmpires).map((id) => id.toLowerCase());
+const DEFAULT_EMPIRES = (DATA_EMPIRE_IDS.length ? DATA_EMPIRE_IDS : ["ottoman", "roman"]) as string[];
 const DATE_WINDOWS = ["7d", "14d", "30d", "90d"] as const;
 const tabs: { id: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "stats", label: "Stats", icon: TrendingUp },
@@ -348,7 +350,7 @@ const numberCompact = (value: number) => Intl.NumberFormat("en", { notation: "co
 
 const csvEscape = (value: string | number | null | undefined) => {
   const str = String(value ?? "");
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) return `"${str.replaceAll('"', '""')}"`;
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) return `"${str.split('"').join('""')}"`;
   return str;
 };
 
@@ -396,7 +398,7 @@ export default function Admin() {
   const [empires, setEmpires] = useState<string[]>([...DEFAULT_EMPIRES]);
   const [newEmpireInput, setNewEmpireInput] = useState("");
   const [quizForm, setQuizForm] = useState<Omit<QuizQuestion, "id">>({
-    empire_id: "ottoman",
+    empire_id: DEFAULT_EMPIRES[0] ?? "ottoman",
     question_en: "",
     options_en: ["", "", "", ""],
     correct_index: 0,
@@ -474,9 +476,12 @@ export default function Admin() {
     const { data, error } = await supabase.functions.invoke("admin-translate", {
       body: { text, from: "en", to: target },
     });
-    if (error) throw error;
+    if (error) {
+      addLog("warn", `Translation fallback (${target}): ${error.message}`);
+      return text;
+    }
     return String(data?.translatedText ?? text);
-  }, []);
+  }, [addLog]);
 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
@@ -508,21 +513,28 @@ export default function Admin() {
       options_tr: parseArray(item.options_tr),
     }));
     setQuizQuestions(parsed);
-    const discovered = Array.from(new Set([...DEFAULT_EMPIRES, ...parsed.map((q) => String(q.empire_id).toLowerCase()).filter(Boolean)]));
+    const discovered = Array.from(
+      new Set([
+        ...DEFAULT_EMPIRES,
+        ...parsed.map((q) => String(q.empire_id).toLowerCase()).filter(Boolean),
+      ])
+    );
     setEmpires(discovered);
     addLog("success", `Loaded ${parsed.length} quiz questions`);
   }, [addLog]);
 
   const loadEmpires = useCallback(async () => {
+    const base = [...DEFAULT_EMPIRES];
     const { data, error } = await supabase.from("empires").select("slug,name").order("name", { ascending: true });
     if (error) {
-      addLog("warn", `Could not load empires table, fallback to discovered list: ${error.message}`);
+      setEmpires((prev) => Array.from(new Set([...base, ...prev])));
+      addLog("warn", `Could not load empires table, using data-file empires: ${error.message}`);
       return;
     }
     const dbEmpires = (data ?? [])
       .flatMap((row: any) => [String(row.slug ?? "").trim().toLowerCase(), String(row.name ?? "").trim().toLowerCase()])
       .filter(Boolean);
-    setEmpires((prev) => Array.from(new Set([...prev, ...dbEmpires])));
+    setEmpires((prev) => Array.from(new Set([...base, ...prev, ...dbEmpires])));
   }, [addLog]);
 
   const loadContentItems = useCallback(async () => {
@@ -941,14 +953,21 @@ export default function Admin() {
 
   const saveQuizQuestion = async (event: FormEvent) => {
     event.preventDefault();
+    if (!quizForm.question_en.trim() || quizForm.options_en.some((o) => !o.trim()) || !quizForm.explanation_en.trim()) {
+      addLog("warn", "Quiz save blocked: fill question, 4 options and explanation");
+      return;
+    }
     setQuizSaving(true);
     try {
       const payload: Record<string, unknown> = {
         empire_id: quizForm.empire_id,
-        question_en: quizForm.question_en,
-        options_en: quizForm.options_en,
+        question_en: quizForm.question_en.trim(),
+        options_en: quizForm.options_en.map((o) => o.trim()),
         correct_index: quizForm.correct_index,
-        explanation_en: quizForm.explanation_en,
+        explanation_en: quizForm.explanation_en.trim(),
+        topic: "administration",
+        difficulty: "medium",
+        active: true,
       };
 
       const [question_sv, question_tr, explanation_sv, explanation_tr] = await Promise.all([
@@ -958,14 +977,14 @@ export default function Admin() {
         translateText(quizForm.explanation_en, "tr"),
       ]);
 
-      const options_sv = await Promise.all(quizForm.options_en.map((o) => translateText(o, "sv")));
-      const options_tr = await Promise.all(quizForm.options_en.map((o) => translateText(o, "tr")));
-      payload.question_sv = question_sv;
-      payload.question_tr = question_tr;
-      payload.explanation_sv = explanation_sv;
-      payload.explanation_tr = explanation_tr;
-      payload.options_sv = options_sv;
-      payload.options_tr = options_tr;
+      const options_sv = await Promise.all(quizForm.options_en.map((o) => translateText(o.trim(), "sv")));
+      const options_tr = await Promise.all(quizForm.options_en.map((o) => translateText(o.trim(), "tr")));
+      payload.question_sv = question_sv?.trim() || quizForm.question_en.trim();
+      payload.question_tr = question_tr?.trim() || quizForm.question_en.trim();
+      payload.explanation_sv = explanation_sv?.trim() || quizForm.explanation_en.trim();
+      payload.explanation_tr = explanation_tr?.trim() || quizForm.explanation_en.trim();
+      payload.options_sv = options_sv.length ? options_sv : quizForm.options_en.map((o) => o.trim());
+      payload.options_tr = options_tr.length ? options_tr : quizForm.options_en.map((o) => o.trim());
 
       if (editingQuizId) {
         const { error } = await supabase.from("quiz_questions").update(payload).eq("id", editingQuizId);
@@ -978,7 +997,7 @@ export default function Admin() {
       }
       setEditingQuizId(null);
       setQuizForm({
-        empire_id: "ottoman",
+        empire_id: DEFAULT_EMPIRES[0] ?? "ottoman",
         question_en: "",
         options_en: ["", "", "", ""],
         correct_index: 0,
@@ -1237,8 +1256,8 @@ export default function Admin() {
     setEmpires((prev) => [...prev, normalized]);
     setQuizForm((prev) => ({ ...prev, empire_id: normalized }));
     setNewEmpireInput("");
-    const { error } = await supabase.from("empires").insert({ slug: normalized, name: normalized.replaceAll("_", " ") });
-    if (error) addLog("warn", `Empire added locally (table insert failed): ${error.message}`);
+    const { error } = await supabase.from("empires").insert({ slug: normalized, name: normalized.split("_").join(" ") });
+    if (error) addLog("warn", `Empire added in UI list (table insert failed): ${error.message}`);
     else addLog("success", `Empire created: ${normalized}`);
   };
 
@@ -1908,6 +1927,342 @@ export default function Admin() {
                       </article>
                     );
                   })}
+                </div>
+              )}
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <button onClick={() => setQuizPage((p) => Math.max(1, p - 1))} disabled={quizPage === 1} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 disabled:opacity-40">
+                  <ChevronLeft className="h-4 w-4" /> Prev
+                </button>
+                <span className="text-slate-400">Page {quizPage} / {quizPages}</span>
+                <button onClick={() => setQuizPage((p) => Math.min(quizPages, p + 1))} disabled={quizPage === quizPages} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 disabled:opacity-40">
+                  Next <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "content" && (
+          <section className="grid gap-4 lg:grid-cols-3">
+            <form onSubmit={createContent} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">Create content</h3>
+              <div className="space-y-3">
+                <select value={contentForm.type} onChange={(e) => setContentForm((prev) => ({ ...prev, type: e.target.value as ContentType }))} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
+                  <option value="announcement">Announcement</option>
+                  <option value="tip">Tip</option>
+                  <option value="fact">Historical fact</option>
+                </select>
+                <select value={contentForm.empire_target} onChange={(e) => setContentForm((prev) => ({ ...prev, empire_target: e.target.value as any }))} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
+                  <option value="both">Both empires</option>
+                  <option value="ottoman">Ottoman</option>
+                  <option value="roman">Roman</option>
+                </select>
+                <textarea value={contentForm.text_en} onChange={(e) => setContentForm((prev) => ({ ...prev, text_en: e.target.value }))} placeholder="Write text in English..." className="h-28 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <button disabled={contentSaving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 disabled:opacity-60">
+                  {contentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />} Create + Translate
+                </button>
+              </div>
+            </form>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <h3 className="mb-4 text-sm font-medium">Content list</h3>
+              {contentLoading ? (
+                <div className="py-10 text-center text-slate-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading content...</div>
+              ) : contentItems.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No content yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {contentItems.map((item) => (
+                    <article key={item.id} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                        <span className="rounded-full bg-slate-800 px-2 py-1">{item.type}</span>
+                        <span className="rounded-full bg-slate-800 px-2 py-1">{item.empire_target}</span>
+                        <span className={cn("rounded-full px-2 py-1", item.active ? "bg-emerald-500/20 text-emerald-200" : "bg-slate-800")}>
+                          {item.active ? "active" : "inactive"}
+                        </span>
+                      </div>
+                      <p className="text-sm">{item.text_en}</p>
+                      <div className="mt-3 flex gap-2">
+                        <button onClick={() => void toggleContentActive(item)} className="rounded-lg border border-slate-700 px-2 py-1 text-xs hover:border-slate-500">
+                          {item.active ? "Deactivate" : "Activate"}
+                        </button>
+                        <button onClick={() => void deleteContent(item.id)} className="rounded-lg border border-rose-700/50 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/10">Delete</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "notifications" && (
+          <section className="grid gap-4 lg:grid-cols-3">
+            <form onSubmit={sendNotification} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">Create push notification</h3>
+              <div className="space-y-3">
+                <input value={notificationForm.title_en} onChange={(e) => setNotificationForm((prev) => ({ ...prev, title_en: e.target.value }))} placeholder="Title (EN)" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <textarea value={notificationForm.body_en} onChange={(e) => setNotificationForm((prev) => ({ ...prev, body_en: e.target.value }))} placeholder="Body (EN)" className="h-24 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <input value={notificationForm.image_url} onChange={(e) => setNotificationForm((prev) => ({ ...prev, image_url: e.target.value }))} placeholder="Optional image URL" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <button disabled={notificationSending} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 disabled:opacity-60">
+                  {notificationSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Translate + Send to all users
+                </button>
+              </div>
+            </form>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <h3 className="mb-4 text-sm font-medium">Sent notifications</h3>
+              {notificationsLoading ? (
+                <div className="py-10 text-center text-slate-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading notifications...</div>
+              ) : notifications.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No notifications yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {notifications.map((n) => (
+                    <article key={n.id} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="font-medium">{n.title_en}</p>
+                        <span className="text-xs text-slate-400">sent: {n.sent_count}</span>
+                      </div>
+                      <p className="text-sm text-slate-300">{n.body_en}</p>
+                      <div className="mt-3">
+                        <button onClick={() => void deleteNotification(n.id)} className="rounded-lg border border-rose-700/50 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/10">
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "influencers" && (
+          <section className="grid gap-4 lg:grid-cols-3">
+            <form onSubmit={createInfluencer} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">Create referral link</h3>
+              <div className="space-y-3">
+                <input value={influencerForm.name} onChange={(e) => setInfluencerForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Influencer name" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={influencerForm.discount_percent}
+                  onChange={(e) => setInfluencerForm((prev) => ({ ...prev, discount_percent: Number(e.target.value) }))}
+                  placeholder="Discount %"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                />
+                <button disabled={influencerSaving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 disabled:opacity-60">
+                  {influencerSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />} Create code
+                </button>
+              </div>
+            </form>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <h3 className="mb-4 text-sm font-medium">Referral tracking</h3>
+              {influencersLoading ? (
+                <div className="py-10 text-center text-slate-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading links...</div>
+              ) : influencers.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No influencer links yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {influencers.map((item) => {
+                    const conversionRate = item.uses ? ((item.conversions / item.uses) * 100).toFixed(1) : "0.0";
+                    return (
+                      <article key={item.id} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="font-medium">{item.name}</p>
+                          <span className="rounded-full bg-slate-800 px-2 py-1 text-xs">{item.code}</span>
+                        </div>
+                        <div className="grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                          <p>Uses: {item.uses}</p>
+                          <p>Conversions: {item.conversions}</p>
+                          <p>Conversion rate: {conversionRate}%</p>
+                          <p>Revenue: ${item.revenue_generated.toFixed(2)}</p>
+                        </div>
+                        <div className="mt-3 flex gap-2">
+                          <button onClick={() => void copyReferral(item.code)} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-xs hover:border-slate-500">
+                            <Copy className="h-3.5 w-3.5" /> Copy link
+                          </button>
+                          <button onClick={() => void deleteInfluencer(item.id)} className="rounded-lg border border-rose-700/50 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/10">Delete</button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "moderation" && (
+          <section className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">Blocked words</h3>
+              <textarea value={blockedWords} onChange={(e) => setBlockedWords(e.target.value)} className="h-24 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+              <button onClick={() => void saveBlockedWords()} disabled={savingBlockedWords} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 disabled:opacity-60">
+                {savingBlockedWords ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Save blocked words
+              </button>
+              <div className="mt-5 rounded-xl border border-rose-700/30 bg-rose-500/5 p-3">
+                <h4 className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-rose-200"><AlertTriangle className="h-4 w-4" /> Danger zone</h4>
+                <div className="space-y-2">
+                  <button onClick={() => void runDangerAction("revoke_sessions")} disabled={dangerActionLoading} className="w-full rounded-lg border border-amber-700/40 px-2 py-1.5 text-xs hover:bg-amber-500/10">
+                    Revoke all sessions
+                  </button>
+                  <button onClick={() => void runDangerAction("delete_non_admin_users")} disabled className="w-full rounded-lg border border-rose-700/40 px-2 py-1.5 text-xs opacity-60">
+                    Delete non-admin users (mock disabled)
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <h3 className="mb-4 text-sm font-medium">Flagged events feed</h3>
+              {flaggedLoading ? (
+                <div className="py-10 text-center text-slate-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading events...</div>
+              ) : flaggedEvents.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No flagged events.</div>
+              ) : (
+                <div className="space-y-3">
+                  {flaggedEvents.map((event) => (
+                    <article key={event.id} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded-full bg-slate-800 px-2 py-1">{event.event_type.replace("_", " ")}</span>
+                        <span className={cn("rounded-full px-2 py-1", event.severity === "high" ? "bg-rose-500/20 text-rose-200" : event.severity === "medium" ? "bg-amber-500/20 text-amber-200" : "bg-slate-800 text-slate-300")}>
+                          {event.severity}
+                        </span>
+                        <span className="rounded-full bg-slate-800 px-2 py-1">{event.status}</span>
+                      </div>
+                      <p className="text-sm text-slate-200">{event.message}</p>
+                      <div className="mt-3 flex gap-2">
+                        <button onClick={() => void updateFlagStatus(event.id, "resolved")} className="rounded-lg border border-emerald-700/50 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-500/10">Resolve</button>
+                        <button onClick={() => void updateFlagStatus(event.id, "ignored")} className="rounded-lg border border-slate-700 px-2 py-1 text-xs hover:border-slate-500">Ignore</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "logs" && (
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-medium">Real-time activity logs</h3>
+              <button onClick={() => setLogs([])} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-xs hover:border-slate-500">
+                <Trash2 className="h-3.5 w-3.5" /> Clear logs
+              </button>
+            </div>
+            {logs.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No logs yet.</div>
+            ) : (
+              <div className="space-y-2">
+                {logs.map((log) => (
+                  <div key={log.id} className={cn("rounded-xl border px-3 py-2 text-sm", severityClasses[log.type])}>
+                    <div className="mb-0.5 flex items-center justify-between text-xs">
+                      <span className="uppercase tracking-wide">{log.type}</span>
+                      <span>{formatDate(log.createdAt)}</span>
+                    </div>
+                    <p>{log.message}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeTab === "settings" && (
+          <section className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">System info</h3>
+              <div className="space-y-2 text-sm">
+                <div className="rounded-xl bg-slate-800/70 p-3">Environment: {import.meta.env.MODE}</div>
+                <div className="rounded-xl bg-slate-800/70 p-3">
+                  Supabase URL: {showSecrets ? import.meta.env.VITE_SUPABASE_URL : "••••••••••••"}
+                </div>
+                <div className="rounded-xl bg-slate-800/70 p-3">
+                  Supabase anon key: {showSecrets ? import.meta.env.VITE_SUPABASE_ANON_KEY : "••••••••••••"}
+                </div>
+              </div>
+              <button onClick={() => setShowSecrets((v) => !v)} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-xs hover:border-slate-500">
+                {showSecrets ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {showSecrets ? "Hide secrets" : "Show secrets"}
+              </button>
+              <div className="mt-4 grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-800 bg-slate-900 p-2">
+                  <p className="mb-1 inline-flex items-center gap-1 text-slate-400"><Database className="h-3.5 w-3.5" /> DB health</p>
+                  <p>Profiles: {users.length}</p>
+                  <p>Quiz rows: {quizQuestions.length}</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-900 p-2">
+                  <p className="mb-1 inline-flex items-center gap-1 text-slate-400"><Gauge className="h-3.5 w-3.5" /> Runtime</p>
+                  <p>Auto refresh: {autoRefreshEnabled ? "enabled" : "disabled"}</p>
+                  <p>Interval: {autoRefreshSeconds}s</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">Admin tools</h3>
+              <textarea value={systemAnnouncement} onChange={(e) => setSystemAnnouncement(e.target.value)} placeholder="Send system announcement..." className="h-24 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+              <button onClick={() => void sendSystemAnnouncement()} disabled={sendingSystemAnnouncement || !systemAnnouncement.trim()} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 disabled:opacity-60">
+                {sendingSystemAnnouncement ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
+                Send announcement
+              </button>
+              <div className="mt-4 grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                <button onClick={() => addLog("info", "Health check triggered")} className="rounded-lg border border-slate-700 px-2 py-2 hover:border-slate-500">Run health check</button>
+                <button onClick={() => addLog("info", "Cache clear requested")} className="rounded-lg border border-slate-700 px-2 py-2 hover:border-slate-500">Clear cache</button>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <h3 className="mb-3 inline-flex items-center gap-2 text-sm font-medium"><Brain className="h-4 w-4 text-indigo-300" /> Operational playbook</h3>
+              <p className="mb-3 text-xs text-slate-400">Action library for growth, moderation, quiz quality, infra stability and retention execution.</p>
+              <div className="grid gap-2 md:grid-cols-2">
+                {ADMIN_PLAYBOOK.map((item) => (
+                  <article key={item.id} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="rounded-full bg-slate-800 px-2 py-0.5">{item.id}</span>
+                      <span className={cn("rounded-full px-2 py-0.5", item.severity === "high" ? "bg-rose-500/20 text-rose-200" : item.severity === "medium" ? "bg-amber-500/20 text-amber-200" : "bg-slate-800 text-slate-300")}>
+                        {item.severity}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium">{item.title}</p>
+                    <p className="mt-1 text-xs text-slate-400">Category: {item.category}</p>
+                    <p className="mt-1 text-xs text-slate-300"><span className="text-slate-500">Trigger:</span> {item.trigger}</p>
+                    <p className="mt-1 text-xs text-slate-300"><span className="text-slate-500">Action:</span> {item.action}</p>
+                    <p className="mt-1 text-xs text-slate-400">Owner: {item.owner}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
+
+      {detailUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-medium">User details</h3>
+              <button onClick={() => setDetailUser(null)} className="rounded-lg border border-slate-700 p-1.5 hover:border-slate-500">
+                <XCircle className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-2 text-sm">
+              <p><span className="text-slate-400">Name:</span> {detailUser.display_name || "Unnamed"}</p>
+              <p><span className="text-slate-400">Email:</span> {detailUser.email}</p>
+              <p><span className="text-slate-400">Role:</span> {detailUser.role}</p>
+              <p><span className="text-slate-400">XP:</span> {detailUser.xp ?? 0}</p>
+              <p><span className="text-slate-400">Created:</span> {formatDate(detailUser.created_at)}</p>
+              <p><span className="text-slate-400">Last seen:</span> {formatDate(detailUser.last_seen)}</p>
+              <p><span className="text-slate-400">Online:</span> {detailUser.is_online ? "Yes" : "No"}</p>
+              <p><span className="text-slate-400">Banned:</span> {detailUser.is_banned ? "Yes" : "No"}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
                 </div>
               )}
               <div className="mt-4 flex items-center justify-between text-sm">
