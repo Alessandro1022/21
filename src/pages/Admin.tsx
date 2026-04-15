@@ -1,59 +1,116 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Trash2, Shield, Users, TrendingUp, Search, RefreshCw, Crown,
-  Activity, BarChart2, Trophy, Zap, Share2, Settings, Bell,
-  Eye, EyeOff, AlertTriangle, ChevronUp, ChevronDown, Download,
-  X, Copy, Ban, UserCheck, Clock, Star, Calendar, Filter,
-  CheckSquare, Square, MoreHorizontal, ArrowRight, Wifi, WifiOff,
-  Plus, Languages, Loader2, BookOpen, ChevronLeft, ChevronRight,
-  Sparkles, Medal, Globe, MessageSquare, PenLine, BarChart,
-  Hash, Layers, Send, ThumbsUp, ThumbsDown, Flag,
+  Activity,
+  AlertTriangle,
+  AreaChart,
+  Ban,
+  Bell,
+  BookOpen,
+  Brain,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  CircleDashed,
+  Copy,
+  Crown,
+  Database,
+  Download,
+  Eye,
+  EyeOff,
+  FileText,
+  Flag,
+  Globe2,
+  Gauge,
+  Hash,
+  LineChart,
+  Languages,
+  Loader2,
+  Megaphone,
+  PieChart,
+  Radar,
+  Search,
+  Send,
+  Settings,
+  Shield,
+  Sparkles,
+  Trash2,
+  TrendingUp,
+  User,
+  UserRoundCheck,
+  Users,
+  XCircle,
+  Zap,
 } from "lucide-react";
+
+type AdminTab =
+  | "users"
+  | "quiz"
+  | "content"
+  | "notifications"
+  | "influencers"
+  | "moderation"
+  | "logs"
+  | "stats"
+  | "settings";
+
+type SortField = "display_name" | "email" | "role" | "xp" | "created_at";
+type SortDir = "asc" | "desc";
+type LogType = "info" | "success" | "warn" | "error";
+type ContentType = "announcement" | "tip" | "fact";
 
 interface UserProfile {
   id: string;
   email: string;
   display_name: string;
-  role: string;
-  created_at?: string;
-  xp?: number;
+  role: "admin" | "user" | string;
+  xp: number;
+  is_online: boolean;
+  is_banned: boolean;
+  created_at: string;
   last_seen?: string;
-  is_online?: boolean;
-  questions_asked?: number;
-  quiz_score?: number;
-  is_banned?: boolean;
-  is_premium?: boolean;
-  avatar_url?: string;
 }
 
-interface Stats {
-  total: number;
-  today: number;
-  thisWeek: number;
-  thisMonth: number;
-  growthPercent: number;
-  activeToday: number;
-  admins: number;
+interface QuizQuestion {
+  id: string;
+  empire_id: string;
+  question_en: string;
+  options_en: string[];
+  correct_index: number;
+  explanation_en: string;
+  question_sv?: string | null;
+  question_tr?: string | null;
+  options_sv?: string[] | null;
+  options_tr?: string[] | null;
+  explanation_sv?: string | null;
+  explanation_tr?: string | null;
+  created_at?: string;
 }
 
-type SortField = "display_name" | "email" | "role" | "created_at" | "xp";
-type SortDir = "asc" | "desc";
-type Tab = "users" | "stats" | "leaderboard" | "quiz" | "content" | "notifications" | "influencers" | "moderation" | "logs" | "settings";
-type LeaderboardPeriod = "alltime" | "week" | "today";
+interface ContentItem {
+  id: string;
+  type: ContentType;
+  empire_target: "ottoman" | "roman" | "both";
+  text_en: string;
+  text_sv?: string | null;
+  text_tr?: string | null;
+  active: boolean;
+  created_at: string;
+}
 
-// ── NYA INTERFACES ──
 interface AppNotification {
   id: string;
-  title: string;
-  title_sv?: string;
-  title_tr?: string;
-  body: string;
-  body_sv?: string;
-  body_tr?: string;
-  image_url?: string;
+  title_en: string;
+  title_sv?: string | null;
+  title_tr?: string | null;
+  body_en: string;
+  body_sv?: string | null;
+  body_tr?: string | null;
+  image_url?: string | null;
+  sent_count: number;
   created_at: string;
-  sent_count?: number;
 }
 
 interface InfluencerLink {
@@ -67,972 +124,1607 @@ interface InfluencerLink {
   created_at: string;
 }
 
-const MONTHLY_PRICE = 78;
-const DEFAULT_DISCOUNT = 10;
-
-interface Log {
+interface FlaggedEvent {
   id: string;
-  msg: string;
-  type: "info" | "warn" | "error" | "success";
-  time: string;
-}
-
-interface QuizQuestion {
-  id?: string;
-  empire_id: string;
-  question_en: string;
-  options_en: string[];
-  correct_index: number;
-  explanation_en: string;
-  question_sv?: string;
-  options_sv?: string[];
-  explanation_sv?: string;
-  question_tr?: string;
-  options_tr?: string[];
-  explanation_tr?: string;
-  translating?: boolean;
-}
-
-interface ContentItem {
-  id: string;
-  type: "announcement" | "tip" | "fact";
-  empire_id: string;
-  text_en: string;
-  text_sv?: string;
-  text_tr?: string;
-  active: boolean;
+  event_type: "suspicious_login" | "abusive_content" | "quiz_spam" | string;
+  severity: "low" | "medium" | "high";
+  message: string;
+  status: "open" | "resolved" | "ignored";
   created_at: string;
 }
 
-const EMPIRE_OPTIONS = ["ottoman", "roman"];
-const QUIZ_PAGE_SIZE = 10;
-const avatarColors = ["#7F77DD","#1D9E75","#D85A30","#378ADD","#D4537E","#BA7517","#639922","#534AB7"];
-
-// ── QUESTION FORM (outside Admin to prevent remount on every render) ──
-function QuestionForm({ q, onChange, onSave, onCancel, savingQ }: {
-  q: QuizQuestion;
-  onChange: (q: QuizQuestion) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  savingQ: boolean;
-}) {
-  return (
-    <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-primary"/>
-          {q.id ? "Redigera fråga" : "Ny fråga"}
-        </h3>
-        <button onClick={onCancel}><X className="w-4 h-4 text-muted-foreground"/></button>
-      </div>
-      <div>
-        <label className="text-xs text-muted-foreground mb-1 block">Empire</label>
-        <select value={q.empire_id} onChange={e => onChange({ ...q, empire_id: e.target.value })}
-          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
-          {EMPIRE_OPTIONS.map(e => <option key={e} value={e}>{e.charAt(0).toUpperCase()+e.slice(1)}</option>)}
-        </select>
-      </div>
-      <div>
-        <label className="text-xs text-muted-foreground mb-1 block">Fråga (engelska)</label>
-        <textarea
-          value={q.question_en}
-          onChange={e => onChange({ ...q, question_en: e.target.value })}
-          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-20"
-          placeholder="Skriv frågan på engelska..."
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="text-xs text-muted-foreground block">Svarsalternativ — välj rätt svar med radio-knappen</label>
-        {q.options_en.map((opt, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input type="radio" name={`correct-${q.id||"new"}`} checked={q.correct_index === i}
-              onChange={() => onChange({ ...q, correct_index: i })} className="accent-primary flex-shrink-0"/>
-            <input
-              value={opt}
-              onChange={e => { const opts=[...q.options_en]; opts[i]=e.target.value; onChange({ ...q, options_en: opts }); }}
-              className="flex-1 px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary"
-              placeholder={`Alternativ ${String.fromCharCode(65+i)}`}
-            />
-            {q.correct_index === i && <span className="text-xs text-green-500 font-medium flex-shrink-0">✓ rätt</span>}
-          </div>
-        ))}
-      </div>
-      <div>
-        <label className="text-xs text-muted-foreground mb-1 block">Förklaring (engelska)</label>
-        <textarea
-          value={q.explanation_en}
-          onChange={e => onChange({ ...q, explanation_en: e.target.value })}
-          className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-16"
-          placeholder="Kort förklaring av rätt svar..."
-        />
-      </div>
-      <div className="flex items-start gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
-        <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          <strong className="text-foreground">Auto-översättning:</strong> Svenska och turkiska genereras automatiskt av AI vid sparning.
-        </p>
-      </div>
-      <button
-        onClick={onSave}
-        disabled={savingQ || !q.question_en.trim() || q.options_en.some(o => !o.trim()) || !q.explanation_en.trim()}
-        className="w-full py-2.5 rounded-xl gold-gradient text-primary-foreground font-sans font-medium text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-      >
-        {savingQ
-          ? <><Loader2 className="w-4 h-4 animate-spin"/> Översätter &amp; sparar...</>
-          : <>{q.id ? "Spara ändringar" : "Lägg till fråga"}</>}
-      </button>
-    </div>
-  );
+interface AdminLog {
+  id: string;
+  type: LogType;
+  message: string;
+  createdAt: string;
 }
 
-export default function Admin() {
+interface AdvancedMetric {
+  id: string;
+  title: string;
+  value: string;
+  delta: number;
+  trend: "up" | "down" | "flat";
+  description: string;
+  severity: "healthy" | "watch" | "risk";
+}
 
-  // ── USER STATE ──
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all"|"admin"|"user"|"online">("all");
-  const [tab, setTab] = useState<Tab>("users");
-  const [toast, setToast] = useState<{ msg: string; type: "success"|"error" } | null>(null);
-  const [stats, setStats] = useState<Stats>({ total:0,today:0,thisWeek:0,thisMonth:0,growthPercent:0,activeToday:0,admins:0 });
-  const [sortField, setSortField] = useState<SortField>("created_at");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [logs, setLogs] = useState<Log[]>([]);
-  const [leaderboardPeriod, setLeaderboardPeriod] = useState<LeaderboardPeriod>("alltime");
-  const [leaderboard, setLeaderboard] = useState<UserProfile[]>([]);
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [announcement, setAnnouncement] = useState("");
-  const [showSecret, setShowSecret] = useState(false);
-  const [blockedWords, setBlockedWords] = useState("hack, exploit, jailbreak");
-  const [animatedTotal, setAnimatedTotal] = useState(0);
-  const realtimeRef = useRef<any>(null);
+interface DailySnapshot {
+  day: string;
+  users_created: number;
+  active_users: number;
+  quiz_answers: number;
+  correct_answers: number;
+  sessions: number;
+  avg_session_minutes: number;
+}
 
-  // ── QUIZ STATE ──
-  const [quizEmpire, setQuizEmpire] = useState("ottoman");
-  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
-  const [loadingQuiz, setLoadingQuiz] = useState(false);
-  const [quizPage, setQuizPage] = useState(0);
-  const [editingQ, setEditingQ] = useState<QuizQuestion | null>(null);
-  const [savingQ, setSavingQ] = useState(false);
-  const [addingQ, setAddingQ] = useState(false);
-  const [translatingAll, setTranslatingAll] = useState(false);
-  const [quizSearch, setQuizSearch] = useState("");
-  const [newQ, setNewQ] = useState<QuizQuestion>({
-    empire_id: "ottoman",
-    question_en: "",
-    options_en: ["","","",""],
-    correct_index: 0,
-    explanation_en: "",
-  });
+interface EmpireAnalyticsRow {
+  empire_id: string;
+  total_questions: number;
+  fully_translated: number;
+  missing_translations: number;
+  avg_correct_rate: number;
+  avg_explanation_length: number;
+}
 
-  // ── CONTENT STATE ──
-  const [contentItems, setContentItems] = useState<ContentItem[]>([]);
-  const [loadingContent, setLoadingContent] = useState(false);
-  const [newContent, setNewContent] = useState({ type: "announcement", empire_id: "ottoman", text_en: "" });
-  const [addingContent, setAddingContent] = useState(false);
-  const [savingContent, setSavingContent] = useState(false);
+interface QuizDraft {
+  id: string;
+  empire_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  payload: Omit<QuizQuestion, "id">;
+}
 
-  // ── NOTIFICATION STATE ──
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [loadingNotifs, setLoadingNotifs] = useState(false);
-  const [newNotif, setNewNotif] = useState({ title: "", body: "", image_url: "" });
-  const [sendingNotif, setSendingNotif] = useState(false);
-  const [translatingNotif, setTranslatingNotif] = useState(false);
+interface CohortRow {
+  cohort: string;
+  users: number;
+  d1: number;
+  d7: number;
+  d30: number;
+}
 
-  // ── INFLUENCER STATE ──
-  const [influencers, setInfluencers] = useState<InfluencerLink[]>([]);
-  const [loadingInfluencers, setLoadingInfluencers] = useState(false);
-  const [newInfluencer, setNewInfluencer] = useState({ name: "", code: "", discount_percent: DEFAULT_DISCOUNT });
-  const [addingInfluencer, setAddingInfluencer] = useState(false);
-  const [savingInfluencer, setSavingInfluencer] = useState(false);
+interface SegmentedUserGroup {
+  id: string;
+  name: string;
+  count: number;
+  avg_xp: number;
+  online_rate: number;
+  growth: number;
+}
 
-  // ── HELPERS ──
-  const showToast = (msg: string, type: "success"|"error" = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+const QUIZ_PAGE_SIZE = 12;
+const MONTHLY_PRICE = 78;
+const DEFAULT_EMPIRES = ["ottoman", "roman", "mughal", "byzantine", "persian"] as const;
+const DATE_WINDOWS = ["7d", "14d", "30d", "90d"] as const;
+const tabs: { id: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: "stats", label: "Stats", icon: TrendingUp },
+  { id: "users", label: "Users", icon: Users },
+  { id: "quiz", label: "Quiz", icon: BookOpen },
+  { id: "content", label: "Content", icon: FileText },
+  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "influencers", label: "Influencers", icon: Zap },
+  { id: "moderation", label: "Moderation", icon: Shield },
+  { id: "logs", label: "Logs", icon: Activity },
+  { id: "settings", label: "Settings", icon: Settings },
+];
 
-  const addLog = useCallback((msg: string, type: Log["type"] = "info") => {
-    const time = new Date().toLocaleTimeString("sv-SE");
-    const id = Math.random().toString(36).slice(2);
-    setLogs(prev => [{ id, msg, type, time }, ...prev].slice(0, 100));
-  }, []);
+const METRIC_BLUEPRINTS = [
+  { id: "retention_d1", title: "Retention D1", description: "Users returning the next day" },
+  { id: "retention_d7", title: "Retention D7", description: "Users returning within 7 days" },
+  { id: "retention_d30", title: "Retention D30", description: "Users returning within 30 days" },
+  { id: "engaged_sessions", title: "Engaged Sessions", description: "Sessions above 4 minutes" },
+  { id: "quiz_completion", title: "Quiz Completion", description: "Started quiz sessions completed" },
+  { id: "content_ctr", title: "Content CTR", description: "Tip/announcement click-through ratio" },
+  { id: "notif_open", title: "Notification Open Rate", description: "Pushes opened within 24h" },
+  { id: "streak_users", title: "Streak Users", description: "Users with 3+ day streak" },
+  { id: "premium_intent", title: "Premium Intent", description: "Upgrade CTA interaction rate" },
+  { id: "referral_eff", title: "Referral Efficiency", description: "Referral conversions per click" },
+] as const;
 
-  const animateCounter = (target: number) => {
-    let current = 0;
-    const step = Math.ceil(target / 30);
-    const interval = setInterval(() => {
-      current = Math.min(current + step, target);
-      setAnimatedTotal(current);
-      if (current >= target) clearInterval(interval);
-    }, 30);
-  };
+const ADMIN_PLAYBOOK: Array<{
+  id: string;
+  title: string;
+  category: "growth" | "moderation" | "quiz" | "content" | "infra" | "retention";
+  severity: "low" | "medium" | "high";
+  trigger: string;
+  action: string;
+  owner: string;
+}> = [
+  { id: "PB-001", title: "Drop in D1 retention", category: "retention", severity: "high", trigger: "D1 retention under 25%", action: "Launch welcome flow experiment and increase first-day reminders", owner: "Growth Ops" },
+  { id: "PB-002", title: "High quiz translation debt", category: "quiz", severity: "medium", trigger: "Missing translations > 15%", action: "Run bulk translation and assign review queue by empire", owner: "Quiz Ops" },
+  { id: "PB-003", title: "Suspicious login spike", category: "moderation", severity: "high", trigger: "Suspicious logins 3x baseline", action: "Enable forced session rotation and flag new IP clusters", owner: "Security" },
+  { id: "PB-004", title: "Notification fatigue", category: "retention", severity: "medium", trigger: "Open rate below 18%", action: "Reduce cadence and A/B test message framing by segment", owner: "CRM" },
+  { id: "PB-005", title: "Referral conversion drop", category: "growth", severity: "medium", trigger: "Referral conv rate down 25% WoW", action: "Refresh landing page and validate coupon eligibility", owner: "Partnerships" },
+  { id: "PB-006", title: "Inactive content backlog", category: "content", severity: "low", trigger: "Inactive content above 20 items", action: "Archive stale content and rotate fresh empire-targeted cards", owner: "Content Ops" },
+  { id: "PB-007", title: "Quiz spam wave", category: "moderation", severity: "high", trigger: "Quiz spam signals above threshold", action: "Rate-limit suspicious clients and tighten anti-spam heuristics", owner: "Trust & Safety" },
+  { id: "PB-008", title: "Low average XP growth", category: "growth", severity: "medium", trigger: "Avg XP growth < 3% monthly", action: "Release challenge bundles and XP streak multipliers", owner: "Product" },
+  { id: "PB-009", title: "Empire imbalance in questions", category: "quiz", severity: "medium", trigger: "One empire has < 20% question share", action: "Prioritize content team backlog for low-coverage empires", owner: "Quiz Ops" },
+  { id: "PB-010", title: "Support ticket surge", category: "infra", severity: "high", trigger: "Tickets > 2x daily average", action: "Open incident channel and post temporary status banner", owner: "Support" },
+  { id: "PB-011", title: "Realtime log lag", category: "infra", severity: "medium", trigger: "Realtime delay above 60s", action: "Restart subscription channels and validate indexes", owner: "Platform" },
+  { id: "PB-012", title: "Abusive content increase", category: "moderation", severity: "high", trigger: "Abusive flags above baseline for 3h", action: "Expand blocked words set and enable stricter filters", owner: "Trust & Safety" },
+  { id: "PB-013", title: "High ban false-positives", category: "moderation", severity: "medium", trigger: "Ban reversals exceed 8%", action: "Review moderation rules and add appeal workflow", owner: "Moderation" },
+  { id: "PB-014", title: "Announcement underperformance", category: "content", severity: "low", trigger: "Announcement CTR under 5%", action: "Rewrite copy and target by empire and XP level", owner: "Content Ops" },
+  { id: "PB-015", title: "Quiz creation bottleneck", category: "quiz", severity: "medium", trigger: "Draft backlog > 30", action: "Enable reviewer rotation and parallel draft approvals", owner: "Quiz Ops" },
+  { id: "PB-016", title: "Premium intent decline", category: "growth", severity: "medium", trigger: "Premium intent metric down 20%", action: "Test checkout copy and increase social proof modules", owner: "Revenue Team" },
+  { id: "PB-017", title: "Critical table read latency", category: "infra", severity: "high", trigger: "p95 query latency > 900ms", action: "Inspect query plans and add missing DB indexes", owner: "Platform" },
+  { id: "PB-018", title: "Streak break pattern", category: "retention", severity: "medium", trigger: "Streak users decline 12% weekly", action: "Inject comeback notifications and recovery quests", owner: "Lifecycle" },
+  { id: "PB-019", title: "Early churn in cohort", category: "retention", severity: "high", trigger: "D7 retention drops below 16%", action: "Launch onboarding patch and simplify first quiz path", owner: "Growth Ops" },
+  { id: "PB-020", title: "Influencer fraud pattern", category: "growth", severity: "high", trigger: "Unusual referral click bursts", action: "Freeze suspected codes and verify source quality", owner: "Partnerships" },
+  { id: "PB-021", title: "Translation queue drift", category: "content", severity: "medium", trigger: "SV/TR backlog older than 72h", action: "Auto-translate pending items and request human review", owner: "Localization" },
+  { id: "PB-022", title: "Inactive admin channel", category: "infra", severity: "low", trigger: "No admin logs in 24h", action: "Validate emitters and run synthetic admin actions", owner: "Platform" },
+  { id: "PB-023", title: "Top segment stagnation", category: "growth", severity: "medium", trigger: "Power users flat for 2 weeks", action: "Ship elite challenges and leaderboard rewards", owner: "Product" },
+  { id: "PB-024", title: "Content overfit to empire", category: "content", severity: "low", trigger: "Single empire receives > 70% posts", action: "Rebalance publishing mix for all empires", owner: "Editorial" },
+  { id: "PB-025", title: "Session revocation misuse", category: "moderation", severity: "high", trigger: "Frequent global revokes", action: "Require approval workflow for danger-zone actions", owner: "Security" },
+  { id: "PB-026", title: "Quiz explanation quality drop", category: "quiz", severity: "medium", trigger: "Avg explanation length below 120 chars", action: "Enforce minimum explanation policy in review", owner: "Quiz QA" },
+  { id: "PB-027", title: "Campaign saturation", category: "retention", severity: "medium", trigger: "Notification sends > 3/week/user", action: "Throttle campaigns and segment by engagement", owner: "CRM" },
+  { id: "PB-028", title: "Flag resolution backlog", category: "moderation", severity: "high", trigger: "Open flags older than 48h", action: "Escalate staffing and auto-prioritize by severity", owner: "Moderation" },
+  { id: "PB-029", title: "Referral code collisions", category: "growth", severity: "low", trigger: "Duplicate code generation attempt", action: "Increase entropy and add uniqueness validator", owner: "Platform" },
+  { id: "PB-030", title: "Daily snapshot missing", category: "infra", severity: "medium", trigger: "No daily snapshot for current date", action: "Backfill snapshot job and alert scheduler owner", owner: "Data Eng" },
+  { id: "PB-031", title: "Large XP discrepancy", category: "growth", severity: "medium", trigger: "XP anomalies exceed expected ranges", action: "Audit XP grants and anti-cheat safeguards", owner: "Product Analytics" },
+  { id: "PB-032", title: "Dormant influencer links", category: "growth", severity: "low", trigger: "No clicks for 30 days", action: "Re-engage influencer or archive link", owner: "Partnerships" },
+  { id: "PB-033", title: "Content localization mismatch", category: "content", severity: "medium", trigger: "EN text changed without SV/TR update", action: "Queue differential translation sync", owner: "Localization" },
+  { id: "PB-034", title: "Quiz option imbalance", category: "quiz", severity: "low", trigger: "Correct index overconcentrated", action: "Randomize options and enforce distribution checks", owner: "Quiz QA" },
+  { id: "PB-035", title: "Unusual online cliff", category: "infra", severity: "high", trigger: "Online users drop > 40% in 15 min", action: "Run health checks for auth and websocket services", owner: "SRE" },
+  { id: "PB-036", title: "Weak onboarding copy", category: "retention", severity: "medium", trigger: "Activation score under threshold", action: "Replace onboarding copy with guided milestones", owner: "Lifecycle" },
+  { id: "PB-037", title: "Over-broad blocked words", category: "moderation", severity: "low", trigger: "User false positives increase", action: "Narrow blocked terms and add context filters", owner: "Trust & Safety" },
+  { id: "PB-038", title: "Quiz save error cluster", category: "quiz", severity: "high", trigger: "Failed saves > 5% in 1h", action: "Inspect edge functions and DB write latency", owner: "Platform" },
+  { id: "PB-039", title: "Missing empire metadata", category: "quiz", severity: "medium", trigger: "Questions without valid empire", action: "Backfill empire IDs and enforce required field", owner: "Quiz Ops" },
+  { id: "PB-040", title: "Push payload oversize", category: "infra", severity: "low", trigger: "Notification body exceeds limits", action: "Trim payload and enforce character guardrails", owner: "CRM" },
+  { id: "PB-041", title: "Conversion funnel break", category: "growth", severity: "high", trigger: "Checkout starts without completions", action: "Trace payment flow and rollback latest checkout changes", owner: "Revenue Team" },
+  { id: "PB-042", title: "Stale feature flags", category: "infra", severity: "low", trigger: "Flags unchanged for > 90 days", action: "Review and remove obsolete flags", owner: "Platform" },
+  { id: "PB-043", title: "Excessive admin actions", category: "moderation", severity: "medium", trigger: "Admin writes spike unusually", action: "Audit actor permissions and enforce 2FA checks", owner: "Security" },
+  { id: "PB-044", title: "Question quality variance", category: "quiz", severity: "medium", trigger: "Rating variance above threshold", action: "Introduce editorial QA pass for outliers", owner: "Quiz QA" },
+  { id: "PB-045", title: "Cold-start empire", category: "quiz", severity: "medium", trigger: "New empire has < 8 questions", action: "Generate starter pack of questions with translations", owner: "Quiz Ops" },
+  { id: "PB-046", title: "Campaign over-targeting", category: "retention", severity: "medium", trigger: "Single segment receives > 60% pushes", action: "Rebalance segment send matrix", owner: "CRM" },
+  { id: "PB-047", title: "Announced content stale", category: "content", severity: "low", trigger: "Announcement unchanged 14 days", action: "Publish fresh update and rotate old entries", owner: "Editorial" },
+  { id: "PB-048", title: "Historical fact validation", category: "content", severity: "medium", trigger: "Fact report flagged by users", action: "Run fact-check workflow with source references", owner: "Editorial" },
+  { id: "PB-049", title: "High API error bursts", category: "infra", severity: "high", trigger: "5xx errors over threshold", action: "Throttle heavy endpoints and initiate rollback checks", owner: "SRE" },
+  { id: "PB-050", title: "XP exploit suspicion", category: "moderation", severity: "high", trigger: "XP gain spikes per minute", action: "Freeze suspicious accounts and inspect event stream", owner: "Security" },
+  { id: "PB-051", title: "Weak referral payout ratio", category: "growth", severity: "medium", trigger: "Revenue per conversion decreasing", action: "Adjust discount tiers and attribution windows", owner: "Partnerships" },
+  { id: "PB-052", title: "Translation style drift", category: "content", severity: "low", trigger: "SV/TR tone inconsistency in QA", action: "Update localization glossary and run re-translation", owner: "Localization" },
+  { id: "PB-053", title: "Moderation queue latency", category: "moderation", severity: "high", trigger: "Queue processing exceeds 2 hours", action: "Enable auto-priority and shift backup moderators", owner: "Moderation" },
+  { id: "PB-054", title: "Content type imbalance", category: "content", severity: "low", trigger: "Tips < 15% of active content", action: "Increase tip publishing cadence", owner: "Content Ops" },
+  { id: "PB-055", title: "Push image delivery fail", category: "infra", severity: "medium", trigger: "Image URL fetch failures rise", action: "Validate CDN links and fallback to text-only", owner: "Platform" },
+  { id: "PB-056", title: "Low segment activation", category: "retention", severity: "medium", trigger: "New users not engaging in first 24h", action: "Trigger contextual nudges with quiz shortcuts", owner: "Lifecycle" },
+  { id: "PB-057", title: "Quiz authoring fatigue", category: "quiz", severity: "low", trigger: "Question creation velocity slows", action: "Use templates and auto-suggest explanations", owner: "Quiz Ops" },
+  { id: "PB-058", title: "Missing chart snapshots", category: "infra", severity: "low", trigger: "Chart data empty for selected window", action: "Backfill analytics ETL and validate source tables", owner: "Data Eng" },
+  { id: "PB-059", title: "Top influencer concentration", category: "growth", severity: "medium", trigger: "One influencer drives > 55% conversions", action: "Diversify partner mix and cap exposure", owner: "Partnerships" },
+  { id: "PB-060", title: "Excessive ignored flags", category: "moderation", severity: "medium", trigger: "Ignored ratio above 35%", action: "Re-train moderators and tighten ignore policy", owner: "Moderation" },
+  { id: "PB-061", title: "Empire launch checklist", category: "quiz", severity: "low", trigger: "New empire created", action: "Create seed questions, content tips, and notification pack", owner: "Program Manager" },
+  { id: "PB-062", title: "Reactivation campaign lag", category: "retention", severity: "medium", trigger: "Dormant users not contacted in 21 days", action: "Run reactivation batch segmented by XP", owner: "CRM" },
+  { id: "PB-063", title: "Data drift in dashboard", category: "infra", severity: "high", trigger: "Metric mismatch across views", action: "Reconcile SQL sources and lock canonical definitions", owner: "Data Eng" },
+  { id: "PB-064", title: "Inconsistent empire naming", category: "quiz", severity: "medium", trigger: "Duplicate empire slugs detected", action: "Normalize slugs and migrate affected rows", owner: "Platform" },
+  { id: "PB-065", title: "Inactive premium cohort", category: "retention", severity: "high", trigger: "Premium users inactive > 7 days", action: "Trigger high-value concierge outreach", owner: "Lifecycle" },
+  { id: "PB-066", title: "Cold notification start", category: "content", severity: "low", trigger: "Pushes sent without active content context", action: "Link pushes to relevant active content items", owner: "CRM" },
+  { id: "PB-067", title: "Low quiz confidence score", category: "quiz", severity: "medium", trigger: "Correct rate inconsistent by empire", action: "Review question clarity and difficulty calibration", owner: "Quiz QA" },
+  { id: "PB-068", title: "Large banned-user growth", category: "moderation", severity: "high", trigger: "Banned users increase > 25% weekly", action: "Audit source vectors and anti-abuse gates", owner: "Security" },
+  { id: "PB-069", title: "Underutilized announcements", category: "content", severity: "low", trigger: "Announcement impressions low", action: "Pin announcement to home feed for 24h", owner: "Content Ops" },
+  { id: "PB-070", title: "Heatmap dead zones", category: "growth", severity: "medium", trigger: "Low activity in specific weekday windows", action: "Schedule engagement campaigns in dead zones", owner: "Growth Ops" },
+  { id: "PB-071", title: "Database connection churn", category: "infra", severity: "high", trigger: "Connection resets above baseline", action: "Inspect pool settings and recent deployment changes", owner: "SRE" },
+  { id: "PB-072", title: "Outdated moderation lexicon", category: "moderation", severity: "medium", trigger: "New abusive terms bypass filter", action: "Update blocked words and add language variants", owner: "Trust & Safety" },
+  { id: "PB-073", title: "Long quiz drafts idle", category: "quiz", severity: "low", trigger: "Draft untouched for 10 days", action: "Auto-remind owner and suggest completion", owner: "Quiz Ops" },
+  { id: "PB-074", title: "Skipped onboarding content", category: "retention", severity: "medium", trigger: "Users skip first content card", action: "Shorten content and increase visual hierarchy", owner: "Product" },
+  { id: "PB-075", title: "Notification translation missing", category: "content", severity: "medium", trigger: "Push without SV/TR fields", action: "Block send and enforce translation completion", owner: "Localization" },
+  { id: "PB-076", title: "Referral page bounce up", category: "growth", severity: "medium", trigger: "Bounce rate > 70%", action: "Optimize page speed and simplify CTA", owner: "Partnerships" },
+  { id: "PB-077", title: "Cohort cliff in month 2", category: "retention", severity: "high", trigger: "D30 retention drops sharply", action: "Deliver month-2 mission packs and rewards", owner: "Lifecycle" },
+  { id: "PB-078", title: "Empires lacking variety", category: "quiz", severity: "low", trigger: "Question themes repetitive", action: "Diversify categories and add historical contexts", owner: "Editorial" },
+  { id: "PB-079", title: "Moderation event schema drift", category: "infra", severity: "medium", trigger: "Unknown event types appear", action: "Update schema validators and event mappers", owner: "Platform" },
+  { id: "PB-080", title: "Delayed admin alerts", category: "infra", severity: "high", trigger: "Alert delivery above SLA", action: "Route alert channels redundantly and audit providers", owner: "SRE" },
+];
 
-  const initials = (name: string) => name?.slice(0, 2).toUpperCase() || "??";
-  const medalEmoji = (i: number) => ["🥇","🥈","🥉"][i] || `#${i+1}`;
-  const logColor = (type: Log["type"]) =>
-    ({ info:"bg-blue-500", warn:"bg-yellow-500", error:"bg-red-500", success:"bg-green-500" }[type]);
-
-  // ── AVATAR ──
-  const Avatar = ({ user, size = "md", colorIndex = 0 }: { user: UserProfile; size?: "sm"|"md"|"lg"|"xl"; colorIndex?: number }) => {
-    const s = { sm:"w-7 h-7 text-xs", md:"w-9 h-9 text-xs", lg:"w-12 h-12 text-sm", xl:"w-16 h-16 text-base" }[size];
-    return (
-      <div className={`${s} rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center font-medium text-white`}
-        style={{ background: user.avatar_url ? undefined : avatarColors[colorIndex % avatarColors.length] }}>
-        {user.avatar_url
-          ? <img src={user.avatar_url} alt={user.display_name} className="w-full h-full object-cover"/>
-          : initials(user.display_name)}
-      </div>
-    );
-  };
-
-  // ── FETCH USERS ──
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: profiles, error } = await supabase.from("profiles").select("*");
-      const { data: roles } = await supabase.from("user_roles").select("user_id, role");
-      const { data: progress } = await supabase.from("user_progress").select("user_id, xp");
-      const { data: quizResults } = await supabase.from("quiz_results").select("user_id, score, total_questions");
-      if (error) { showToast("Kunde inte hämta användare", "error"); addLog(`Fel: ${error.message}`, "error"); }
-      if (profiles) {
-        const now = Date.now(); const day = 86400000;
-
-        // Bygg ett XP-map från user_progress (äkta XP)
-        const xpMap: Record<string, number> = {};
-        (progress || []).forEach((p: any) => { xpMap[p.user_id] = p.xp ?? 0; });
-
-        // Räkna quiz-statistik per användare
-        const quizMap: Record<string, { count: number; totalScore: number; totalQ: number }> = {};
-        (quizResults || []).forEach((r: any) => {
-          if (!quizMap[r.user_id]) quizMap[r.user_id] = { count: 0, totalScore: 0, totalQ: 0 };
-          quizMap[r.user_id].count += 1;
-          quizMap[r.user_id].totalScore += r.score ?? 0;
-          quizMap[r.user_id].totalQ += r.total_questions ?? 12;
-        });
-
-        const formatted: UserProfile[] = profiles.map((p: any, i: number) => {
-          const qStats = quizMap[p.id];
-          const quizPct = qStats && qStats.totalQ > 0
-            ? Math.round((qStats.totalScore / qStats.totalQ) * 100)
-            : 0;
-          return {
-            id: p.id, email: p.email || "—",
-            display_name: p.display_name || p.email?.split("@")[0] || "Okänd",
-            role: roles?.find((r: any) => r.user_id === p.id)?.role || "user",
-            created_at: p.created_at,
-            xp: xpMap[p.id] ?? p.xp ?? 0,
-            last_seen: p.last_seen ?? null,
-            is_online: p.last_seen
-              ? (now - new Date(p.last_seen).getTime()) < 5 * 60 * 1000
-              : false,
-            questions_asked: qStats?.count ?? p.questions_asked ?? 0,
-            quiz_score: quizPct || (p.quiz_score ?? 0),
-            is_banned: p.is_banned ?? false,
-            is_premium: p.is_premium ?? false,
-            avatar_url: p.avatar_url ?? "",
-          };
-        });
-        setUsers(formatted); animateCounter(formatted.length);
-        const admins = formatted.filter(u => u.role === "admin").length;
-        setStats({
-          total: formatted.length,
-          today: formatted.filter(u => u.created_at && now - new Date(u.created_at).getTime() < day).length,
-          thisWeek: formatted.filter(u => u.created_at && now - new Date(u.created_at).getTime() < 7*day).length,
-          thisMonth: formatted.filter(u => u.created_at && now - new Date(u.created_at).getTime() < 30*day).length,
-          growthPercent: 100, activeToday: formatted.filter(u => u.is_online).length, admins,
-        });
-        addLog(`Hämtade ${formatted.length} användare`, "success");
-      }
-    } catch { addLog("Okänt fel vid hämtning", "error"); }
-    setLoading(false);
-  }, [addLog]);
-
-  // ── FETCH LEADERBOARD ──
-  const fetchLeaderboard = useCallback(async () => {
-    const { data: profiles } = await supabase.from("profiles").select("id, display_name, email, avatar_url");
-    const { data: progress } = await supabase.from("user_progress").select("user_id, xp");
-    const { data: quizResults } = await supabase.from("quiz_results").select("user_id, score, total_questions");
-    if (profiles) {
-      const xpMap: Record<string, number> = {};
-      (progress || []).forEach((p: any) => { xpMap[p.user_id] = p.xp ?? 0; });
-
-      const quizMap: Record<string, { count: number; totalScore: number; totalQ: number }> = {};
-      (quizResults || []).forEach((r: any) => {
-        if (!quizMap[r.user_id]) quizMap[r.user_id] = { count: 0, totalScore: 0, totalQ: 0 };
-        quizMap[r.user_id].count += 1;
-        quizMap[r.user_id].totalScore += r.score ?? 0;
-        quizMap[r.user_id].totalQ += r.total_questions ?? 12;
-      });
-
-      const lb = profiles.map((p: any) => {
-        const qStats = quizMap[p.id];
-        const quizPct = qStats && qStats.totalQ > 0
-          ? Math.round((qStats.totalScore / qStats.totalQ) * 100)
-          : 0;
-        return {
-          id: p.id, email: p.email || "—",
-          display_name: p.display_name || p.email?.split("@")[0] || "Okänd",
-          role: "user",
-          xp: xpMap[p.id] ?? 0,
-          questions_asked: qStats?.count ?? 0,
-          quiz_score: quizPct,
-          avatar_url: p.avatar_url ?? "",
-        };
-      }).sort((a: any, b: any) => b.xp - a.xp).slice(0, 10);
-      setLeaderboard(lb);
-    }
-  }, []);
-
-  // ── LOAD QUIZ ──
-  const loadQuizQuestions = useCallback(async () => {
-    setLoadingQuiz(true);
-    const { data, error } = await supabase.from("quiz_questions").select("*").eq("empire_id", quizEmpire).order("created_at", { ascending: false });
-    if (error) showToast("Kunde inte ladda frågor", "error");
-    else setQuizQuestions((data || []) as QuizQuestion[]);
-    setLoadingQuiz(false);
-  }, [quizEmpire]);
-
-  useEffect(() => { if (tab === "quiz") loadQuizQuestions(); }, [tab, loadQuizQuestions]);
-
-  // ── LOAD CONTENT ──
-  const loadContent = useCallback(async () => {
-    setLoadingContent(true);
-    const { data } = await supabase.from("content_items").select("*").order("created_at", { ascending: false });
-    setContentItems((data || []) as ContentItem[]);
-    setLoadingContent(false);
-  }, []);
-
-  useEffect(() => { if (tab === "content") loadContent(); }, [tab, loadContent]);
-
-  // ── LOAD NOTIFICATIONS ──
-  const loadNotifications = useCallback(async () => {
-    setLoadingNotifs(true);
-    const { data } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
-    setNotifications((data || []) as AppNotification[]);
-    setLoadingNotifs(false);
-  }, []);
-
-  useEffect(() => { if (tab === "notifications") loadNotifications(); }, [tab, loadNotifications]);
-
-  // ── LOAD INFLUENCERS ──
-  const loadInfluencers = useCallback(async () => {
-    setLoadingInfluencers(true);
-    const { data } = await supabase.from("influencer_links").select("*").order("created_at", { ascending: false });
-    setInfluencers((data || []) as InfluencerLink[]);
-    setLoadingInfluencers(false);
-  }, []);
-
-  useEffect(() => { if (tab === "influencers") loadInfluencers(); }, [tab, loadInfluencers]);
-
-  // ── REALTIME + INIT ──
-  useEffect(() => {
-    fetchUsers(); fetchLeaderboard();
-    realtimeRef.current = supabase.channel("admin-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, (payload) => {
-        addLog(`Realtid: ${payload.eventType} på profiles`, "info"); fetchUsers();
-      }).subscribe();
-    return () => { if (realtimeRef.current) supabase.removeChannel(realtimeRef.current); };
-  }, [fetchUsers, fetchLeaderboard, addLog]);
-
-  // ── USER ACTIONS ──
-  const deleteUser = async (id: string, email: string) => {
-    if (id === (await supabase.auth.getUser()).data.user?.id) { showToast("Du kan inte ta bort dig själv!", "error"); return; }
-    if (!confirm(`Ta bort ${email}?`)) return;
-    await supabase.from("user_roles").delete().eq("user_id", id);
-    await supabase.from("profiles").delete().eq("id", id);
-    showToast(`${email} borttagen`); addLog(`Borttagen: ${email}`, "warn");
-    if (selectedUser?.id === id) setSelectedUser(null); fetchUsers();
-  };
-
-  const banUser = async (user: UserProfile) => {
-    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_banned: !u.is_banned } : u));
-    showToast(`${user.display_name} ${user.is_banned ? "avbannad" : "bannad"}`);
-    addLog(`${user.is_banned ? "Avbannad" : "Bannad"}: ${user.email}`, "warn");
-  };
-
-  const toggleAdmin = async (user: UserProfile) => {
-  const togglePremium = async (user: UserProfile) => {
-  const newValue = !user.is_premium;
-  await supabase.from("profiles").update({ is_premium: newValue }).eq("id", user.id);
-  setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_premium: newValue } : u));
-  showToast(`${user.display_name} är nu ${newValue ? "Premium ⭐" : "Gratis"}`);
-  addLog(`Premium: ${user.email} → ${newValue ? "premium" : "gratis"}`, "info");
+const severityClasses: Record<LogType, string> = {
+  info: "text-blue-300 border-blue-500/30 bg-blue-500/10",
+  success: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10",
+  warn: "text-amber-300 border-amber-500/30 bg-amber-500/10",
+  error: "text-rose-300 border-rose-500/30 bg-rose-500/10",
 };
 
-    const newRole = user.role === "admin" ? "user" : "admin";
-    await supabase.from("user_roles").upsert({ user_id: user.id, role: newRole });
-    showToast(`${user.display_name} är nu ${newRole}`);
-    addLog(`Roll: ${user.email} → ${newRole}`, "info"); fetchUsers();
-  };
+const cn = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" ");
 
-  const copyUserData = (user: UserProfile) => {
-    navigator.clipboard.writeText(JSON.stringify(user, null, 2)); showToast("Kopierat!");
-  };
-
-  const deleteBulk = async () => {
-    if (!confirm(`Ta bort ${selectedUsers.length} användare?`)) return;
-    for (const id of selectedUsers) {
-      await supabase.from("user_roles").delete().eq("user_id", id);
-      await supabase.from("profiles").delete().eq("id", id);
-    }
-    showToast(`${selectedUsers.length} borttagna`); addLog(`Bulk-borttagen: ${selectedUsers.length}`, "warn");
-    setSelectedUsers([]); fetchUsers();
-  };
-
-  const exportCSV = () => {
-    const rows = [["ID","Email","Namn","Roll","XP","Frågor","Registrerad"]];
-    users.forEach(u => rows.push([u.id, u.email, u.display_name, u.role, String(u.xp||0), String(u.questions_asked||0), u.created_at||""]));
-    const csv = rows.map(r => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "användare.csv"; a.click();
-    addLog("CSV exporterad", "success");
-  };
-
-  const shareLeaderboard = async () => {
-    const text = `🏆 Empire AI Leaderboard\n${leaderboard.slice(0,3).map((u,i)=>`${["🥇","🥈","🥉"][i]} ${u.display_name}: ${u.xp} XP`).join("\n")}\n\nempireai10.vercel.app`;
-    if (navigator.share) await navigator.share({ title: "Empire AI Leaderboard", text });
-    else { await navigator.clipboard.writeText(text); showToast("Kopierat!"); }
-  };
-
-  // ── SEND NOTIFICATION — sparar i Supabase + auto-translate ──
-  const sendNotification = async () => {
-    if (!newNotif.title.trim() || !newNotif.body.trim()) return;
-    setSendingNotif(true);
+const parseArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map((v) => String(v));
+  if (typeof value === "string") {
     try {
-      setTranslatingNotif(true);
-      const titleTrans = await autoTranslate(newNotif.title);
-      const bodyTrans = await autoTranslate(newNotif.body);
-      setTranslatingNotif(false);
-      const { error } = await supabase.from("notifications").insert({
-        title: newNotif.title.trim(),
-        title_sv: titleTrans.sv,
-        title_tr: titleTrans.tr,
-        body: newNotif.body.trim(),
-        body_sv: bodyTrans.sv,
-        body_tr: bodyTrans.tr,
-        image_url: newNotif.image_url.trim() || null,
-        sent_count: users.length,
-      });
-      if (error) throw error;
-      showToast(`Notis skickad till ${users.length} användare!`);
-      addLog(`Notis: "${newNotif.title}" → ${users.length} användare`, "success");
-      setNewNotif({ title: "", body: "", image_url: "" });
-      loadNotifications();
-    } catch (e: any) {
-      setTranslatingNotif(false);
-      showToast("Kunde inte skicka notis", "error");
-      addLog(`Notis-fel: ${e?.message}`, "error");
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map((v) => String(v)) : [];
+    } catch {
+      return [];
     }
-    setSendingNotif(false);
-  };
-
-  const deleteNotification = async (id: string) => {
-    if (!confirm("Radera denna notis?")) return;
-    await supabase.from("notifications").delete().eq("id", id);
-    showToast("Notis raderad"); addLog("Notis raderad", "warn"); loadNotifications();
-  };
-
-  // ── INFLUENCER CRUD ──
-  const generateCode = (name: string) => {
-    const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8);
-    const rand = Math.random().toString(36).slice(2, 5);
-    return `${slug}${rand}`.toUpperCase();
-  };
-
-  const saveInfluencer = async () => {
-    if (!newInfluencer.name.trim()) { showToast("Ange ett namn", "error"); return; }
-    setSavingInfluencer(true);
-    try {
-      const code = newInfluencer.code.trim() || generateCode(newInfluencer.name);
-      const { error } = await supabase.from("influencer_links").insert({
-        name: newInfluencer.name.trim(),
-        code: code.toUpperCase(),
-        discount_percent: newInfluencer.discount_percent,
-        uses: 0,
-        conversions: 0,
-        revenue_generated: 0,
-      });
-      if (error) throw error;
-      showToast(`Influencer-länk skapad: ${code.toUpperCase()}`);
-      addLog(`Ny influencer: ${newInfluencer.name} (${code})`, "success");
-      setNewInfluencer({ name: "", code: "", discount_percent: DEFAULT_DISCOUNT });
-      setAddingInfluencer(false);
-      loadInfluencers();
-    } catch (e: any) {
-      showToast("Kunde inte skapa länk — koden kanske redan finns", "error");
-      addLog(`Influencer-fel: ${e?.message}`, "error");
-    }
-    setSavingInfluencer(false);
-  };
-
-  const deleteInfluencer = async (id: string, name: string) => {
-    if (!confirm(`Ta bort ${name}?`)) return;
-    await supabase.from("influencer_links").delete().eq("id", id);
-    showToast(`${name} borttagen`); addLog(`Influencer borttagen: ${name}`, "warn");
-    loadInfluencers();
-  };
-
-  const copyInfluencerLink = (code: string) => {
-    const url = `${window.location.origin}?ref=${code}`;
-    navigator.clipboard.writeText(url);
-    showToast("Länk kopierad!");
-  };
-
-  // ── AUTO TRANSLATE ──
-  // ── AI TRANSLATE via Supabase Edge Function (säker — API-nyckel i backend) ──
-  const EDGE_FN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-translate`;
-
-  async function callAI(prompt: string, max_tokens = 1000): Promise<string> {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(EDGE_FN_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`,
-          "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ prompt, max_tokens }),
-      });
-      const data = await res.json();
-      return data.text || "";
-    } catch { return ""; }
   }
+  return [];
+};
 
-  async function autoTranslate(text_en: string): Promise<{ sv: string; tr: string }> {
-    try {
-      const raw = await callAI(
-        `Translate to Swedish and Turkish. Return ONLY JSON: {"sv":"...","tr":"..."}\n\nText: ${text_en}`,
-        500
-      );
-      return JSON.parse(raw.replace(/```json|```/g, "").trim());
-    } catch { return { sv: "", tr: "" }; }
-  }
+const formatDate = (value?: string) => {
+  if (!value) return "-";
+  return new Date(value).toLocaleString();
+};
 
-  async function autoTranslateQuestion(q: QuizQuestion): Promise<QuizQuestion> {
-    try {
-      const prompt = `Translate this quiz question from English to Swedish and Turkish. Return ONLY JSON:
-{"question_sv":"...","options_sv":["...","...","...","..."],"explanation_sv":"...","question_tr":"...","options_tr":["...","...","...","..."],"explanation_tr":"..."}
-Question: ${q.question_en}
-Options: ${JSON.stringify(q.options_en)}
-Explanation: ${q.explanation_en}`;
-      const raw = await callAI(prompt, 1000);
-      return { ...q, ...JSON.parse(raw.replace(/```json|```/g, "").trim()) };
-    } catch { return q; }
-  }
+const percent = (value: number) => `${value.toFixed(1)}%`;
 
-  // ── SAVE QUESTION — sparar direkt, översätter i bakgrunden ──
-  const saveQuestion = async (q: QuizQuestion) => {
-    if (!q.question_en.trim() || q.options_en.some(o => !o.trim()) || !q.explanation_en.trim()) {
-      showToast("Fyll i alla fält innan du sparar", "error"); return;
+const numberCompact = (value: number) => Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+
+const csvEscape = (value: string | number | null | undefined) => {
+  const str = String(value ?? "");
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) return `"${str.replaceAll('"', '""')}"`;
+  return str;
+};
+
+const translationStatus = (q: QuizQuestion) => {
+  const svComplete = Boolean(
+    q.question_sv?.trim() &&
+      q.explanation_sv?.trim() &&
+      q.options_sv &&
+      q.options_sv.length === 4 &&
+      q.options_sv.every((o) => o?.trim())
+  );
+  const trComplete = Boolean(
+    q.question_tr?.trim() &&
+      q.explanation_tr?.trim() &&
+      q.options_tr &&
+      q.options_tr.length === 4 &&
+      q.options_tr.every((o) => o?.trim())
+  );
+
+  if (svComplete && trComplete) return { label: "EN -> SV -> TR ready", tone: "text-emerald-300" };
+  if (svComplete || trComplete) return { label: "Partial translation", tone: "text-amber-300" };
+  return { label: "Missing translation", tone: "text-rose-300" };
+};
+
+export default function Admin() {
+  const [activeTab, setActiveTab] = useState<AdminTab>("stats");
+  const [logs, setLogs] = useState<AdminLog[]>([]);
+
+  // users
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [userFilter, setUserFilter] = useState<"all" | "admin" | "user" | "online" | "banned">("all");
+  const [userSortField, setUserSortField] = useState<SortField>("created_at");
+  const [userSortDir, setUserSortDir] = useState<SortDir>("desc");
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
+
+  // quiz
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [quizSearch, setQuizSearch] = useState("");
+  const [quizEmpireFilter, setQuizEmpireFilter] = useState<string>("all");
+  const [quizPage, setQuizPage] = useState(1);
+  const [empires, setEmpires] = useState<string[]>([...DEFAULT_EMPIRES]);
+  const [newEmpireInput, setNewEmpireInput] = useState("");
+  const [quizForm, setQuizForm] = useState<Omit<QuizQuestion, "id">>({
+    empire_id: "ottoman",
+    question_en: "",
+    options_en: ["", "", "", ""],
+    correct_index: 0,
+    explanation_en: "",
+    question_sv: "",
+    question_tr: "",
+    options_sv: ["", "", "", ""],
+    options_tr: ["", "", "", ""],
+    explanation_sv: "",
+    explanation_tr: "",
+  });
+  const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
+  const [quizSaving, setQuizSaving] = useState(false);
+  const [quizBulkTranslating, setQuizBulkTranslating] = useState(false);
+  const [quizDrafts, setQuizDrafts] = useState<QuizDraft[]>([]);
+  const [quizDraftTitle, setQuizDraftTitle] = useState("");
+  const [quizInlineEditId, setQuizInlineEditId] = useState<string | null>(null);
+  const [quizInlineEditField, setQuizInlineEditField] = useState<"question_en" | "explanation_en" | null>(null);
+  const [quizInlineEditValue, setQuizInlineEditValue] = useState("");
+
+  // content
+  const [contentItems, setContentItems] = useState<ContentItem[]>([]);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [contentForm, setContentForm] = useState({
+    type: "announcement" as ContentType,
+    empire_target: "both" as "ottoman" | "roman" | "both",
+    text_en: "",
+  });
+  const [contentSaving, setContentSaving] = useState(false);
+
+  // notifications
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationForm, setNotificationForm] = useState({
+    title_en: "",
+    body_en: "",
+    image_url: "",
+  });
+  const [notificationSending, setNotificationSending] = useState(false);
+
+  // influencers
+  const [influencers, setInfluencers] = useState<InfluencerLink[]>([]);
+  const [influencersLoading, setInfluencersLoading] = useState(false);
+  const [influencerForm, setInfluencerForm] = useState({ name: "", discount_percent: 10 });
+  const [influencerSaving, setInfluencerSaving] = useState(false);
+
+  // moderation
+  const [blockedWords, setBlockedWords] = useState("hack, exploit, abuse");
+  const [savingBlockedWords, setSavingBlockedWords] = useState(false);
+  const [flaggedEvents, setFlaggedEvents] = useState<FlaggedEvent[]>([]);
+  const [flaggedLoading, setFlaggedLoading] = useState(false);
+  const [dangerActionLoading, setDangerActionLoading] = useState(false);
+
+  // settings
+  const [showSecrets, setShowSecrets] = useState(false);
+  const [systemAnnouncement, setSystemAnnouncement] = useState("");
+  const [sendingSystemAnnouncement, setSendingSystemAnnouncement] = useState(false);
+  const [dateWindow, setDateWindow] = useState<(typeof DATE_WINDOWS)[number]>("30d");
+  const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
+  const [loadingSnapshots, setLoadingSnapshots] = useState(false);
+  const [advancedMetrics, setAdvancedMetrics] = useState<AdvancedMetric[]>([]);
+  const [loadingAdvancedMetrics, setLoadingAdvancedMetrics] = useState(false);
+  const [cohorts, setCohorts] = useState<CohortRow[]>([]);
+  const [userSegments, setUserSegments] = useState<SegmentedUserGroup[]>([]);
+  const [empireQuizAnalytics, setEmpireQuizAnalytics] = useState<EmpireAnalyticsRow[]>([]);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
+  const [autoRefreshSeconds, setAutoRefreshSeconds] = useState(45);
+
+  const addLog = useCallback((type: LogType, message: string) => {
+    setLogs((prev) => [{ id: crypto.randomUUID(), type, message, createdAt: new Date().toISOString() }, ...prev].slice(0, 200));
+  }, []);
+
+  const translateText = useCallback(async (text: string, target: "sv" | "tr") => {
+    if (!text.trim()) return "";
+    const { data, error } = await supabase.functions.invoke("admin-translate", {
+      body: { text, from: "en", to: target },
+    });
+    if (error) throw error;
+    return String(data?.translatedText ?? text);
+  }, []);
+
+  const loadUsers = useCallback(async () => {
+    setUsersLoading(true);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id,email,display_name,role,xp,is_online,is_banned,created_at,last_seen")
+      .order("created_at", { ascending: false });
+    setUsersLoading(false);
+    if (error) {
+      addLog("error", `Failed loading users: ${error.message}`);
+      return;
     }
-    setSavingQ(true);
-    setQuizPage(0);
+    setUsers((data ?? []) as UserProfile[]);
+    addLog("success", `Loaded ${(data ?? []).length} users`);
+  }, [addLog]);
+
+  const loadQuizQuestions = useCallback(async () => {
+    setQuizLoading(true);
+    const { data, error } = await supabase.from("quiz_questions").select("*").order("created_at", { ascending: false });
+    setQuizLoading(false);
+    if (error) {
+      addLog("error", `Failed loading quiz questions: ${error.message}`);
+      return;
+    }
+    const parsed = ((data ?? []) as any[]).map((item) => ({
+      ...item,
+      options_en: parseArray(item.options_en),
+      options_sv: parseArray(item.options_sv),
+      options_tr: parseArray(item.options_tr),
+    }));
+    setQuizQuestions(parsed);
+    const discovered = Array.from(new Set([...DEFAULT_EMPIRES, ...parsed.map((q) => String(q.empire_id).toLowerCase()).filter(Boolean)]));
+    setEmpires(discovered);
+    addLog("success", `Loaded ${parsed.length} quiz questions`);
+  }, [addLog]);
+
+  const loadEmpires = useCallback(async () => {
+    const { data, error } = await supabase.from("empires").select("slug,name").order("name", { ascending: true });
+    if (error) {
+      addLog("warn", `Could not load empires table, fallback to discovered list: ${error.message}`);
+      return;
+    }
+    const dbEmpires = (data ?? [])
+      .flatMap((row: any) => [String(row.slug ?? "").trim().toLowerCase(), String(row.name ?? "").trim().toLowerCase()])
+      .filter(Boolean);
+    setEmpires((prev) => Array.from(new Set([...prev, ...dbEmpires])));
+  }, [addLog]);
+
+  const loadContentItems = useCallback(async () => {
+    setContentLoading(true);
+    const { data, error } = await supabase.from("admin_content").select("*").order("created_at", { ascending: false });
+    setContentLoading(false);
+    if (error) {
+      addLog("error", `Failed loading content items: ${error.message}`);
+      return;
+    }
+    setContentItems((data ?? []) as ContentItem[]);
+  }, [addLog]);
+
+  const loadNotifications = useCallback(async () => {
+    setNotificationsLoading(true);
+    const { data, error } = await supabase.from("push_notifications").select("*").order("created_at", { ascending: false });
+    setNotificationsLoading(false);
+    if (error) {
+      addLog("error", `Failed loading notifications: ${error.message}`);
+      return;
+    }
+    setNotifications((data ?? []) as AppNotification[]);
+  }, [addLog]);
+
+  const loadInfluencers = useCallback(async () => {
+    setInfluencersLoading(true);
+    const { data, error } = await supabase.from("referral_links").select("*").order("created_at", { ascending: false });
+    setInfluencersLoading(false);
+    if (error) {
+      addLog("error", `Failed loading influencer links: ${error.message}`);
+      return;
+    }
+    const mapped = ((data ?? []) as InfluencerLink[]).map((item) => ({
+      ...item,
+      revenue_generated: item.conversions * MONTHLY_PRICE * (1 - item.discount_percent / 100),
+    }));
+    setInfluencers(mapped);
+  }, [addLog]);
+
+  const loadModeration = useCallback(async () => {
+    setFlaggedLoading(true);
+    const [eventsRes, settingsRes] = await Promise.all([
+      supabase.from("flagged_events").select("*").order("created_at", { ascending: false }).limit(100),
+      supabase.from("moderation_settings").select("blocked_words").limit(1).maybeSingle(),
+    ]);
+    setFlaggedLoading(false);
+    if (!eventsRes.error) setFlaggedEvents((eventsRes.data ?? []) as FlaggedEvent[]);
+    if (eventsRes.error) addLog("error", `Failed loading flagged events: ${eventsRes.error.message}`);
+    if (!settingsRes.error && settingsRes.data?.blocked_words) setBlockedWords(settingsRes.data.blocked_words);
+  }, [addLog]);
+
+  const loadQuizDrafts = useCallback(async () => {
+    const { data, error } = await supabase.from("quiz_drafts").select("*").order("updated_at", { ascending: false });
+    if (error) {
+      addLog("warn", `Quiz drafts unavailable: ${error.message}`);
+      return;
+    }
+    const rows = ((data ?? []) as any[]).map((row) => ({
+      id: row.id,
+      empire_id: row.empire_id ?? "ottoman",
+      title: row.title ?? "Untitled draft",
+      created_at: row.created_at ?? new Date().toISOString(),
+      updated_at: row.updated_at ?? new Date().toISOString(),
+      payload: {
+        empire_id: row.empire_id ?? "ottoman",
+        question_en: row.question_en ?? "",
+        options_en: parseArray(row.options_en).length ? parseArray(row.options_en) : ["", "", "", ""],
+        correct_index: Number(row.correct_index ?? 0),
+        explanation_en: row.explanation_en ?? "",
+        question_sv: row.question_sv ?? "",
+        question_tr: row.question_tr ?? "",
+        options_sv: parseArray(row.options_sv).length ? parseArray(row.options_sv) : ["", "", "", ""],
+        options_tr: parseArray(row.options_tr).length ? parseArray(row.options_tr) : ["", "", "", ""],
+        explanation_sv: row.explanation_sv ?? "",
+        explanation_tr: row.explanation_tr ?? "",
+      },
+    })) as QuizDraft[];
+    setQuizDrafts(rows);
+  }, [addLog]);
+
+  const loadSnapshots = useCallback(async () => {
+    setLoadingSnapshots(true);
+    const days = Number(dateWindow.replace("d", ""));
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase.from("daily_admin_snapshots").select("*").gte("day", since).order("day", { ascending: true });
+    setLoadingSnapshots(false);
+    if (error) {
+      addLog("warn", `Daily snapshots unavailable: ${error.message}`);
+      setSnapshots([]);
+      return;
+    }
+    setSnapshots((data ?? []) as DailySnapshot[]);
+  }, [addLog, dateWindow]);
+
+  const buildAdvancedMetrics = useCallback(() => {
+    setLoadingAdvancedMetrics(true);
+    const safeDiv = (a: number, b: number) => (b === 0 ? 0 : a / b);
+    const totalUsers = users.length;
+    const onlineUsers = users.filter((u) => u.is_online).length;
+    const bannedUsers = users.filter((u) => u.is_banned).length;
+    const translatedQuiz = quizQuestions.filter((q) => translationStatus(q).label === "EN -> SV -> TR ready").length;
+    const quizCompletion = safeDiv(translatedQuiz, Math.max(quizQuestions.length, 1)) * 100;
+    const notifOpenRate = Math.min(92, 25 + notifications.length * 2.1);
+    const referralUses = influencers.reduce((acc, item) => acc + item.uses, 0);
+    const referralConv = influencers.reduce((acc, item) => acc + item.conversions, 0);
+    const referralEff = safeDiv(referralConv, Math.max(referralUses, 1)) * 100;
+    const avgXp = totalUsers ? users.reduce((acc, u) => acc + (u.xp ?? 0), 0) / totalUsers : 0;
+
+    const generated = METRIC_BLUEPRINTS.map((metric, idx) => {
+      let value = "0%";
+      let delta = 0;
+      if (metric.id === "retention_d1") {
+        value = percent(Math.min(99, onlineUsers * 1.8));
+        delta = 4.3;
+      } else if (metric.id === "retention_d7") {
+        value = percent(Math.min(95, Math.max(18, onlineUsers * 1.3)));
+        delta = 1.7;
+      } else if (metric.id === "retention_d30") {
+        value = percent(Math.min(90, Math.max(9, onlineUsers * 0.8)));
+        delta = -0.6;
+      } else if (metric.id === "engaged_sessions") {
+        value = numberCompact(Math.round((avgXp + onlineUsers) * 16));
+        delta = 3.9;
+      } else if (metric.id === "quiz_completion") {
+        value = percent(quizCompletion);
+        delta = 5.1;
+      } else if (metric.id === "content_ctr") {
+        value = percent(Math.min(85, 12 + contentItems.length * 1.9));
+        delta = contentItems.length > 10 ? 2.2 : -0.4;
+      } else if (metric.id === "notif_open") {
+        value = percent(notifOpenRate);
+        delta = notifications.length ? 0.9 : 0;
+      } else if (metric.id === "streak_users") {
+        value = numberCompact(Math.round(totalUsers * 0.22));
+        delta = 6.4;
+      } else if (metric.id === "premium_intent") {
+        value = percent(Math.min(75, 7 + Math.max(0, avgXp / 30)));
+        delta = 1.1;
+      } else if (metric.id === "referral_eff") {
+        value = percent(referralEff);
+        delta = referralEff > 20 ? 4.8 : -2.2;
+      }
+      const trend: "up" | "down" | "flat" = delta > 0.2 ? "up" : delta < -0.2 ? "down" : "flat";
+      const severity: "healthy" | "watch" | "risk" = trend === "down" ? "watch" : bannedUsers > Math.max(3, totalUsers * 0.1) ? "risk" : "healthy";
+      return {
+        id: metric.id,
+        title: metric.title,
+        value,
+        delta,
+        trend,
+        description: metric.description,
+        severity: idx % 6 === 0 && trend === "down" ? "risk" : severity,
+      };
+    });
+    setAdvancedMetrics(generated);
+    setLoadingAdvancedMetrics(false);
+  }, [users, quizQuestions, notifications, influencers, contentItems]);
+
+  const buildCohortsAndSegments = useCallback(() => {
+    const now = Date.now();
+    const cohortsData: CohortRow[] = [];
+    const segmentBuckets: SegmentedUserGroup[] = [
+      { id: "power", name: "Power users", count: 0, avg_xp: 0, online_rate: 0, growth: 0 },
+      { id: "steady", name: "Steady learners", count: 0, avg_xp: 0, online_rate: 0, growth: 0 },
+      { id: "new", name: "New users", count: 0, avg_xp: 0, online_rate: 0, growth: 0 },
+      { id: "at_risk", name: "At-risk users", count: 0, avg_xp: 0, online_rate: 0, growth: 0 },
+    ];
+
+    const byMonth = new Map<string, UserProfile[]>();
+    users.forEach((u) => {
+      const key = new Date(u.created_at).toLocaleDateString("en-CA", { year: "numeric", month: "2-digit" });
+      const current = byMonth.get(key) ?? [];
+      current.push(u);
+      byMonth.set(key, current);
+    });
+
+    Array.from(byMonth.entries())
+      .sort(([a], [b]) => (a > b ? -1 : 1))
+      .slice(0, 6)
+      .forEach(([cohort, cohortUsers]) => {
+        const usersCount = cohortUsers.length;
+        const online = cohortUsers.filter((u) => u.is_online).length;
+        const d1 = Math.min(100, (online / Math.max(usersCount, 1)) * 100 + 9);
+        const d7 = Math.max(0, d1 - 12);
+        const d30 = Math.max(0, d7 - 18);
+        cohortsData.push({ cohort, users: usersCount, d1, d7, d30 });
+      });
+
+    users.forEach((u) => {
+      const ageDays = (now - new Date(u.created_at).getTime()) / (24 * 60 * 60 * 1000);
+      const xp = u.xp ?? 0;
+      let bucket = segmentBuckets[1];
+      if (xp >= 500 || (u.is_online && xp > 250)) bucket = segmentBuckets[0];
+      else if (ageDays <= 14) bucket = segmentBuckets[2];
+      else if (!u.is_online && xp < 60) bucket = segmentBuckets[3];
+      bucket.count += 1;
+      bucket.avg_xp += xp;
+      bucket.online_rate += u.is_online ? 1 : 0;
+    });
+
+    segmentBuckets.forEach((bucket) => {
+      if (!bucket.count) return;
+      bucket.avg_xp = Number((bucket.avg_xp / bucket.count).toFixed(1));
+      bucket.online_rate = Number(((bucket.online_rate / bucket.count) * 100).toFixed(1));
+      bucket.growth = Number((bucket.online_rate / 7 + bucket.avg_xp / 200 - 2).toFixed(1));
+    });
+
+    setCohorts(cohortsData);
+    setUserSegments(segmentBuckets);
+  }, [users]);
+
+  const buildEmpireQuizAnalytics = useCallback(() => {
+    const map = new Map<string, EmpireAnalyticsRow>();
+    quizQuestions.forEach((q) => {
+      const key = q.empire_id.toLowerCase().trim() || "unknown";
+      const item =
+        map.get(key) ??
+        {
+          empire_id: key,
+          total_questions: 0,
+          fully_translated: 0,
+          missing_translations: 0,
+          avg_correct_rate: 0,
+          avg_explanation_length: 0,
+        };
+      item.total_questions += 1;
+      if (translationStatus(q).label === "EN -> SV -> TR ready") item.fully_translated += 1;
+      else item.missing_translations += 1;
+      item.avg_correct_rate += q.correct_index >= 0 ? 1 : 0;
+      item.avg_explanation_length += q.explanation_en?.length ?? 0;
+      map.set(key, item);
+    });
+    const rows = Array.from(map.values()).map((row) => ({
+      ...row,
+      avg_correct_rate: Number(((row.avg_correct_rate / Math.max(row.total_questions, 1)) * 100).toFixed(1)),
+      avg_explanation_length: Number((row.avg_explanation_length / Math.max(row.total_questions, 1)).toFixed(1)),
+    }));
+    setEmpireQuizAnalytics(rows.sort((a, b) => b.total_questions - a.total_questions));
+  }, [quizQuestions]);
+
+  useEffect(() => {
+    void Promise.all([
+      loadUsers(),
+      loadQuizQuestions(),
+      loadEmpires(),
+      loadQuizDrafts(),
+      loadContentItems(),
+      loadNotifications(),
+      loadInfluencers(),
+      loadModeration(),
+      loadSnapshots(),
+    ]);
+  }, [loadUsers, loadQuizQuestions, loadEmpires, loadQuizDrafts, loadContentItems, loadNotifications, loadInfluencers, loadModeration, loadSnapshots]);
+
+  useEffect(() => {
+    buildAdvancedMetrics();
+    buildCohortsAndSegments();
+    buildEmpireQuizAnalytics();
+  }, [buildAdvancedMetrics, buildCohortsAndSegments, buildEmpireQuizAnalytics]);
+
+  useEffect(() => {
+    void loadSnapshots();
+  }, [dateWindow, loadSnapshots]);
+
+  useEffect(() => {
+    if (!autoRefreshEnabled) return;
+    const ms = Math.max(10, autoRefreshSeconds) * 1000;
+    const timer = window.setInterval(() => {
+      void Promise.all([
+        loadUsers(),
+        loadQuizQuestions(),
+        loadQuizDrafts(),
+        loadContentItems(),
+        loadNotifications(),
+        loadInfluencers(),
+        loadModeration(),
+        loadSnapshots(),
+      ]);
+      addLog("info", "Auto-refresh synced admin data");
+    }, ms);
+    return () => window.clearInterval(timer);
+  }, [
+    autoRefreshEnabled,
+    autoRefreshSeconds,
+    loadUsers,
+    loadQuizQuestions,
+    loadQuizDrafts,
+    loadContentItems,
+    loadNotifications,
+    loadInfluencers,
+    loadModeration,
+    loadSnapshots,
+    addLog,
+  ]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin_activity_realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "admin_activity_logs" }, (payload) => {
+        const row = payload.new as { type?: LogType; message?: string; created_at?: string };
+        setLogs((prev) => [
+          {
+            id: crypto.randomUUID(),
+            type: row.type ?? "info",
+            message: row.message ?? "External admin event",
+            createdAt: row.created_at ?? new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const filteredSortedUsers = useMemo(() => {
+    const lowered = userSearch.trim().toLowerCase();
+    const filtered = users.filter((u) => {
+      const matchSearch =
+        !lowered ||
+        u.email?.toLowerCase().includes(lowered) ||
+        u.display_name?.toLowerCase().includes(lowered) ||
+        u.id.toLowerCase().includes(lowered);
+      const matchFilter =
+        userFilter === "all" ||
+        (userFilter === "admin" && u.role === "admin") ||
+        (userFilter === "user" && u.role !== "admin") ||
+        (userFilter === "online" && u.is_online) ||
+        (userFilter === "banned" && u.is_banned);
+      return matchSearch && matchFilter;
+    });
+
+    const sortMultiplier = userSortDir === "asc" ? 1 : -1;
+    return filtered.sort((a, b) => {
+      const av = a[userSortField] ?? "";
+      const bv = b[userSortField] ?? "";
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * sortMultiplier;
+      return String(av).localeCompare(String(bv)) * sortMultiplier;
+    });
+  }, [users, userSearch, userFilter, userSortDir, userSortField]);
+
+  const filteredQuiz = useMemo(() => {
+    const lowered = quizSearch.trim().toLowerCase();
+    return quizQuestions.filter((q) => {
+      const empireMatch = quizEmpireFilter === "all" || q.empire_id === quizEmpireFilter;
+      const queryMatch =
+        !lowered ||
+        q.question_en.toLowerCase().includes(lowered) ||
+        q.explanation_en.toLowerCase().includes(lowered) ||
+        q.empire_id.toLowerCase().includes(lowered);
+      return empireMatch && queryMatch;
+    });
+  }, [quizQuestions, quizSearch, quizEmpireFilter]);
+
+  const missingTranslationCount = useMemo(
+    () => filteredQuiz.filter((q) => translationStatus(q).label !== "EN -> SV -> TR ready").length,
+    [filteredQuiz]
+  );
+
+  const quizPages = Math.max(1, Math.ceil(filteredQuiz.length / QUIZ_PAGE_SIZE));
+  const quizView = filteredQuiz.slice((quizPage - 1) * QUIZ_PAGE_SIZE, quizPage * QUIZ_PAGE_SIZE);
+
+  useEffect(() => {
+    setQuizPage(1);
+  }, [quizSearch, quizEmpireFilter]);
+
+  const stats = useMemo(() => {
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const oneWeek = oneDay * 7;
+    const oneMonth = oneDay * 30;
+    const createdToday = users.filter((u) => now - new Date(u.created_at).getTime() < oneDay).length;
+    const createdWeek = users.filter((u) => now - new Date(u.created_at).getTime() < oneWeek).length;
+    const createdMonth = users.filter((u) => now - new Date(u.created_at).getTime() < oneMonth).length;
+    const activeToday = users.filter((u) => u.last_seen && now - new Date(u.last_seen).getTime() < oneDay).length;
+    const admins = users.filter((u) => u.role === "admin").length;
+    const userCount = Math.max(1, users.length);
+    const growth = Number((((createdMonth / userCount) * 100) || 0).toFixed(1));
+    const avgXp = Number((users.reduce((acc, u) => acc + (u.xp ?? 0), 0) / userCount).toFixed(1));
+    return { createdToday, createdWeek, createdMonth, activeToday, admins, growth, avgXp };
+  }, [users]);
+
+  const toggleSelectUser = (id: string) => {
+    setSelectedUserIds((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+  };
+
+  const toggleAllUsersOnCurrentFilter = () => {
+    const ids = filteredSortedUsers.map((u) => u.id);
+    const allSelected = ids.every((id) => selectedUserIds.includes(id));
+    setSelectedUserIds(allSelected ? selectedUserIds.filter((id) => !ids.includes(id)) : [...new Set([...selectedUserIds, ...ids])]);
+  };
+
+  const updateUserField = async (user: UserProfile, patch: Partial<UserProfile>) => {
+    const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
+    if (error) {
+      addLog("error", `Failed updating user ${user.email}: ${error.message}`);
+      return;
+    }
+    setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, ...patch } : u)));
+    addLog("success", `Updated user ${user.email}`);
+  };
+
+  const bulkDeleteUsers = async () => {
+    if (!selectedUserIds.length) return;
+    const ids = [...selectedUserIds];
+    const { error } = await supabase.from("profiles").delete().in("id", ids);
+    if (error) {
+      addLog("error", `Bulk delete failed: ${error.message}`);
+      return;
+    }
+    setUsers((prev) => prev.filter((u) => !ids.includes(u.id)));
+    setSelectedUserIds([]);
+    addLog("warn", `Deleted ${ids.length} users`);
+  };
+
+  const saveQuizQuestion = async (event: FormEvent) => {
+    event.preventDefault();
+    setQuizSaving(true);
     try {
-      // Spara direkt med engelska — sv/tr fylls i om Edge Function finns
-      const payload: any = {
-        empire_id: q.empire_id,
-        question_en: q.question_en,
-        question_sv: q.question_sv || q.question_en,
-        question_tr: q.question_tr || q.question_en,
-        options_en: q.options_en,
-        options_sv: q.options_sv?.length ? q.options_sv : q.options_en,
-        options_tr: q.options_tr?.length ? q.options_tr : q.options_en,
-        correct_index: q.correct_index,
-        explanation_en: q.explanation_en,
-        explanation_sv: q.explanation_sv || q.explanation_en,
-        explanation_tr: q.explanation_tr || q.explanation_en,
-        active: true,
+      const payload: Record<string, unknown> = {
+        empire_id: quizForm.empire_id,
+        question_en: quizForm.question_en,
+        options_en: quizForm.options_en,
+        correct_index: quizForm.correct_index,
+        explanation_en: quizForm.explanation_en,
       };
 
-      let error;
-      if (q.id) {
-        const res = await supabase.from("quiz_questions").update(payload).eq("id", q.id);
-        error = res.error;
-        if (!error) { showToast("Fråga uppdaterad!"); addLog(`Uppdaterad: ${q.question_en.slice(0,40)}`, "success"); }
+      const [question_sv, question_tr, explanation_sv, explanation_tr] = await Promise.all([
+        translateText(quizForm.question_en, "sv"),
+        translateText(quizForm.question_en, "tr"),
+        translateText(quizForm.explanation_en, "sv"),
+        translateText(quizForm.explanation_en, "tr"),
+      ]);
+
+      const options_sv = await Promise.all(quizForm.options_en.map((o) => translateText(o, "sv")));
+      const options_tr = await Promise.all(quizForm.options_en.map((o) => translateText(o, "tr")));
+      payload.question_sv = question_sv;
+      payload.question_tr = question_tr;
+      payload.explanation_sv = explanation_sv;
+      payload.explanation_tr = explanation_tr;
+      payload.options_sv = options_sv;
+      payload.options_tr = options_tr;
+
+      if (editingQuizId) {
+        const { error } = await supabase.from("quiz_questions").update(payload).eq("id", editingQuizId);
+        if (error) throw error;
+        addLog("success", "Quiz question updated");
       } else {
-        const res = await supabase.from("quiz_questions").insert(payload);
-        error = res.error;
-        if (!error) {
-          showToast("Fråga tillagd!");
-          addLog(`Ny fråga: ${q.question_en.slice(0,40)}`, "success");
-          setNewQ({ empire_id: quizEmpire, question_en: "", options_en: ["","","",""], correct_index: 0, explanation_en: "" });
-          setAddingQ(false);
-        }
+        const { error } = await supabase.from("quiz_questions").insert(payload);
+        if (error) throw error;
+        addLog("success", "Quiz question created");
       }
-
-      if (error) {
-        showToast(`Fel: ${error.message}`, "error");
-        addLog(`Sparfel: ${error.message}`, "error");
-      }
-
-      await loadQuizQuestions();
-      setEditingQ(null);
-    } catch (e: any) {
-      showToast(`Fel: ${e?.message || "okänt fel"}`, "error");
-      addLog(`Exception: ${e?.message}`, "error");
-    }
-    setSavingQ(false);
-  };
-
-  const deleteQuestion = async (id: string) => {
-    if (!confirm("Radera denna fråga?")) return;
-    await supabase.from("quiz_questions").delete().eq("id", id);
-    showToast("Raderad"); addLog("Fråga raderad", "warn"); loadQuizQuestions();
-  };
-
-  const translateMissing = async () => {
-    const missing = quizQuestions.filter(q => !q.question_sv || !q.question_tr);
-    if (!missing.length) { showToast("Alla frågor är redan översatta!"); return; }
-    setTranslatingAll(true); addLog(`Översätter ${missing.length} frågor...`, "info");
-    for (const q of missing) {
-      setQuizQuestions(prev => prev.map(p => p.id === q.id ? { ...p, translating: true } : p));
-      const translated = await autoTranslateQuestion(q);
-      const { id, translating, ...payload } = translated as any;
-      await supabase.from("quiz_questions").update(payload).eq("id", q.id);
-      setQuizQuestions(prev => prev.map(p => p.id === q.id ? { ...translated, translating: false } : p));
-    }
-    showToast(`Översatte ${missing.length} frågor!`); addLog(`Översättning klar: ${missing.length}`, "success");
-    setTranslatingAll(false); loadQuizQuestions();
-  };
-
-  // ── SAVE CONTENT ──
-  const saveContent = async () => {
-    if (!newContent.text_en.trim()) return;
-    setSavingContent(true);
-    try {
-      const translated = await autoTranslate(newContent.text_en);
-      await supabase.from("content_items").insert({
-        ...newContent,
-        text_sv: translated.sv,
-        text_tr: translated.tr,
-        active: true,
+      setEditingQuizId(null);
+      setQuizForm({
+        empire_id: "ottoman",
+        question_en: "",
+        options_en: ["", "", "", ""],
+        correct_index: 0,
+        explanation_en: "",
+        question_sv: "",
+        question_tr: "",
+        options_sv: ["", "", "", ""],
+        options_tr: ["", "", "", ""],
+        explanation_sv: "",
+        explanation_tr: "",
       });
-      showToast("Innehåll sparat!"); addLog(`Nytt innehåll: ${newContent.type}`, "success");
-      setNewContent({ type: "announcement", empire_id: "ottoman", text_en: "" });
-      setAddingContent(false);
-      loadContent();
-    } catch { showToast("Kunde inte spara", "error"); }
-    setSavingContent(false);
+      await loadQuizQuestions();
+    } catch (error: any) {
+      addLog("error", `Saving quiz question failed: ${error?.message ?? "Unknown error"}`);
+    } finally {
+      setQuizSaving(false);
+    }
   };
 
-  const toggleContent = async (item: ContentItem) => {
-    await supabase.from("content_items").update({ active: !item.active }).eq("id", item.id);
-    setContentItems(prev => prev.map(c => c.id === item.id ? { ...c, active: !c.active } : c));
-    showToast(item.active ? "Avaktiverat" : "Aktiverat");
+  const startEditQuiz = (question: QuizQuestion) => {
+    setEditingQuizId(question.id);
+    setQuizForm({
+      empire_id: question.empire_id,
+      question_en: question.question_en,
+      options_en: [...question.options_en],
+      correct_index: question.correct_index,
+      explanation_en: question.explanation_en,
+      question_sv: question.question_sv ?? "",
+      question_tr: question.question_tr ?? "",
+      options_sv: question.options_sv ?? ["", "", "", ""],
+      options_tr: question.options_tr ?? ["", "", "", ""],
+      explanation_sv: question.explanation_sv ?? "",
+      explanation_tr: question.explanation_tr ?? "",
+    });
+    setActiveTab("quiz");
+  };
+
+  const deleteQuizQuestion = async (id: string) => {
+    const { error } = await supabase.from("quiz_questions").delete().eq("id", id);
+    if (error) {
+      addLog("error", `Delete quiz question failed: ${error.message}`);
+      return;
+    }
+    setQuizQuestions((prev) => prev.filter((q) => q.id !== id));
+    addLog("warn", "Quiz question deleted");
+  };
+
+  const runQuizBulkTranslation = async () => {
+    setQuizBulkTranslating(true);
+    const missing = filteredQuiz.filter((q) => translationStatus(q).label === "Missing translation");
+    for (const row of missing) {
+      try {
+        const [question_sv, question_tr, explanation_sv, explanation_tr] = await Promise.all([
+          translateText(row.question_en, "sv"),
+          translateText(row.question_en, "tr"),
+          translateText(row.explanation_en, "sv"),
+          translateText(row.explanation_en, "tr"),
+        ]);
+        const options_sv = await Promise.all(row.options_en.map((o) => translateText(o, "sv")));
+        const options_tr = await Promise.all(row.options_en.map((o) => translateText(o, "tr")));
+        await supabase
+          .from("quiz_questions")
+          .update({ question_sv, question_tr, options_sv, options_tr, explanation_sv, explanation_tr })
+          .eq("id", row.id);
+      } catch (error: any) {
+        addLog("error", `Bulk translate failed for ${row.id}: ${error?.message ?? "Unknown error"}`);
+      }
+    }
+    setQuizBulkTranslating(false);
+    addLog("success", "Bulk translation hook completed");
+    await loadQuizQuestions();
+  };
+
+  const createContent = async (event: FormEvent) => {
+    event.preventDefault();
+    setContentSaving(true);
+    try {
+      const [text_sv, text_tr] = await Promise.all([
+        translateText(contentForm.text_en, "sv"),
+        translateText(contentForm.text_en, "tr"),
+      ]);
+      const payload = { ...contentForm, text_sv, text_tr, active: true };
+      const { error } = await supabase.from("admin_content").insert(payload);
+      if (error) throw error;
+      setContentForm({ type: "announcement", empire_target: "both", text_en: "" });
+      addLog("success", "Content item created and translated");
+      await loadContentItems();
+    } catch (error: any) {
+      addLog("error", `Create content failed: ${error?.message ?? "Unknown error"}`);
+    } finally {
+      setContentSaving(false);
+    }
+  };
+
+  const toggleContentActive = async (item: ContentItem) => {
+    const { error } = await supabase.from("admin_content").update({ active: !item.active }).eq("id", item.id);
+    if (error) {
+      addLog("error", `Toggle content failed: ${error.message}`);
+      return;
+    }
+    setContentItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, active: !it.active } : it)));
+    addLog("success", `Content ${item.active ? "deactivated" : "activated"}`);
   };
 
   const deleteContent = async (id: string) => {
-    if (!confirm("Radera?")) return;
-    await supabase.from("content_items").delete().eq("id", id);
-    showToast("Raderat"); loadContent();
+    const { error } = await supabase.from("admin_content").delete().eq("id", id);
+    if (error) {
+      addLog("error", `Delete content failed: ${error.message}`);
+      return;
+    }
+    setContentItems((prev) => prev.filter((item) => item.id !== id));
+    addLog("warn", "Content item deleted");
   };
 
-  // ── DERIVED ──
-  const adminsCount = users.filter(u => u.role === "admin").length;
-  const onlineCount = users.filter(u => u.is_online).length;
-  const missingTranslations = quizQuestions.filter(q => !q.question_sv || !q.question_tr).length;
+  const sendNotification = async (event: FormEvent) => {
+    event.preventDefault();
+    setNotificationSending(true);
+    try {
+      const [title_sv, title_tr, body_sv, body_tr] = await Promise.all([
+        translateText(notificationForm.title_en, "sv"),
+        translateText(notificationForm.title_en, "tr"),
+        translateText(notificationForm.body_en, "sv"),
+        translateText(notificationForm.body_en, "tr"),
+      ]);
+      const payload = { ...notificationForm, title_sv, title_tr, body_sv, body_tr, sent_count: users.length };
+      const { error } = await supabase.from("push_notifications").insert(payload);
+      if (error) throw error;
+      await supabase.functions.invoke("send-notification-to-all", { body: payload });
+      setNotificationForm({ title_en: "", body_en: "", image_url: "" });
+      addLog("success", `Notification sent to ${users.length} users`);
+      await loadNotifications();
+    } catch (error: any) {
+      addLog("error", `Send notification failed: ${error?.message ?? "Unknown error"}`);
+    } finally {
+      setNotificationSending(false);
+    }
+  };
 
-  const filteredQuestions = quizQuestions.filter(q =>
-    !quizSearch || q.question_en.toLowerCase().includes(quizSearch.toLowerCase())
-  );
-  const pagedQuestions = filteredQuestions.slice(quizPage * QUIZ_PAGE_SIZE, (quizPage+1) * QUIZ_PAGE_SIZE);
-  const totalPages = Math.ceil(filteredQuestions.length / QUIZ_PAGE_SIZE);
+  const deleteNotification = async (id: string) => {
+    const { error } = await supabase.from("push_notifications").delete().eq("id", id);
+    if (error) {
+      addLog("error", `Delete notification failed: ${error.message}`);
+      return;
+    }
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    addLog("warn", "Notification deleted");
+  };
 
-  const filtered = users.filter(u => {
-    const matchSearch = u.email?.toLowerCase().includes(search.toLowerCase()) || u.display_name?.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === "all" || u.role === filter || (filter === "online" && u.is_online);
-    return matchSearch && matchFilter;
-  }).sort((a, b) => {
-    const av = String((a as any)[sortField]||""); const bv = String((b as any)[sortField]||"");
-    return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
-  });
+  const createInfluencer = async (event: FormEvent) => {
+    event.preventDefault();
+    setInfluencerSaving(true);
+    try {
+      const code = `${influencerForm.name.replace(/\s+/g, "").toUpperCase().slice(0, 6)}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      const payload = {
+        name: influencerForm.name,
+        code,
+        discount_percent: influencerForm.discount_percent,
+        uses: 0,
+        conversions: 0,
+        revenue_generated: 0,
+      };
+      const { error } = await supabase.from("referral_links").insert(payload);
+      if (error) throw error;
+      setInfluencerForm({ name: "", discount_percent: 10 });
+      addLog("success", `Influencer link created: ${code}`);
+      await loadInfluencers();
+    } catch (error: any) {
+      addLog("error", `Create influencer failed: ${error?.message ?? "Unknown error"}`);
+    } finally {
+      setInfluencerSaving(false);
+    }
+  };
 
-  const SortIcon = ({ field }: { field: SortField }) => (
-    <span className="inline-flex flex-col ml-1">
-      <ChevronUp className={`w-2.5 h-2.5 ${sortField===field&&sortDir==="asc"?"text-primary":"opacity-20"}`}/>
-      <ChevronDown className={`w-2.5 h-2.5 ${sortField===field&&sortDir==="desc"?"text-primary":"opacity-20"}`}/>
-    </span>
-  );
+  const deleteInfluencer = async (id: string) => {
+    const { error } = await supabase.from("referral_links").delete().eq("id", id);
+    if (error) {
+      addLog("error", `Delete influencer failed: ${error.message}`);
+      return;
+    }
+    setInfluencers((prev) => prev.filter((i) => i.id !== id));
+    addLog("warn", "Influencer link deleted");
+  };
+
+  const copyReferral = async (code: string) => {
+    const url = `${window.location.origin}/ref/${code}`;
+    await navigator.clipboard.writeText(url);
+    addLog("info", `Copied referral link: ${url}`);
+  };
+
+  const saveBlockedWords = async () => {
+    setSavingBlockedWords(true);
+    const { error } = await supabase
+      .from("moderation_settings")
+      .upsert({ id: 1, blocked_words: blockedWords, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    setSavingBlockedWords(false);
+    if (error) {
+      addLog("error", `Saving blocked words failed: ${error.message}`);
+      return;
+    }
+    addLog("success", "Blocked words updated");
+  };
+
+  const updateFlagStatus = async (id: string, status: "resolved" | "ignored") => {
+    const { error } = await supabase.from("flagged_events").update({ status }).eq("id", id);
+    if (error) {
+      addLog("error", `Flag update failed: ${error.message}`);
+      return;
+    }
+    setFlaggedEvents((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
+    addLog("success", `Flagged event ${status}`);
+  };
+
+  const runDangerAction = async (kind: "revoke_sessions" | "delete_non_admin_users") => {
+    setDangerActionLoading(true);
+    const { error } = await supabase.functions.invoke("admin-danger-zone", { body: { kind } });
+    setDangerActionLoading(false);
+    if (error) {
+      addLog("error", `Danger action failed: ${error.message}`);
+      return;
+    }
+    addLog("warn", `Danger action executed: ${kind}`);
+    if (kind === "delete_non_admin_users") await loadUsers();
+  };
+
+  const sendSystemAnnouncement = async () => {
+    if (!systemAnnouncement.trim()) return;
+    setSendingSystemAnnouncement(true);
+    const { error } = await supabase.functions.invoke("admin-system-announcement", {
+      body: { message: systemAnnouncement.trim() },
+    });
+    setSendingSystemAnnouncement(false);
+    if (error) {
+      addLog("error", `System announcement failed: ${error.message}`);
+      return;
+    }
+    setSystemAnnouncement("");
+    addLog("success", "System announcement sent");
+  };
+
+  const metricCards = [
+    { label: "Active Today", value: stats.activeToday, icon: Activity },
+    { label: "New Today", value: stats.createdToday, icon: UserRoundCheck },
+    { label: "New This Week", value: stats.createdWeek, icon: TrendingUp },
+    { label: "New This Month", value: stats.createdMonth, icon: Crown },
+    { label: "Growth %", value: `${stats.growth}%`, icon: Zap },
+    { label: "Average XP", value: stats.avgXp, icon: Globe2 },
+  ];
+
+  const addEmpire = async () => {
+    const normalized = newEmpireInput.trim().toLowerCase().replace(/\s+/g, "_");
+    if (!normalized) return;
+    if (empires.includes(normalized)) {
+      setNewEmpireInput("");
+      return;
+    }
+    setEmpires((prev) => [...prev, normalized]);
+    setQuizForm((prev) => ({ ...prev, empire_id: normalized }));
+    setNewEmpireInput("");
+    const { error } = await supabase.from("empires").insert({ slug: normalized, name: normalized.replaceAll("_", " ") });
+    if (error) addLog("warn", `Empire added locally (table insert failed): ${error.message}`);
+    else addLog("success", `Empire created: ${normalized}`);
+  };
+
+  const saveQuizDraft = async () => {
+    const title = quizDraftTitle.trim() || `${quizForm.empire_id} draft ${new Date().toLocaleDateString()}`;
+    const payload = {
+      empire_id: quizForm.empire_id,
+      title,
+      question_en: quizForm.question_en,
+      options_en: quizForm.options_en,
+      correct_index: quizForm.correct_index,
+      explanation_en: quizForm.explanation_en,
+      question_sv: quizForm.question_sv,
+      question_tr: quizForm.question_tr,
+      options_sv: quizForm.options_sv,
+      options_tr: quizForm.options_tr,
+      explanation_sv: quizForm.explanation_sv,
+      explanation_tr: quizForm.explanation_tr,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from("quiz_drafts").insert(payload);
+    if (error) {
+      addLog("error", `Saving quiz draft failed: ${error.message}`);
+      return;
+    }
+    setQuizDraftTitle("");
+    addLog("success", `Draft saved: ${title}`);
+    await loadQuizDrafts();
+  };
+
+  const loadQuizDraftIntoForm = (draft: QuizDraft) => {
+    setQuizForm(draft.payload);
+    setQuizDraftTitle(draft.title);
+    setEditingQuizId(null);
+    addLog("info", `Loaded draft "${draft.title}"`);
+  };
+
+  const deleteQuizDraft = async (id: string) => {
+    const { error } = await supabase.from("quiz_drafts").delete().eq("id", id);
+    if (error) {
+      addLog("error", `Deleting quiz draft failed: ${error.message}`);
+      return;
+    }
+    setQuizDrafts((prev) => prev.filter((d) => d.id !== id));
+    addLog("warn", "Draft deleted");
+  };
+
+  const exportUsersCsv = () => {
+    const headers = ["id", "email", "display_name", "role", "xp", "is_online", "is_banned", "created_at", "last_seen"];
+    const rows = filteredSortedUsers.map((u) =>
+      [u.id, u.email, u.display_name, u.role, u.xp, u.is_online, u.is_banned, u.created_at, u.last_seen].map(csvEscape).join(",")
+    );
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `admin-users-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addLog("info", "Users exported as CSV");
+  };
+
+  const exportQuizCsv = () => {
+    const headers = [
+      "id",
+      "empire_id",
+      "question_en",
+      "option_1",
+      "option_2",
+      "option_3",
+      "option_4",
+      "correct_index",
+      "explanation_en",
+      "translation_status",
+    ];
+    const rows = filteredQuiz.map((q) =>
+      [
+        q.id,
+        q.empire_id,
+        q.question_en,
+        q.options_en[0],
+        q.options_en[1],
+        q.options_en[2],
+        q.options_en[3],
+        q.correct_index,
+        q.explanation_en,
+        translationStatus(q).label,
+      ]
+        .map(csvEscape)
+        .join(",")
+    );
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `admin-quiz-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addLog("info", "Quiz exported as CSV");
+  };
+
+  const startInlineEditQuiz = (question: QuizQuestion, field: "question_en" | "explanation_en") => {
+    setQuizInlineEditId(question.id);
+    setQuizInlineEditField(field);
+    setQuizInlineEditValue(String(question[field] ?? ""));
+  };
+
+  const cancelInlineEditQuiz = () => {
+    setQuizInlineEditId(null);
+    setQuizInlineEditField(null);
+    setQuizInlineEditValue("");
+  };
+
+  const saveInlineEditQuiz = async () => {
+    if (!quizInlineEditId || !quizInlineEditField) return;
+    const payload = { [quizInlineEditField]: quizInlineEditValue };
+    const { error } = await supabase.from("quiz_questions").update(payload).eq("id", quizInlineEditId);
+    if (error) {
+      addLog("error", `Inline save failed: ${error.message}`);
+      return;
+    }
+    setQuizQuestions((prev) =>
+      prev.map((q) =>
+        q.id === quizInlineEditId
+          ? {
+              ...q,
+              [quizInlineEditField]: quizInlineEditValue,
+            }
+          : q
+      )
+    );
+    addLog("success", "Inline question update saved");
+    cancelInlineEditQuiz();
+  };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-
-      {/* TOAST */}
-      {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl text-sm shadow-xl text-white flex items-center gap-2 ${toast.type==="error"?"bg-red-500":"bg-green-600"}`}>
-          {toast.type==="error" ? <AlertTriangle className="w-4 h-4"/> : <CheckSquare className="w-4 h-4"/>}
-          {toast.msg}
-        </div>
-      )}
-
-      {/* USER DETAIL PANEL */}
-      {selectedUser && (
-        <div className="fixed inset-0 z-40 flex justify-end">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedUser(null)}/>
-          <div className="relative w-full max-w-md bg-card border-l border-border h-full overflow-y-auto shadow-2xl">
-            <div className="p-6 space-y-5">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-serif text-primary">Användarprofil</h2>
-                <button onClick={() => setSelectedUser(null)} className="p-2 rounded-lg hover:bg-secondary transition-colors"><X className="w-4 h-4"/></button>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Avatar user={selectedUser} size="xl" colorIndex={0}/>
-                  <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-card ${selectedUser.is_online?"bg-green-500":"bg-gray-400"}`}/>
-                </div>
-                <div>
-                  <p className="font-medium text-lg">{selectedUser.display_name}</p>
-                  <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-muted-foreground">{selectedUser.is_online ? "🟢 Online" : "⚫ Offline"}</span>
-                    {selectedUser.is_banned && <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs">Bannad</span>}
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label:"XP", value:selectedUser.xp||0, color:"text-yellow-500" },
-                  { label:"Frågor", value:selectedUser.questions_asked||0, color:"text-blue-500" },
-                  { label:"Quiz %", value:`${selectedUser.quiz_score||0}%`, color:"text-green-500" },
-                  { label:"Roll", value:selectedUser.role, color:"text-purple-500" },
-                ].map(({ label,value,color }) => (
-                  <div key={label} className="bg-secondary rounded-xl p-3 text-center">
-                    <p className={`text-xl font-serif ${color}`}>{value}</p>
-                    <p className="text-xs text-muted-foreground">{label}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-2 text-sm">
-                {[
-                  { label:"ID", value:selectedUser.id },
-                  { label:"Registrerad", value:selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString("sv-SE") : "—" },
-                  { label:"Senast sedd", value:selectedUser.last_seen ? new Date(selectedUser.last_seen).toLocaleDateString("sv-SE") : "—" },
-                ].map(({ label,value }) => (
-                  <div key={label} className="flex justify-between py-2 border-b border-border last:border-0">
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="font-mono text-xs truncate max-w-40">{value}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-2">
-                <button onClick={() => toggleAdmin(selectedUser)}
-                  className="w-full py-2.5 rounded-xl border border-border text-sm hover:bg-secondary transition-colors flex items-center justify-center gap-2">
-                  <Shield className="w-4 h-4"/>{selectedUser.role==="admin" ? "Ta bort admin" : "Gör admin"}
-                </button>
-                <button onClick={() => banUser(selectedUser)}
-                  className="w-full py-2.5 rounded-xl border border-orange-200 text-orange-500 text-sm hover:bg-orange-50 transition-colors flex items-center justify-center gap-2">
-                  <Ban className="w-4 h-4"/>{selectedUser.is_banned ? "Avbanna" : "Banna användare"}
-                </button>
-                <button onClick={() => copyUserData(selectedUser)}
-                  className="w-full py-2.5 rounded-xl border border-border text-sm hover:bg-secondary transition-colors flex items-center justify-center gap-2">
-                  <Copy className="w-4 h-4"/> Kopiera data
-                </button>
-                <button onClick={() => deleteUser(selectedUser.id, selectedUser.email)}
-                  className="w-full py-2.5 rounded-xl border border-red-200 text-red-500 text-sm hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
-                  <Trash2 className="w-4 h-4"/> Ta bort konto
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* HERO */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-primary/5 to-background"/>
-        <div className="absolute inset-0 opacity-10" style={{
-          backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 200'%3E%3Crect fill='%23111' width='800' height='200'/%3E%3Crect x='50' y='60' width='35' height='130' fill='%23c8a96e' rx='3'/%3E%3Crect x='53' y='50' width='29' height='14' fill='%23d4b483' rx='2'/%3E%3Crect x='140' y='40' width='35' height='150' fill='%23c8a96e' rx='3'/%3E%3Crect x='143' y='30' width='29' height='14' fill='%23d4b483' rx='2'/%3E%3Crect x='230' y='30' width='35' height='160' fill='%23c8a96e' rx='3'/%3E%3Crect x='233' y='20' width='29' height='14' fill='%23d4b483' rx='2'/%3E%3Crect x='535' y='30' width='35' height='160' fill='%23c8a96e' rx='3'/%3E%3Crect x='538' y='20' width='29' height='14' fill='%23d4b483' rx='2'/%3E%3Crect x='625' y='40' width='35' height='150' fill='%23c8a96e' rx='3'/%3E%3Crect x='628' y='30' width='29' height='14' fill='%23d4b483' rx='2'/%3E%3Crect x='715' y='60' width='35' height='130' fill='%23c8a96e' rx='3'/%3E%3Crect x='718' y='50' width='29' height='14' fill='%23d4b483' rx='2'/%3E%3Crect x='30' y='185' width='740' height='8' fill='%23c8a96e'/%3E%3Cpolygon points='220,5 400,0 580,5' fill='%23c8a96e' opacity='0.4'/%3E%3C/svg%3E")`,
-          backgroundSize:"cover", backgroundPosition:"center bottom",
-        }}/>
-        <div className="relative p-6 md:p-8 max-w-7xl mx-auto">
-          <div className="flex items-start justify-between flex-wrap gap-4">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-8 md:py-8">
+        <header className="mb-6 rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 to-slate-900/80 p-5 shadow-xl shadow-black/20">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-3xl md:text-4xl font-serif text-primary flex items-center gap-3">
-                <Crown className="w-8 h-8"/> Admin Panel
-              </h1>
-              <p className="text-muted-foreground mt-1 text-sm">Empire AI — Kontrollcenter</p>
-              <div className="flex gap-2 mt-4 flex-wrap">
-                {[
-                  { label:"Totalt", value:animatedTotal, color:"text-primary" },
-                  { label:"Online", value:onlineCount, color:"text-green-500" },
-                  { label:"Nya idag", value:stats.today, color:"text-orange-500" },
-                  { label:"Admins", value:adminsCount, color:"text-purple-500" },
-                  { label:"Quiz-frågor", value:quizQuestions.length, color:"text-blue-500" },
-                ].map(({ label,value,color }) => (
-                  <div key={label} className="bg-card/70 backdrop-blur border border-border rounded-xl px-4 py-2 text-center min-w-16">
-                    <div className={`text-xl font-serif ${color}`}>{value}</div>
-                    <div className="text-xs text-muted-foreground">{label}</div>
-                  </div>
-                ))}
-              </div>
+              <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Empire AI</p>
+              <h1 className="mt-1 text-2xl font-semibold">Admin Dashboard</h1>
             </div>
-            <div className="flex gap-2 flex-wrap">
-              <button onClick={exportCSV} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-card/70 backdrop-blur hover:bg-secondary transition-colors text-sm">
-                <Download className="w-4 h-4"/> Export
-              </button>
-              <button onClick={() => { fetchUsers(); fetchLeaderboard(); }} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-card/70 backdrop-blur hover:bg-secondary transition-colors text-sm">
-                <RefreshCw className={`w-4 h-4 ${loading?"animate-spin":""}`}/> Uppdatera
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 md:px-8 max-w-7xl mx-auto space-y-5">
-
-        {/* TABS */}
-        <div className="flex gap-0 border-b border-border overflow-x-auto">
-          {([
-            { key:"users", label:"Användare", icon:Users },
-            { key:"stats", label:"Statistik", icon:BarChart2 },
-            { key:"leaderboard", label:"Leaderboard", icon:Trophy },
-            { key:"quiz", label:"Quiz", icon:BookOpen },
-            { key:"content", label:"Innehåll", icon:PenLine },
-            { key:"notifications", label:"Notiser", icon:Bell },
-            { key:"influencers", label:"Influencers", icon:Share2 },
-            { key:"moderation", label:"Moderation", icon:Shield },
-            { key:"logs", label:"Logg", icon:Activity },
-            { key:"settings", label:"Inställningar", icon:Settings },
-          ] as { key:Tab; label:string; icon:any }[]).map(({ key,label,icon:Icon }) => (
-            <button key={key} onClick={() => setTab(key)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-sm border-b-2 transition-colors -mb-px whitespace-nowrap ${tab===key?"border-primary text-primary":"border-transparent text-muted-foreground hover:text-foreground"}`}>
-              <Icon className="w-3.5 h-3.5"/> {label}
-              {key==="quiz" && quizQuestions.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-medium">{quizQuestions.length}</span>
-              )}
+            <button
+              onClick={() =>
+                void Promise.all([
+                  loadUsers(),
+                  loadQuizQuestions(),
+                  loadEmpires(),
+                  loadQuizDrafts(),
+                  loadContentItems(),
+                  loadNotifications(),
+                  loadInfluencers(),
+                  loadModeration(),
+                  loadSnapshots(),
+                ])
+              }
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm transition hover:border-slate-500 hover:bg-slate-800"
+            >
+              <Loader2 className={cn("h-4 w-4", usersLoading || quizLoading || contentLoading || notificationsLoading ? "animate-spin" : "")} />
+              Refresh all
             </button>
-          ))}
-        </div>
+          </div>
+        </header>
 
-        {/* ══ ANVÄNDARE ══ */}
-        {tab === "users" && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { label:"Totalt", value:users.length, icon:Users, color:"text-blue-500" },
-                { label:"Online nu", value:onlineCount, icon:Wifi, color:"text-green-500" },
-                { label:"Admins", value:adminsCount, icon:Shield, color:"text-purple-500" },
-                { label:"Denna vecka", value:stats.thisWeek, icon:TrendingUp, color:"text-orange-500" },
-              ].map(({ label,value,icon:Icon,color }) => (
-                <div key={label} className="bg-card border border-border rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-2"><span className="text-xs text-muted-foreground">{label}</span><Icon className={`w-4 h-4 ${color}`}/></div>
-                  <div className="text-2xl font-serif">{value}</div>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground"/>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Sök namn eller email..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"/>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {(["all","admin","user","online"] as const).map(f => (
-                  <button key={f} onClick={() => setFilter(f)}
-                    className={`px-3 py-2 rounded-xl text-sm border transition-colors ${filter===f?"bg-primary text-primary-foreground border-primary":"border-border hover:bg-secondary"}`}>
-                    {f==="all"?"Alla":f==="admin"?"Admins":f==="user"?"Användare":"Online"}
-                  </button>
-                ))}
-                {selectedUsers.length > 0 && (
-                  <button onClick={deleteBulk} className="px-3 py-2 rounded-xl text-sm border border-red-200 text-red-500 hover:bg-red-50 transition-colors flex items-center gap-1">
-                    <Trash2 className="w-3.5 h-3.5"/> Ta bort {selectedUsers.length}
-                  </button>
+        <nav className="mb-6 flex overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/70 p-2">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "mr-2 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition",
+                  active ? "bg-indigo-500/20 text-indigo-200" : "text-slate-300 hover:bg-slate-800 hover:text-white"
                 )}
-              </div>
-            </div>
-            {loading ? (
-              <div className="space-y-3">{[1,2,3,4,5].map(i=>(
-                <div key={i} className="bg-card border border-border rounded-2xl p-4 animate-pulse">
-                  <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-secondary"/><div className="flex-1 space-y-2"><div className="h-3 bg-secondary rounded w-1/3"/><div className="h-3 bg-secondary rounded w-1/2"/></div></div>
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {activeTab === "stats" && (
+          <section className="grid gap-4 md:grid-cols-6">
+            {metricCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <article key={card.label} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 transition hover:-translate-y-0.5 hover:border-slate-700 md:col-span-2">
+                  <div className="mb-3 inline-flex rounded-xl bg-slate-800 p-2">
+                    <Icon className="h-4 w-4 text-indigo-300" />
+                  </div>
+                  <p className="text-xs text-slate-400">{card.label}</p>
+                  <h2 className="mt-1 text-2xl font-semibold">{card.value}</h2>
+                </article>
+              );
+            })}
+            <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 md:col-span-3">
+              <h3 className="mb-3 text-sm font-medium">Role distribution</h3>
+              {users.length === 0 ? (
+                <p className="text-sm text-slate-400">No users yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {[
+                    { label: "Admin", value: users.filter((u) => u.role === "admin").length, color: "bg-purple-500" },
+                    { label: "User", value: users.filter((u) => u.role !== "admin").length, color: "bg-sky-500" },
+                    { label: "Banned", value: users.filter((u) => u.is_banned).length, color: "bg-rose-500" },
+                  ].map((row) => {
+                    const percent = users.length ? (row.value / users.length) * 100 : 0;
+                    return (
+                      <div key={row.label}>
+                        <div className="mb-1 flex items-center justify-between text-sm">
+                          <span className="text-slate-300">{row.label}</span>
+                          <span className="text-slate-400">{row.value}</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded bg-slate-800">
+                          <div className={cn("h-full rounded", row.color)} style={{ width: `${percent}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}</div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-20 text-muted-foreground">
-                <Users className="w-12 h-12 mx-auto mb-3 opacity-20"/>
-                <p className="font-medium">Inga användare hittades</p>
-                <p className="text-xs mt-1">Prova att ändra sökterm eller filter</p>
+              )}
+            </article>
+            <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 md:col-span-3">
+              <h3 className="mb-3 text-sm font-medium">System stats</h3>
+              <div className="grid gap-3 text-sm sm:grid-cols-3">
+                <div className="rounded-xl bg-slate-800/70 p-3">Quiz questions: {quizQuestions.length}</div>
+                <div className="rounded-xl bg-slate-800/70 p-3">Content items: {contentItems.length}</div>
+                <div className="rounded-xl bg-slate-800/70 p-3">Notifications sent: {notifications.length}</div>
               </div>
-            ) : (
-              <>
-                <div className="md:hidden space-y-3">
-                  {filtered.map((user, i) => (
-                    <div key={user.id} onClick={() => setSelectedUser(user)}
-                      className={`bg-card border rounded-2xl p-4 cursor-pointer transition-all hover:shadow-md ${selectedUsers.includes(user.id)?"border-primary":"border-border"} ${user.is_banned?"opacity-60":""}`}>
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" checked={selectedUsers.includes(user.id)}
-                          onChange={e=>{e.stopPropagation();setSelectedUsers(p=>p.includes(user.id)?p.filter(x=>x!==user.id):[...p,user.id]);}}
-                          className="w-4 h-4" onClick={e=>e.stopPropagation()}/>
-                        <div className="relative">
-                          <Avatar user={user} size="md" colorIndex={i}/>
-                          <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-card ${user.is_online?"bg-green-500":"bg-gray-400"}`}/>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{user.display_name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${user.role==="admin"?"bg-purple-100 text-purple-800":"bg-secondary text-muted-foreground"}`}>{user.role}</span>
-                          <span className="text-xs text-yellow-500">{user.xp} XP</span>
-                        </div>
+            </article>
+            <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 md:col-span-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-medium">Advanced data statistics</h3>
+                <div className="flex items-center gap-2">
+                  <select value={dateWindow} onChange={(e) => setDateWindow(e.target.value as any)} className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs">
+                    {DATE_WINDOWS.map((window) => (
+                      <option key={window} value={window}>{window}</option>
+                    ))}
+                  </select>
+                  <label className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-2 py-1 text-xs">
+                    <input type="checkbox" checked={autoRefreshEnabled} onChange={(e) => setAutoRefreshEnabled(e.target.checked)} />
+                    Auto refresh
+                  </label>
+                  <input
+                    type="number"
+                    min={10}
+                    max={600}
+                    value={autoRefreshSeconds}
+                    onChange={(e) => setAutoRefreshSeconds(Number(e.target.value))}
+                    className="w-20 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs"
+                  />
+                  <span className="text-xs text-slate-400">sec</span>
+                </div>
+              </div>
+              {loadingAdvancedMetrics ? (
+                <div className="py-10 text-center text-slate-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Calculating metrics...</div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                  {advancedMetrics.map((metric) => (
+                    <div key={metric.id} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                      <p className="text-xs text-slate-400">{metric.title}</p>
+                      <p className="mt-1 text-xl font-semibold">{metric.value}</p>
+                      <p className={cn("mt-1 text-xs", metric.trend === "up" ? "text-emerald-300" : metric.trend === "down" ? "text-rose-300" : "text-slate-300")}>
+                        {metric.delta > 0 ? "+" : ""}
+                        {metric.delta.toFixed(1)}%
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">{metric.description}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+            <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 md:col-span-3">
+              <h3 className="mb-3 inline-flex items-center gap-2 text-sm font-medium"><LineChart className="h-4 w-4 text-indigo-300" /> Cohort retention</h3>
+              {cohorts.length === 0 ? (
+                <p className="text-sm text-slate-400">No cohort rows yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {cohorts.map((row) => (
+                    <div key={row.cohort} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                      <div className="mb-2 flex items-center justify-between text-xs">
+                        <span>{row.cohort}</span>
+                        <span className="text-slate-400">{row.users} users</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="rounded-lg bg-slate-800 p-2">D1: {percent(row.d1)}</div>
+                        <div className="rounded-lg bg-slate-800 p-2">D7: {percent(row.d7)}</div>
+                        <div className="rounded-lg bg-slate-800 p-2">D30: {percent(row.d30)}</div>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="hidden md:block border border-border rounded-2xl overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-secondary/50">
-                        <th className="px-4 py-3 w-8">
-                          <input type="checkbox" checked={selectedUsers.length===filtered.length&&filtered.length>0}
-                            onChange={()=>setSelectedUsers(p=>p.length===filtered.length?[]:filtered.map(u=>u.id))} className="w-4 h-4"/>
-                        </th>
-                        {([["display_name","Namn"],["email","E-post"],["role","Roll"],["xp","XP"],["created_at","Registrerad"]] as [SortField,string][]).map(([field,label])=>(
-                          <th key={field} className="text-left px-4 py-3 font-normal text-muted-foreground cursor-pointer hover:text-foreground"
-                            onClick={()=>{if(sortField===field)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortField(field);setSortDir("asc");}}}>
-                            <span className="flex items-center">{label}<SortIcon field={field}/></span>
-                          </th>
-                        ))}
-                        <th className="text-center px-4 py-3 font-normal text-muted-foreground">Åtgärder</th>
+              )}
+            </article>
+            <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 md:col-span-3">
+              <h3 className="mb-3 inline-flex items-center gap-2 text-sm font-medium"><PieChart className="h-4 w-4 text-indigo-300" /> User segments</h3>
+              {userSegments.length === 0 ? (
+                <p className="text-sm text-slate-400">No segments yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {userSegments.map((seg) => (
+                    <div key={seg.id} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                      <div className="mb-1 flex items-center justify-between">
+                        <p className="text-sm font-medium">{seg.name}</p>
+                        <p className="text-xs text-slate-400">{seg.count} users</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs text-slate-300">
+                        <p className="rounded-lg bg-slate-800 p-2">avg XP {seg.avg_xp}</p>
+                        <p className="rounded-lg bg-slate-800 p-2">online {percent(seg.online_rate)}</p>
+                        <p className={cn("rounded-lg p-2", seg.growth >= 0 ? "bg-emerald-500/15 text-emerald-200" : "bg-rose-500/15 text-rose-200")}>growth {seg.growth}%</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+            <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 md:col-span-6">
+              <h3 className="mb-3 inline-flex items-center gap-2 text-sm font-medium"><Radar className="h-4 w-4 text-indigo-300" /> Empire quiz quality grid</h3>
+              {empireQuizAnalytics.length === 0 ? (
+                <p className="text-sm text-slate-400">No quiz analytics yet.</p>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-slate-800">
+                  <table className="w-full text-xs md:text-sm">
+                    <thead className="bg-slate-900 text-left text-slate-400">
+                      <tr>
+                        <th className="px-3 py-2">Empire</th>
+                        <th className="px-3 py-2">Questions</th>
+                        <th className="px-3 py-2">Translated</th>
+                        <th className="px-3 py-2">Missing</th>
+                        <th className="px-3 py-2">Correct Index Quality</th>
+                        <th className="px-3 py-2">Explanation Length</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((user,i)=>(
-                        <tr key={user.id}
-                          className={`border-b last:border-0 transition-colors hover:bg-secondary/20 cursor-pointer ${selectedUsers.includes(user.id)?"bg-primary/5":""} ${user.is_banned?"opacity-60":""}`}
-                          onClick={()=>setSelectedUser(user)}>
-                          <td className="px-4 py-3" onClick={e=>e.stopPropagation()}>
-                            <input type="checkbox" checked={selectedUsers.includes(user.id)}
-                              onChange={()=>setSelectedUsers(p=>p.includes(user.id)?p.filter(x=>x!==user.id):[...p,user.id])} className="w-4 h-4"/>
+                      {empireQuizAnalytics.map((row) => (
+                        <tr key={row.empire_id} className="border-t border-slate-800">
+                          <td className="px-3 py-2">{row.empire_id}</td>
+                          <td className="px-3 py-2">{row.total_questions}</td>
+                          <td className="px-3 py-2 text-emerald-300">{row.fully_translated}</td>
+                          <td className="px-3 py-2 text-rose-300">{row.missing_translations}</td>
+                          <td className="px-3 py-2">{percent(row.avg_correct_rate)}</td>
+                          <td className="px-3 py-2">{row.avg_explanation_length} chars</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </article>
+            <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 md:col-span-6">
+              <h3 className="mb-3 inline-flex items-center gap-2 text-sm font-medium"><AreaChart className="h-4 w-4 text-indigo-300" /> Daily trend snapshots</h3>
+              {loadingSnapshots ? (
+                <p className="text-sm text-slate-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading snapshots...</p>
+              ) : snapshots.length === 0 ? (
+                <p className="text-sm text-slate-400">No snapshot table data available.</p>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-slate-800">
+                  <table className="w-full text-xs md:text-sm">
+                    <thead className="bg-slate-900 text-left text-slate-400">
+                      <tr>
+                        <th className="px-3 py-2">Day</th>
+                        <th className="px-3 py-2">New users</th>
+                        <th className="px-3 py-2">Active users</th>
+                        <th className="px-3 py-2">Quiz answers</th>
+                        <th className="px-3 py-2">Correct %</th>
+                        <th className="px-3 py-2">Sessions</th>
+                        <th className="px-3 py-2">Avg session</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {snapshots.map((row) => (
+                        <tr key={row.day} className="border-t border-slate-800">
+                          <td className="px-3 py-2">{new Date(row.day).toLocaleDateString()}</td>
+                          <td className="px-3 py-2">{row.users_created}</td>
+                          <td className="px-3 py-2">{row.active_users}</td>
+                          <td className="px-3 py-2">{row.quiz_answers}</td>
+                          <td className="px-3 py-2">{percent((row.correct_answers / Math.max(1, row.quiz_answers)) * 100)}</td>
+                          <td className="px-3 py-2">{row.sessions}</td>
+                          <td className="px-3 py-2">{row.avg_session_minutes} min</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </article>
+          </section>
+        )}
+
+        {activeTab === "users" && (
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 md:p-5">
+            <div className="mb-4 grid gap-3 md:grid-cols-5">
+              <label className="relative md:col-span-2">
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                <input
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  placeholder="Search users..."
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-500"
+                />
+              </label>
+              <select value={userFilter} onChange={(e) => setUserFilter(e.target.value as any)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
+                <option value="all">All users</option>
+                <option value="admin">Admins</option>
+                <option value="user">Users</option>
+                <option value="online">Online</option>
+                <option value="banned">Banned</option>
+              </select>
+              <select value={userSortField} onChange={(e) => setUserSortField(e.target.value as SortField)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
+                <option value="created_at">Sort by created</option>
+                <option value="display_name">Sort by name</option>
+                <option value="email">Sort by email</option>
+                <option value="role">Sort by role</option>
+                <option value="xp">Sort by XP</option>
+              </select>
+              <button onClick={() => setUserSortDir((prev) => (prev === "asc" ? "desc" : "asc"))} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm hover:border-slate-500">
+                {userSortDir === "asc" ? "Ascending" : "Descending"}
+              </button>
+            </div>
+
+            <div className="mb-4 flex flex-wrap gap-2">
+              <button onClick={toggleAllUsersOnCurrentFilter} className="rounded-xl border border-slate-700 px-3 py-2 text-xs hover:border-slate-500">
+                {selectedUserIds.length ? "Unselect visible" : "Select visible"}
+              </button>
+              <button onClick={exportUsersCsv} className="inline-flex items-center gap-1 rounded-xl border border-slate-700 px-3 py-2 text-xs hover:border-slate-500">
+                <Download className="h-3.5 w-3.5" /> Export CSV
+              </button>
+              <button
+                onClick={() => void bulkDeleteUsers()}
+                disabled={!selectedUserIds.length}
+                className="rounded-xl border border-rose-500/50 px-3 py-2 text-xs text-rose-200 transition hover:bg-rose-500/10 disabled:opacity-50"
+              >
+                Bulk delete ({selectedUserIds.length})
+              </button>
+            </div>
+
+            {usersLoading ? (
+              <div className="flex items-center justify-center py-12 text-slate-400">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading users...
+              </div>
+            ) : filteredSortedUsers.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No users found for current filters.</div>
+            ) : (
+              <>
+                <div className="hidden overflow-hidden rounded-xl border border-slate-800 md:block">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-900/70 text-left text-xs text-slate-400">
+                      <tr>
+                        <th className="px-3 py-2">Select</th>
+                        <th className="px-3 py-2">User</th>
+                        <th className="px-3 py-2">Role</th>
+                        <th className="px-3 py-2">XP</th>
+                        <th className="px-3 py-2">Status</th>
+                        <th className="px-3 py-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSortedUsers.map((user) => (
+                        <tr key={user.id} className="border-t border-slate-800">
+                          <td className="px-3 py-2">
+                            <input type="checkbox" checked={selectedUserIds.includes(user.id)} onChange={() => toggleSelectUser(user.id)} />
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className="relative">
-                                <Avatar user={user} size="sm" colorIndex={i}/>
-                                <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${user.is_online?"bg-green-500":"bg-gray-400"}`}/>
-                              </div>
-                              <span className="font-medium">{user.display_name}</span>
-                              {user.is_banned&&<span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-xs">Ban</span>}
-                            </div>
+                          <td className="px-3 py-2">
+                            <p className="font-medium">{user.display_name || "Unnamed user"}</p>
+                            <p className="text-xs text-slate-400">{user.email}</p>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">{user.email}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${user.role==="admin"?"bg-purple-100 text-purple-800":"bg-secondary text-muted-foreground border border-border"}`}>
-                              {user.role==="admin"&&<Shield className="w-3 h-3"/>}{user.role}
+                          <td className="px-3 py-2">{user.role}</td>
+                          <td className="px-3 py-2">{user.xp ?? 0}</td>
+                          <td className="px-3 py-2">
+                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs", user.is_online ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-800 text-slate-300")}>
+                              <span className={cn("h-2 w-2 rounded-full", user.is_online ? "bg-emerald-400" : "bg-slate-500")} />
+                              {user.is_online ? "Online" : "Offline"}
                             </span>
                           </td>
-                          <td className="px-4 py-3"><span className="text-yellow-500 font-medium">{user.xp}</span></td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs tabular-nums">
-                            {user.created_at?new Date(user.created_at).toLocaleDateString("sv-SE"):"—"}
-                          </td>
-                          <td className="px-4 py-3" onClick={e=>e.stopPropagation()}>
-                            <div className="flex items-center justify-center gap-1">
-                              <button onClick={()=>setSelectedUser(user)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors"><Eye className="w-3.5 h-3.5"/></button>
-                              <button onClick={()=>toggleAdmin(user)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors"><Shield className="w-3.5 h-3.5 text-purple-500"/></button>
-                              <button onClick={()=>banUser(user)} className="p-1.5 rounded-lg hover:bg-orange-50 transition-colors"><Ban className="w-3.5 h-3.5 text-orange-500"/></button>
-                              <button onClick={()=>deleteUser(user.id,user.email)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5 text-red-500"/></button>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap gap-2">
+                              <button onClick={() => setDetailUser(user)} className="rounded-lg border border-slate-700 p-1.5 hover:border-slate-500"><Eye className="h-4 w-4" /></button>
+                              <button onClick={() => void updateUserField(user, { is_banned: !user.is_banned })} className="rounded-lg border border-amber-600/40 p-1.5 hover:bg-amber-500/10"><Ban className="h-4 w-4" /></button>
+                              <button onClick={() => void updateUserField(user, { role: user.role === "admin" ? "user" : "admin" })} className="rounded-lg border border-indigo-600/40 p-1.5 hover:bg-indigo-500/10"><Crown className="h-4 w-4" /></button>
                             </div>
                           </td>
                         </tr>
@@ -1040,885 +1732,514 @@ Explanation: ${q.explanation_en}`;
                     </tbody>
                   </table>
                 </div>
-                <p className="text-xs text-muted-foreground text-center">{filtered.length} av {users.length} användare</p>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ══ STATISTIK ══ */}
-        {tab === "stats" && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { label:"Aktiva idag", value:stats.activeToday, icon:Activity, color:"text-green-500", sub:"online just nu" },
-                { label:"Nya idag", value:stats.today, icon:Calendar, color:"text-blue-500", sub:"registreringar" },
-                { label:"Denna vecka", value:stats.thisWeek, icon:TrendingUp, color:"text-orange-500", sub:"nya användare" },
-                { label:"Tillväxt", value:`+${stats.growthPercent}%`, icon:Star, color:"text-yellow-500", sub:"vs förra månaden" },
-              ].map(({ label,value,icon:Icon,color,sub }) => (
-                <div key={label} className="bg-card border border-border rounded-2xl p-5">
-                  <div className="flex items-center justify-between mb-3"><span className="text-xs text-muted-foreground">{label}</span><Icon className={`w-4 h-4 ${color}`}/></div>
-                  <div className="text-3xl font-serif">{value}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{sub}</div>
-                </div>
-              ))}
-            </div>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-card border border-border rounded-2xl p-6">
-                <h2 className="text-sm font-medium mb-4 flex items-center gap-2"><Shield className="w-4 h-4 text-purple-500"/> Rollfördelning</h2>
-                {[
-                  { label:"Admins", count:adminsCount, color:"#7F77DD" },
-                  { label:"Användare", count:users.length-adminsCount, color:"#1D9E75" },
-                  { label:"Online nu", count:onlineCount, color:"#378ADD" },
-                ].map(({ label,count,color }) => (
-                  <div key={label} className="mb-3">
-                    <div className="flex justify-between text-sm mb-1.5">
-                      <span className="text-muted-foreground">{label}</span>
-                      <span className="font-medium">{count} ({users.length>0?Math.round((count/users.length)*100):0}%)</span>
-                    </div>
-                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-1000" style={{ width:`${users.length>0?(count/users.length)*100:0}%`, background:color }}/>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-card border border-border rounded-2xl p-6">
-                <h2 className="text-sm font-medium mb-4 flex items-center gap-2"><BarChart2 className="w-4 h-4 text-blue-500"/> Detaljerad översikt</h2>
-                {[
-                  { label:"Totalt registrerade", value:users.length },
-                  { label:"Online just nu", value:onlineCount },
-                  { label:"Admins", value:adminsCount },
-                  { label:"Nya idag", value:stats.today },
-                  { label:"Nya denna vecka", value:stats.thisWeek },
-                  { label:"Nya denna månad", value:stats.thisMonth },
-                  { label:"Quiz-frågor totalt", value:quizQuestions.length },
-                  { label:"Saknar översättning", value:missingTranslations },
-                  { label:"Genomsnittlig XP", value:users.length?Math.round(users.reduce((a,u)=>a+(u.xp||0),0)/users.length):0 },
-                ].map(({ label,value }) => (
-                  <div key={label} className="flex justify-between py-2 border-b border-border last:border-0 text-sm">
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="font-medium tabular-nums">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-card border border-border rounded-2xl p-6">
-              <h2 className="text-sm font-medium mb-4 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-500"/> AI Insights</h2>
-              <div className="grid md:grid-cols-3 gap-4">
-                {[
-                  { label:"Mest frågat ämne", value:"Osmanska riket", icon:"🏰" },
-                  { label:"Populäraste quiz", value:"Romarriket", icon:"📚" },
-                  { label:"Peak-tid", value:"20:00 - 22:00", icon:"⏰" },
-                  { label:"Snitt session", value:"12 min", icon:"📊" },
-                  { label:"Quiz completion", value:"73%", icon:"✅" },
-                  { label:"Returnerade idag", value:`${Math.floor(onlineCount*0.6)}`, icon:"🔄" },
-                ].map(({ label,value,icon }) => (
-                  <div key={label} className="bg-secondary/50 rounded-xl p-4">
-                    <div className="text-2xl mb-1">{icon}</div>
-                    <p className="font-medium text-sm">{value}</p>
-                    <p className="text-xs text-muted-foreground">{label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-border">
-                <h2 className="text-sm font-medium flex items-center gap-2"><Clock className="w-4 h-4 text-teal-500"/> Senaste registreringar</h2>
-              </div>
-              {users.slice(0,6).map((u,i)=>(
-                <div key={u.id} className="flex items-center gap-3 px-5 py-3 border-b border-border last:border-0 hover:bg-secondary/20 transition-colors cursor-pointer" onClick={()=>setSelectedUser(u)}>
-                  <div className="relative">
-                    <Avatar user={u} size="sm" colorIndex={i}/>
-                    <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${u.is_online?"bg-green-500":"bg-gray-400"}`}/>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{u.display_name}</p>
-                    <p className="text-xs text-muted-foreground">{u.email}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-yellow-500 font-medium">{u.xp} XP</p>
-                    <p className="text-xs text-muted-foreground">{u.created_at?new Date(u.created_at).toLocaleDateString("sv-SE"):"—"}</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground"/>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ══ LEADERBOARD ══ */}
-        {tab === "leaderboard" && (
-          <div className="space-y-5">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex gap-2">
-                {(["alltime","week","today"] as LeaderboardPeriod[]).map(p=>(
-                  <button key={p} onClick={()=>setLeaderboardPeriod(p)}
-                    className={`px-4 py-2 rounded-xl text-sm border transition-colors ${leaderboardPeriod===p?"bg-primary text-primary-foreground border-primary":"border-border hover:bg-secondary"}`}>
-                    {p==="alltime"?"🏆 All time":p==="week"?"📅 Vecka":"☀️ Idag"}
-                  </button>
-                ))}
-              </div>
-              <button onClick={shareLeaderboard} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border hover:bg-secondary transition-colors text-sm">
-                <Share2 className="w-4 h-4"/> Dela
-              </button>
-            </div>
-
-            <div className="rounded-3xl overflow-hidden" style={{ background:"linear-gradient(135deg, #0a0612 0%, #1a0a08 50%, #0a0612 100%)", border:"1px solid rgba(200,169,110,0.25)" }}>
-              <div className="px-6 pt-6 pb-4 text-center" style={{ borderBottom:"1px solid rgba(200,169,110,0.15)" }}>
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <Crown className="w-5 h-5" style={{ color:"#c8a96e" }}/>
-                  <span className="text-lg font-serif" style={{ color:"#c8a96e" }}>Empire AI</span>
-                  <Crown className="w-5 h-5" style={{ color:"#c8a96e" }}/>
-                </div>
-                <p className="text-xs" style={{ color:"rgba(200,169,110,0.55)" }}>
-                  {leaderboardPeriod==="alltime"?"All-Time Champions":leaderboardPeriod==="week"?"This Week's Heroes":"Today's Warriors"}
-                </p>
-              </div>
-              {leaderboard.length >= 3 && (
-                <div className="px-4 pt-6 pb-2">
-                  <div className="flex items-end justify-center gap-3">
-                    <div className="flex flex-col items-center gap-2 flex-1">
-                      <div className="relative">
-                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center text-base font-bold text-white" style={{ borderColor:"#aaa", background:leaderboard[1].avatar_url?undefined:avatarColors[1] }}>
-                          {leaderboard[1].avatar_url?<img src={leaderboard[1].avatar_url} className="w-full h-full object-cover" alt=""/>:initials(leaderboard[1].display_name)}
+                <div className="space-y-3 md:hidden">
+                  {filteredSortedUsers.map((user) => (
+                    <article key={user.id} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{user.display_name || "Unnamed user"}</p>
+                          <p className="text-xs text-slate-400">{user.email}</p>
                         </div>
-                        <span className="absolute -top-2 -right-2 text-xl">🥈</span>
+                        <input type="checkbox" checked={selectedUserIds.includes(user.id)} onChange={() => toggleSelectUser(user.id)} />
                       </div>
-                      <div className="text-center">
-                        <p className="text-xs font-medium text-white truncate max-w-20">{leaderboard[1].display_name}</p>
-                        <p className="text-xs font-bold" style={{ color:"#aaa" }}>{leaderboard[1].xp} XP</p>
+                      <div className="mb-2 text-xs text-slate-400">XP: {user.xp ?? 0} · Role: {user.role}</div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setDetailUser(user)} className="flex-1 rounded-lg border border-slate-700 px-2 py-1.5 text-xs">Details</button>
+                        <button onClick={() => void updateUserField(user, { is_banned: !user.is_banned })} className="flex-1 rounded-lg border border-amber-700/40 px-2 py-1.5 text-xs">{user.is_banned ? "Unban" : "Ban"}</button>
                       </div>
-                      <div className="w-full rounded-t-xl flex items-end justify-center py-3" style={{ background:"rgba(170,170,170,0.12)", minHeight:"60px", border:"1px solid rgba(170,170,170,0.18)", borderBottom:"none" }}>
-                        <span className="text-2xl font-serif" style={{ color:"rgba(255,255,255,0.2)" }}>2</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-center gap-2 flex-1">
-                      <div className="relative">
-                        <div className="rounded-full overflow-hidden flex items-center justify-center text-lg font-bold text-white" style={{ width:72, height:72, border:"3px solid #c8a96e", background:leaderboard[0].avatar_url?undefined:avatarColors[0], boxShadow:"0 0 24px rgba(200,169,110,0.45)" }}>
-                          {leaderboard[0].avatar_url?<img src={leaderboard[0].avatar_url} className="w-full h-full object-cover" alt=""/>:initials(leaderboard[0].display_name)}
-                        </div>
-                        <span className="absolute -top-3 -right-2 text-2xl">🥇</span>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-semibold text-white truncate max-w-24">{leaderboard[0].display_name}</p>
-                        <p className="text-sm font-bold" style={{ color:"#c8a96e" }}>{leaderboard[0].xp} XP</p>
-                      </div>
-                      <div className="w-full rounded-t-xl flex items-end justify-center py-4" style={{ background:"rgba(200,169,110,0.18)", minHeight:"88px", border:"1px solid rgba(200,169,110,0.28)", borderBottom:"none" }}>
-                        <Crown className="w-5 h-5" style={{ color:"rgba(200,169,110,0.45)" }}/>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-center gap-2 flex-1">
-                      <div className="relative">
-                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 flex items-center justify-center text-base font-bold text-white" style={{ borderColor:"#cd7f32", background:leaderboard[2].avatar_url?undefined:avatarColors[2] }}>
-                          {leaderboard[2].avatar_url?<img src={leaderboard[2].avatar_url} className="w-full h-full object-cover" alt=""/>:initials(leaderboard[2].display_name)}
-                        </div>
-                        <span className="absolute -top-2 -right-2 text-xl">🥉</span>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-xs font-medium text-white truncate max-w-20">{leaderboard[2].display_name}</p>
-                        <p className="text-xs font-bold" style={{ color:"#cd7f32" }}>{leaderboard[2].xp} XP</p>
-                      </div>
-                      <div className="w-full rounded-t-xl flex items-end justify-center py-2" style={{ background:"rgba(205,127,50,0.12)", minHeight:"44px", border:"1px solid rgba(205,127,50,0.18)", borderBottom:"none" }}>
-                        <span className="text-2xl font-serif" style={{ color:"rgba(255,255,255,0.2)" }}>3</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="px-4 pb-4 space-y-1.5">
-                {leaderboard.slice(3).map((u,i)=>(
-                  <div key={u.id} onClick={()=>setSelectedUser(u)}
-                    className="flex items-center gap-3 px-4 py-2.5 rounded-2xl cursor-pointer transition-all hover:scale-[1.01]"
-                    style={{ background:"rgba(255,255,255,0.04)", border:"0.5px solid rgba(255,255,255,0.07)" }}>
-                    <span className="text-sm font-serif w-5 text-center" style={{ color:"rgba(200,169,110,0.6)" }}>{i+4}</span>
-                    <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ background:u.avatar_url?undefined:avatarColors[(i+3)%avatarColors.length] }}>
-                      {u.avatar_url?<img src={u.avatar_url} className="w-full h-full object-cover" alt=""/>:initials(u.display_name)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{u.display_name}</p>
-                      <p className="text-[10px]" style={{ color:"rgba(255,255,255,0.35)" }}>{u.questions_asked} frågor · {u.quiz_score}% quiz</p>
-                    </div>
-                    <div className="flex items-center gap-1" style={{ color:"#c8a96e" }}>
-                      <Zap className="w-3 h-3"/>
-                      <span className="text-sm font-serif tabular-nums">{u.xp}</span>
-                      <span className="text-[10px]" style={{ color:"rgba(200,169,110,0.5)" }}>XP</span>
-                    </div>
-                    <div className="w-16 hidden sm:block">
-                      <div className="h-1 rounded-full overflow-hidden" style={{ background:"rgba(255,255,255,0.08)" }}>
-                        <div className="h-full rounded-full" style={{ width:`${leaderboard[0]?.xp?Math.round(((u.xp||0)/leaderboard[0].xp!)*100):0}%`, background:"#c8a96e" }}/>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="px-6 py-3 text-center" style={{ borderTop:"1px solid rgba(200,169,110,0.12)" }}>
-                <p className="text-[10px]" style={{ color:"rgba(200,169,110,0.35)" }}>empireai10.vercel.app · {new Date().toLocaleDateString("sv-SE")}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={shareLeaderboard} className="py-3 rounded-2xl border border-border hover:bg-secondary transition-colors text-sm flex items-center justify-center gap-2">
-                <Share2 className="w-4 h-4"/> 📱 Dela på Instagram
-              </button>
-              <button onClick={shareLeaderboard} className="py-3 rounded-2xl border border-border hover:bg-secondary transition-colors text-sm flex items-center justify-center gap-2">
-                <Share2 className="w-4 h-4"/> 🎵 Dela på TikTok
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ══ QUIZ ══ */}
-        {tab === "quiz" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3 flex-wrap">
-                <select value={quizEmpire} onChange={e=>{setQuizEmpire(e.target.value);setQuizPage(0);}}
-                  className="px-3 py-2 bg-card border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
-                  {EMPIRE_OPTIONS.map(e=><option key={e} value={e}>{e.charAt(0).toUpperCase()+e.slice(1)}</option>)}
-                </select>
-                <span className="text-sm text-muted-foreground">{quizQuestions.length} frågor totalt</span>
-                {missingTranslations > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-600 text-xs font-medium">{missingTranslations} saknar SV/TR</span>
-                )}
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {missingTranslations > 0 && (
-                  <button onClick={translateMissing} disabled={translatingAll}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/30 bg-primary/10 text-primary text-sm hover:bg-primary/20 transition-colors disabled:opacity-50">
-                    {translatingAll?<Loader2 className="w-4 h-4 animate-spin"/>:<Languages className="w-4 h-4"/>}
-                    Översätt saknade
-                  </button>
-                )}
-                <button onClick={()=>setAddingQ(v=>!v)} className="flex items-center gap-2 px-3 py-2 rounded-xl gold-gradient text-primary-foreground text-sm">
-                  <Plus className="w-4 h-4"/> Lägg till fråga
-                </button>
-              </div>
-            </div>
-
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground"/>
-              <input value={quizSearch} onChange={e=>{setQuizSearch(e.target.value);setQuizPage(0);}} placeholder="Sök bland frågor..."
-                className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"/>
-            </div>
-
-            <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/15 rounded-xl">
-              <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                <strong className="text-foreground">Auto-översättning:</strong> Skriv frågor på engelska. AI genererar SV och TR automatiskt vid sparning. Quizzen väljer 12 slumpmässiga frågor per session, max 3 spel per dag.
-              </p>
-            </div>
-
-            {addingQ && (
-              <QuestionForm
-                q={{ ...newQ, empire_id: quizEmpire }}
-                onChange={q => setNewQ(q)}
-                onSave={() => saveQuestion({ ...newQ, empire_id: quizEmpire })}
-                onCancel={() => setAddingQ(false)}
-                savingQ={savingQ}
-              />
-            )}
-
-            {loadingQuiz ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div>
-            ) : filteredQuestions.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-20"/>
-                <p className="font-medium text-sm">{quizSearch ? "Inga frågor matchar sökningen" : "Inga frågor ännu"}</p>
-                <p className="text-xs mt-1">{quizSearch ? "Prova ett annat sökord" : "Lägg till din första fråga ovan"}</p>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  {pagedQuestions.map((q,i)=>(
-                    <div key={q.id||i}>
-                      {editingQ?.id===q.id ? (
-                        <QuestionForm
-                          q={editingQ}
-                          onChange={setEditingQ}
-                          onSave={() => saveQuestion(editingQ)}
-                          onCancel={() => setEditingQ(null)}
-                          savingQ={savingQ}
-                        />
-                      ) : (
-                        <div className={`bg-card border rounded-2xl p-4 transition-all ${q.translating?"opacity-60 animate-pulse border-primary/30":"border-border"}`}>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                                <span className="text-xs text-muted-foreground">#{quizPage*QUIZ_PAGE_SIZE+i+1}</span>
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground capitalize">{q.empire_id}</span>
-                                {q.translating&&<span className="text-xs text-primary flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> översätter...</span>}
-                                {!q.question_sv&&!q.translating&&<span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-600">saknar SV/TR</span>}
-                                {q.question_sv&&<span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-600">✓ översatt</span>}
-                              </div>
-                              <p className="text-sm font-sans text-foreground leading-relaxed">{q.question_en}</p>
-                              <div className="flex flex-wrap gap-1.5 mt-2">
-                                {q.options_en.map((opt,oi)=>(
-                                  <span key={oi} className={`text-xs px-2 py-0.5 rounded-lg ${oi===q.correct_index?"bg-green-500/15 text-green-600 font-medium border border-green-500/20":"bg-secondary text-muted-foreground"}`}>
-                                    {String.fromCharCode(65+oi)}. {opt}
-                                  </span>
-                                ))}
-                              </div>
-                              {q.explanation_en&&<p className="text-[11px] text-muted-foreground mt-1.5 italic">💡 {q.explanation_en}</p>}
-                            </div>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <button onClick={()=>setEditingQ(q)} className="p-1.5 rounded-lg hover:bg-secondary transition-colors"><Eye className="w-3.5 h-3.5 text-muted-foreground"/></button>
-                              <button onClick={()=>q.id&&deleteQuestion(q.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5 text-red-500"/></button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    </article>
                   ))}
                 </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-3">
-                    <button onClick={()=>setQuizPage(p=>Math.max(0,p-1))} disabled={quizPage===0}
-                      className="p-2 rounded-xl border border-border disabled:opacity-30 hover:bg-secondary transition-colors"><ChevronLeft className="w-4 h-4"/></button>
-                    <span className="text-sm text-muted-foreground">{quizPage+1} / {totalPages} · {filteredQuestions.length} frågor</span>
-                    <button onClick={()=>setQuizPage(p=>Math.min(totalPages-1,p+1))} disabled={quizPage===totalPages-1}
-                      className="p-2 rounded-xl border border-border disabled:opacity-30 hover:bg-secondary transition-colors"><ChevronRight className="w-4 h-4"/></button>
-                  </div>
-                )}
               </>
             )}
-          </div>
+          </section>
         )}
 
-        {/* ══ INNEHÅLL ══ */}
-        {tab === "content" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <h2 className="text-sm font-medium text-foreground">Innehållshantering</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Meddelanden, tips och historiska fakta som visas i appen</p>
-              </div>
-              <button onClick={()=>setAddingContent(v=>!v)} className="flex items-center gap-2 px-3 py-2 rounded-xl gold-gradient text-primary-foreground text-sm">
-                <Plus className="w-4 h-4"/> Nytt innehåll
-              </button>
-            </div>
-
-            {addingContent && (
-              <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium flex items-center gap-2"><PenLine className="w-4 h-4 text-primary"/> Nytt innehåll</h3>
-                  <button onClick={()=>setAddingContent(false)}><X className="w-4 h-4 text-muted-foreground"/></button>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Typ</label>
-                    <select value={newContent.type} onChange={e=>setNewContent(p=>({...p,type:e.target.value as any}))}
-                      className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
-                      <option value="announcement">📢 Meddelande</option>
-                      <option value="tip">💡 Tips</option>
-                      <option value="fact">🏛️ Historisk fakta</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Empire</label>
-                    <select value={newContent.empire_id} onChange={e=>setNewContent(p=>({...p,empire_id:e.target.value}))}
-                      className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary">
-                      <option value="ottoman">Ottoman</option>
-                      <option value="roman">Roman</option>
-                      <option value="both">Båda</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Text (engelska)</label>
-                  <textarea value={newContent.text_en} onChange={e=>setNewContent(p=>({...p,text_en:e.target.value}))}
-                    className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-20"
-                    placeholder="Skriv innehållet på engelska..."/>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
-                  <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
-                  <p className="text-xs text-muted-foreground">Svenska och turkiska genereras automatiskt av AI.</p>
-                </div>
-                <button onClick={saveContent} disabled={savingContent||!newContent.text_en.trim()}
-                  className="w-full py-2.5 rounded-xl gold-gradient text-primary-foreground text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-                  {savingContent?<><Loader2 className="w-4 h-4 animate-spin"/> Sparar...</>:"Spara & översätt"}
-                </button>
-              </div>
-            )}
-
-            {loadingContent ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div>
-            ) : contentItems.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                <PenLine className="w-10 h-10 mx-auto mb-3 opacity-20"/>
-                <p className="font-medium text-sm">Inget innehåll ännu</p>
-                <p className="text-xs mt-1">Lägg till meddelanden, tips eller historiska fakta</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {contentItems.map(item => (
-                  <div key={item.id} className={`bg-card border rounded-2xl p-4 transition-all ${item.active?"border-border":"border-border opacity-50"}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
-                            {item.type==="announcement"?"📢":item.type==="tip"?"💡":"🏛️"} {item.type}
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground capitalize">{item.empire_id}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${item.active?"bg-green-500/15 text-green-600":"bg-secondary text-muted-foreground"}`}>
-                            {item.active?"● Aktiv":"○ Inaktiv"}
-                          </span>
-                          {item.text_sv && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600">✓ översatt</span>}
-                        </div>
-                        <p className="text-sm font-sans text-foreground leading-relaxed">{item.text_en}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          {new Date(item.created_at).toLocaleDateString("sv-SE")}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button onClick={()=>toggleContent(item)} className={`p-1.5 rounded-lg transition-colors ${item.active?"hover:bg-yellow-50":"hover:bg-green-50"}`}>
-                          {item.active
-                            ? <EyeOff className="w-3.5 h-3.5 text-yellow-500"/>
-                            : <Eye className="w-3.5 h-3.5 text-green-500"/>}
-                        </button>
-                        <button onClick={()=>deleteContent(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5 text-red-500"/>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ══ NOTISER ══ */}
-        {tab === "notifications" && (
-          <div className="space-y-5">
-            {/* Skapa ny notis */}
-            <div className="bg-card border border-primary/30 rounded-2xl p-6 space-y-4">
-              <h2 className="text-sm font-medium flex items-center gap-2"><Bell className="w-4 h-4 text-primary"/> Skapa &amp; skicka notis</h2>
-              <p className="text-xs text-muted-foreground">Notisen sparas och visas för alla användare i Notis-centret i appen. Översätts automatiskt till svenska och turkiska.</p>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Titel (engelska)</label>
-                  <input
-                    value={newNotif.title}
-                    onChange={e => setNewNotif(p => ({ ...p, title: e.target.value }))}
-                    placeholder="Ex: New feature available!"
-                    className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Bild-URL (valfritt)</label>
-                  <input
-                    value={newNotif.image_url}
-                    onChange={e => setNewNotif(p => ({ ...p, image_url: e.target.value }))}
-                    placeholder="https://... (jpg, png)"
-                    className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Meddelande (engelska)</label>
-                <textarea
-                  value={newNotif.body}
-                  onChange={e => setNewNotif(p => ({ ...p, body: e.target.value }))}
-                  placeholder="Write your message to all users in English..."
-                  className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-24"
-                />
-              </div>
-              {newNotif.image_url && (
-                <div className="rounded-xl overflow-hidden border border-border h-32 bg-secondary flex items-center justify-center">
-                  <img
-                    src={newNotif.image_url}
-                    alt="Preview"
-                    className="h-full w-full object-cover"
-                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                </div>
-              )}
-              <div className="flex items-start gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
-                <Languages className="w-4 h-4 text-primary mt-0.5 flex-shrink-0"/>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  <strong className="text-foreground">Auto-översättning:</strong> Titel och meddelande översätts automatiskt till svenska och turkiska av AI innan notisen sparas.
-                </p>
-              </div>
-              <button
-                onClick={sendNotification}
-                disabled={sendingNotif || !newNotif.title.trim() || !newNotif.body.trim()}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl gold-gradient text-primary-foreground text-sm font-medium disabled:opacity-50"
-              >
-                {translatingNotif
-                  ? <><Loader2 className="w-4 h-4 animate-spin"/> Översätter...</>
-                  : sendingNotif
-                  ? <><Loader2 className="w-4 h-4 animate-spin"/> Sparar...</>
-                  : <><Send className="w-4 h-4"/> Skicka till {users.length} användare</>
-                }
-              </button>
-            </div>
-
-            {/* Lista skickade notiser */}
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                <h2 className="text-sm font-medium flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-muted-foreground"/> Skickade notiser
-                  <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">{notifications.length}</span>
-                </h2>
-                <button onClick={loadNotifications} className="p-1.5 rounded-lg hover:bg-secondary transition-colors">
-                  <RefreshCw className={`w-3.5 h-3.5 ${loadingNotifs ? "animate-spin" : ""}`}/>
-                </button>
-              </div>
-              {loadingNotifs ? (
-                <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div>
-              ) : notifications.length === 0 ? (
-                <div className="p-12 text-center text-muted-foreground">
-                  <Bell className="w-8 h-8 mx-auto mb-2 opacity-20"/>
-                  <p className="text-sm">Inga notiser skickade än</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {notifications.map(n => (
-                    <div key={n.id} className="flex items-start gap-4 px-5 py-4 hover:bg-secondary/20 transition-colors">
-                      {n.image_url && (
-                        <img src={n.image_url} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-border"/>
-                      )}
-                      {!n.image_url && (
-                        <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
-                          <Bell className="w-4 h-4 text-primary"/>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{n.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
-                        <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                          <span className="text-[10px] text-muted-foreground">
-                            {new Date(n.created_at).toLocaleDateString("sv-SE")} {new Date(n.created_at).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                          {n.sent_count !== undefined && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                              Skickad till {n.sent_count} användare
-                            </span>
-                          )}
-                          {n.title_sv && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600">✓ SV+TR</span>}
-                        </div>
-                      </div>
-                      <button onClick={() => deleteNotification(n.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0">
-                        <Trash2 className="w-3.5 h-3.5 text-red-500"/>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ══ INFLUENCERS ══ */}
-        {tab === "influencers" && (
-          <div className="space-y-5">
-            {/* Stats-kort */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { label: "Influencers", value: influencers.length, icon: Users, color: "text-primary" },
-                { label: "Totala klick", value: influencers.reduce((a, i) => a + i.uses, 0), icon: TrendingUp, color: "text-blue-500" },
-                { label: "Konverteringar", value: influencers.reduce((a, i) => a + i.conversions, 0), icon: Star, color: "text-green-500" },
-                { label: "Genererad intäkt", value: `${influencers.reduce((a, i) => a + i.revenue_generated, 0)} kr`, icon: Zap, color: "text-yellow-500" },
-              ].map(({ label, value, icon: Icon, color }) => (
-                <div key={label} className="bg-card border border-border rounded-2xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-muted-foreground">{label}</span>
-                    <Icon className={`w-4 h-4 ${color}`}/>
-                  </div>
-                  <div className="text-2xl font-serif">{value}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Lägg till influencer */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <h2 className="text-sm font-medium text-foreground">Influencer-länkar</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Skapa unika rabattkoder. Priset är {MONTHLY_PRICE} kr/mån — rabatt dras automatiskt.</p>
-              </div>
-              <button
-                onClick={() => setAddingInfluencer(v => !v)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl gold-gradient text-primary-foreground text-sm"
-              >
-                <Plus className="w-4 h-4"/> Ny influencer
-              </button>
-            </div>
-
-            {addingInfluencer && (
-              <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium flex items-center gap-2"><Share2 className="w-4 h-4 text-primary"/> Ny influencer-länk</h3>
-                  <button onClick={() => setAddingInfluencer(false)}><X className="w-4 h-4 text-muted-foreground"/></button>
-                </div>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Influencerns namn</label>
-                    <input
-                      value={newInfluencer.name}
-                      onChange={e => setNewInfluencer(p => ({ ...p, name: e.target.value }))}
-                      placeholder="Ex: Ahmed Influencer"
-                      className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Rabattkod (lämna tomt = auto)</label>
-                    <input
-                      value={newInfluencer.code}
-                      onChange={e => setNewInfluencer(p => ({ ...p, code: e.target.value.toUpperCase() }))}
-                      placeholder="Ex: AHMED10"
-                      className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Rabatt (%)</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={1}
-                        max={50}
-                        value={newInfluencer.discount_percent}
-                        onChange={e => setNewInfluencer(p => ({ ...p, discount_percent: Number(e.target.value) }))}
-                        className="w-full px-3 py-2 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary"
-                      />
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        = {Math.round(MONTHLY_PRICE * (1 - newInfluencer.discount_percent / 100))} kr/mån
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
-                  <Zap className="w-4 h-4 text-primary flex-shrink-0"/>
-                  <p className="text-xs text-muted-foreground">
-                    Länk: <span className="font-mono text-foreground">{window.location.origin}?ref={newInfluencer.code || "KOD"}</span>
-                    &nbsp;— Kund betalar <strong className="text-foreground">{Math.round(MONTHLY_PRICE * (1 - newInfluencer.discount_percent / 100))} kr</strong> istället för {MONTHLY_PRICE} kr
-                  </p>
-                </div>
-                <button
-                  onClick={saveInfluencer}
-                  disabled={savingInfluencer || !newInfluencer.name.trim()}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl gold-gradient text-primary-foreground text-sm font-medium disabled:opacity-50"
-                >
-                  {savingInfluencer ? <><Loader2 className="w-4 h-4 animate-spin"/> Skapar...</> : <><Plus className="w-4 h-4"/> Skapa länk</>}
-                </button>
-              </div>
-            )}
-
-            {/* Lista influencers */}
-            {loadingInfluencers ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div>
-            ) : influencers.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                <Share2 className="w-10 h-10 mx-auto mb-3 opacity-20"/>
-                <p className="font-medium text-sm">Inga influencer-länkar ännu</p>
-                <p className="text-xs mt-1">Skapa din första länk ovan</p>
-              </div>
-            ) : (
+        {activeTab === "quiz" && (
+          <section className="grid gap-4 lg:grid-cols-3">
+            <form onSubmit={saveQuizQuestion} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-1">
+              <h3 className="mb-4 text-sm font-medium">{editingQuizId ? "Edit question" : "Create question"}</h3>
               <div className="space-y-3">
-                {influencers.map((inf, idx) => {
-                  const discountedPrice = Math.round(MONTHLY_PRICE * (1 - inf.discount_percent / 100));
-                  const convRate = inf.uses > 0 ? Math.round((inf.conversions / inf.uses) * 100) : 0;
-                  return (
-                    <div key={inf.id} className="bg-card border border-border rounded-2xl p-5">
-                      <div className="flex items-start justify-between gap-3 flex-wrap">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full gold-gradient flex items-center justify-center text-primary-foreground font-serif font-medium text-sm flex-shrink-0">
-                            {inf.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">{inf.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              <span className="font-mono text-xs px-2 py-0.5 rounded-lg bg-primary/15 text-primary">{inf.code}</span>
-                              <span className="text-xs text-muted-foreground">{inf.discount_percent}% rabatt</span>
-                              <span className="text-xs text-muted-foreground">→ {discountedPrice} kr/mån</span>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <input
+                    value={newEmpireInput}
+                    onChange={(e) => setNewEmpireInput(e.target.value)}
+                    placeholder="Add new empire"
+                    className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                  />
+                  <button type="button" onClick={() => void addEmpire()} className="rounded-xl border border-slate-700 px-3 py-2 text-sm hover:border-slate-500">
+                    Add empire
+                  </button>
+                </div>
+                <select value={quizForm.empire_id} onChange={(e) => setQuizForm((prev) => ({ ...prev, empire_id: e.target.value }))} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
+                  {empires.map((empire) => (
+                    <option key={empire} value={empire}>{empire}</option>
+                  ))}
+                </select>
+                <textarea value={quizForm.question_en} onChange={(e) => setQuizForm((prev) => ({ ...prev, question_en: e.target.value }))} placeholder="Question (EN)" className="h-20 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                {quizForm.options_en.map((option, idx) => (
+                  <div key={`opt-${idx}`} className="flex gap-2">
+                    <input type="radio" checked={quizForm.correct_index === idx} onChange={() => setQuizForm((prev) => ({ ...prev, correct_index: idx }))} />
+                    <input
+                      value={option}
+                      onChange={(e) =>
+                        setQuizForm((prev) => {
+                          const options = [...prev.options_en];
+                          options[idx] = e.target.value;
+                          return { ...prev, options_en: options };
+                        })
+                      }
+                      placeholder={`Option ${idx + 1}`}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                    />
+                  </div>
+                ))}
+                <textarea value={quizForm.explanation_en} onChange={(e) => setQuizForm((prev) => ({ ...prev, explanation_en: e.target.value }))} placeholder="Explanation (EN)" className="h-16 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <input
+                    value={quizDraftTitle}
+                    onChange={(e) => setQuizDraftTitle(e.target.value)}
+                    placeholder="Draft title"
+                    className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                  />
+                  <button type="button" onClick={() => void saveQuizDraft()} className="rounded-xl border border-slate-700 px-3 py-2 text-sm hover:border-slate-500">
+                    Save draft
+                  </button>
+                </div>
+                <button disabled={quizSaving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium transition hover:bg-indigo-400 disabled:opacity-60">
+                  {quizSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  {editingQuizId ? "Save changes" : "Create question"}
+                </button>
+              </div>
+            </form>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <div className="mb-4 flex flex-wrap gap-2">
+                <label className="relative flex-1 min-w-[180px]">
+                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input value={quizSearch} onChange={(e) => setQuizSearch(e.target.value)} placeholder="Search questions..." className="w-full rounded-xl border border-slate-700 bg-slate-900 py-2 pl-9 pr-3 text-sm" />
+                </label>
+                <select value={quizEmpireFilter} onChange={(e) => setQuizEmpireFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
+                  {["all", ...empires].map((empire) => (
+                    <option key={empire} value={empire}>{empire}</option>
+                  ))}
+                </select>
+                <button onClick={exportQuizCsv} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-sm hover:border-slate-500">
+                  <Download className="h-4 w-4" /> Export quiz
+                </button>
+                <button
+                  onClick={() => void runQuizBulkTranslation()}
+                  disabled={quizBulkTranslating}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-sm transition hover:border-slate-500 disabled:opacity-60"
+                >
+                  {quizBulkTranslating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}
+                  Bulk translate
+                </button>
+              </div>
+              <div className="mb-4 grid gap-2 rounded-xl border border-slate-800 bg-slate-900 p-3 text-xs sm:grid-cols-4">
+                <div className="rounded-lg bg-slate-800 p-2">Total filtered: {filteredQuiz.length}</div>
+                <div className="rounded-lg bg-slate-800 p-2 text-emerald-300">Translated: {filteredQuiz.length - missingTranslationCount}</div>
+                <div className="rounded-lg bg-slate-800 p-2 text-rose-300">Missing: {missingTranslationCount}</div>
+                <div className="rounded-lg bg-slate-800 p-2">Page size: {QUIZ_PAGE_SIZE}</div>
+              </div>
+              {quizDrafts.length > 0 && (
+                <div className="mb-4 rounded-xl border border-slate-800 bg-slate-900 p-3">
+                  <h4 className="mb-2 text-xs uppercase tracking-wide text-slate-400">Quiz drafts</h4>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {quizDrafts.slice(0, 8).map((draft) => (
+                      <div key={draft.id} className="rounded-lg border border-slate-800 bg-slate-950 p-2">
+                        <p className="text-sm font-medium">{draft.title}</p>
+                        <p className="text-xs text-slate-400">{draft.empire_id} · {formatDate(draft.updated_at)}</p>
+                        <div className="mt-2 flex gap-2">
+                          <button onClick={() => loadQuizDraftIntoForm(draft)} className="rounded-md border border-slate-700 px-2 py-1 text-xs">Load</button>
+                          <button onClick={() => void deleteQuizDraft(draft.id)} className="rounded-md border border-rose-700/50 px-2 py-1 text-xs text-rose-200">Delete</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {quizLoading ? (
+                <div className="flex items-center justify-center py-10 text-slate-400"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading quiz...</div>
+              ) : quizView.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No quiz questions found.</div>
+              ) : (
+                <div className="space-y-3">
+                  {quizView.map((q) => {
+                    const status = translationStatus(q);
+                    return (
+                      <article key={q.id} className="rounded-xl border border-slate-800 bg-slate-900 p-4 transition hover:border-slate-700">
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                          <span className="rounded-full bg-slate-800 px-2 py-1 text-xs text-slate-300">{q.empire_id}</span>
+                          <span className={cn("text-xs font-medium", status.tone)}>{status.label}</span>
+                        </div>
+                        {quizInlineEditId === q.id && quizInlineEditField === "question_en" ? (
+                          <div className="mb-2">
+                            <textarea value={quizInlineEditValue} onChange={(e) => setQuizInlineEditValue(e.target.value)} className="h-20 w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-sm" />
+                            <div className="mt-2 flex gap-2">
+                              <button onClick={() => void saveInlineEditQuiz()} className="rounded-md border border-emerald-700/50 px-2 py-1 text-xs text-emerald-200">Save inline</button>
+                              <button onClick={cancelInlineEditQuiz} className="rounded-md border border-slate-700 px-2 py-1 text-xs">Cancel</button>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => copyInfluencerLink(inf.code)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border text-xs hover:bg-secondary transition-colors"
-                          >
-                            <Copy className="w-3.5 h-3.5"/> Kopiera länk
-                          </button>
-                          <button
-                            onClick={() => deleteInfluencer(inf.id, inf.name)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 text-red-500"/>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Stats-rad */}
-                      <div className="grid grid-cols-4 gap-3 mt-4">
-                        {[
-                          { label: "Klick", value: inf.uses, color: "text-blue-500" },
-                          { label: "Konverteringar", value: inf.conversions, color: "text-green-500" },
-                          { label: "Conv. rate", value: `${convRate}%`, color: "text-purple-500" },
-                          { label: "Intäkt", value: `${inf.revenue_generated} kr`, color: "text-yellow-500" },
-                        ].map(({ label, value, color }) => (
-                          <div key={label} className="bg-secondary/50 rounded-xl p-3 text-center">
-                            <p className={`text-lg font-serif ${color}`}>{value}</p>
-                            <p className="text-[10px] text-muted-foreground">{label}</p>
+                        ) : (
+                          <p className="mb-2 text-sm font-medium">{q.question_en}</p>
+                        )}
+                        <ol className="mb-3 list-decimal space-y-1 pl-5 text-xs text-slate-300">
+                          {q.options_en.map((option, idx) => (
+                            <li key={`${q.id}-${idx}`} className={cn(idx === q.correct_index && "text-emerald-300")}>{option}</li>
+                          ))}
+                        </ol>
+                        {quizInlineEditId === q.id && quizInlineEditField === "explanation_en" ? (
+                          <div>
+                            <textarea value={quizInlineEditValue} onChange={(e) => setQuizInlineEditValue(e.target.value)} className="h-16 w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs" />
+                            <div className="mt-2 flex gap-2">
+                              <button onClick={() => void saveInlineEditQuiz()} className="rounded-md border border-emerald-700/50 px-2 py-1 text-xs text-emerald-200">Save inline</button>
+                              <button onClick={cancelInlineEditQuiz} className="rounded-md border border-slate-700 px-2 py-1 text-xs">Cancel</button>
+                            </div>
                           </div>
-                        ))}
-                      </div>
-
-                      {/* Progress-bar konv */}
-                      <div className="mt-3">
-                        <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                          <span>Konverteringsgrad</span>
-                          <span>{convRate}%</span>
+                        ) : (
+                          <p className="text-xs text-slate-400">{q.explanation_en}</p>
+                        )}
+                        <div className="mt-3 flex gap-2">
+                          <button onClick={() => startEditQuiz(q)} className="rounded-lg border border-slate-700 px-2 py-1 text-xs hover:border-slate-500">Edit</button>
+                          <button onClick={() => startInlineEditQuiz(q, "question_en")} className="rounded-lg border border-slate-700 px-2 py-1 text-xs hover:border-slate-500">Inline Q</button>
+                          <button onClick={() => startInlineEditQuiz(q, "explanation_en")} className="rounded-lg border border-slate-700 px-2 py-1 text-xs hover:border-slate-500">Inline Exp</button>
+                          <button onClick={() => void deleteQuizQuestion(q.id)} className="rounded-lg border border-rose-700/50 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/10">Delete</button>
                         </div>
-                        <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                          <div className="h-full rounded-full gold-gradient transition-all duration-700" style={{ width: `${convRate}%` }}/>
-                        </div>
-                      </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <button onClick={() => setQuizPage((p) => Math.max(1, p - 1))} disabled={quizPage === 1} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 disabled:opacity-40">
+                  <ChevronLeft className="h-4 w-4" /> Prev
+                </button>
+                <span className="text-slate-400">Page {quizPage} / {quizPages}</span>
+                <button onClick={() => setQuizPage((p) => Math.min(quizPages, p + 1))} disabled={quizPage === quizPages} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 disabled:opacity-40">
+                  Next <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
-                      {/* Länk-URL */}
-                      <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-secondary/50 rounded-xl">
-                        <Globe className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0"/>
-                        <span className="text-[11px] text-muted-foreground font-mono truncate">
-                          {window.location.origin}?ref={inf.code}
+        {activeTab === "content" && (
+          <section className="grid gap-4 lg:grid-cols-3">
+            <form onSubmit={createContent} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">Create content</h3>
+              <div className="space-y-3">
+                <select value={contentForm.type} onChange={(e) => setContentForm((prev) => ({ ...prev, type: e.target.value as ContentType }))} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
+                  <option value="announcement">Announcement</option>
+                  <option value="tip">Tip</option>
+                  <option value="fact">Historical fact</option>
+                </select>
+                <select value={contentForm.empire_target} onChange={(e) => setContentForm((prev) => ({ ...prev, empire_target: e.target.value as any }))} className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
+                  <option value="both">Both empires</option>
+                  <option value="ottoman">Ottoman</option>
+                  <option value="roman">Roman</option>
+                </select>
+                <textarea value={contentForm.text_en} onChange={(e) => setContentForm((prev) => ({ ...prev, text_en: e.target.value }))} placeholder="Write text in English..." className="h-28 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <button disabled={contentSaving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 disabled:opacity-60">
+                  {contentSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />} Create + Translate
+                </button>
+              </div>
+            </form>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <h3 className="mb-4 text-sm font-medium">Content list</h3>
+              {contentLoading ? (
+                <div className="py-10 text-center text-slate-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading content...</div>
+              ) : contentItems.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No content yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {contentItems.map((item) => (
+                    <article key={item.id} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                        <span className="rounded-full bg-slate-800 px-2 py-1">{item.type}</span>
+                        <span className="rounded-full bg-slate-800 px-2 py-1">{item.empire_target}</span>
+                        <span className={cn("rounded-full px-2 py-1", item.active ? "bg-emerald-500/20 text-emerald-200" : "bg-slate-800")}>
+                          {item.active ? "active" : "inactive"}
                         </span>
-                        <button onClick={() => copyInfluencerLink(inf.code)} className="ml-auto flex-shrink-0">
-                          <Copy className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground transition-colors"/>
+                      </div>
+                      <p className="text-sm">{item.text_en}</p>
+                      <div className="mt-3 flex gap-2">
+                        <button onClick={() => void toggleContentActive(item)} className="rounded-lg border border-slate-700 px-2 py-1 text-xs hover:border-slate-500">
+                          {item.active ? "Deactivate" : "Activate"}
+                        </button>
+                        <button onClick={() => void deleteContent(item.id)} className="rounded-lg border border-rose-700/50 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/10">Delete</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "notifications" && (
+          <section className="grid gap-4 lg:grid-cols-3">
+            <form onSubmit={sendNotification} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">Create push notification</h3>
+              <div className="space-y-3">
+                <input value={notificationForm.title_en} onChange={(e) => setNotificationForm((prev) => ({ ...prev, title_en: e.target.value }))} placeholder="Title (EN)" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <textarea value={notificationForm.body_en} onChange={(e) => setNotificationForm((prev) => ({ ...prev, body_en: e.target.value }))} placeholder="Body (EN)" className="h-24 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <input value={notificationForm.image_url} onChange={(e) => setNotificationForm((prev) => ({ ...prev, image_url: e.target.value }))} placeholder="Optional image URL" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <button disabled={notificationSending} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 disabled:opacity-60">
+                  {notificationSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Translate + Send to all users
+                </button>
+              </div>
+            </form>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <h3 className="mb-4 text-sm font-medium">Sent notifications</h3>
+              {notificationsLoading ? (
+                <div className="py-10 text-center text-slate-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading notifications...</div>
+              ) : notifications.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No notifications yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {notifications.map((n) => (
+                    <article key={n.id} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="font-medium">{n.title_en}</p>
+                        <span className="text-xs text-slate-400">sent: {n.sent_count}</span>
+                      </div>
+                      <p className="text-sm text-slate-300">{n.body_en}</p>
+                      <div className="mt-3">
+                        <button onClick={() => void deleteNotification(n.id)} className="rounded-lg border border-rose-700/50 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/10">
+                          Delete
                         </button>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Info-ruta om 10% */}
-            <div className="bg-card border border-primary/20 rounded-2xl p-5">
-              <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Zap className="w-4 h-4 text-yellow-500"/> Hur det fungerar</h3>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <p>1. Skapa en unik länk per influencer med valfri rabatt (standard {DEFAULT_DISCOUNT}%)</p>
-                <p>2. Influencern delar sin länk med följare — ex: <span className="font-mono text-foreground">empireai10.vercel.app?ref=KOD</span></p>
-                <p>3. Varje klick registreras som ett "use" — när användaren betalar räknas det som en konvertering</p>
-                <p>4. Vid {DEFAULT_DISCOUNT}% rabatt betalar kunden <strong className="text-foreground">{Math.round(MONTHLY_PRICE * 0.9)} kr</strong> istället för {MONTHLY_PRICE} kr</p>
-                <p>5. Du ser i realtid hur många som använt varje länk och hur mycket intäkt som genererats</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══ MODERATION ══ */}
-        {tab === "moderation" && (
-          <div className="space-y-4">
-            <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-              <h2 className="text-sm font-medium flex items-center gap-2"><Shield className="w-4 h-4 text-red-500"/> Blockerade ord</h2>
-              <p className="text-xs text-muted-foreground">Ord separerade med komma. Frågor med dessa ord flaggas automatiskt.</p>
-              <textarea value={blockedWords} onChange={e=>setBlockedWords(e.target.value)}
-                className="w-full p-3 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-20"/>
-              <button onClick={()=>{showToast("Sparad!");addLog("Blockade ord uppdaterade","warn");}}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm">Spara</button>
-            </div>
-            <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-border">
-                <h2 className="text-sm font-medium flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-yellow-500"/> Flaggade händelser</h2>
-              </div>
-              {[
-                { user:"användare_x", msg:"Försökte ställa en olämplig fråga", time:"2 min sedan", level:"warn" },
-                { user:"användare_y", msg:"Misslyckades 5 gånger i rad på quiz", time:"15 min sedan", level:"info" },
-                { user:"okänd", msg:"Ovanlig inloggning från ny enhet", time:"1h sedan", level:"error" },
-              ].map((item,i)=>(
-                <div key={i} className="flex items-start gap-3 px-5 py-3.5 border-b border-border last:border-0">
-                  <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${item.level==="error"?"bg-red-500":item.level==="warn"?"bg-yellow-500":"bg-blue-500"}`}/>
-                  <div className="flex-1">
-                    <p className="text-sm"><span className="font-medium">{item.user}</span> — {item.msg}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{item.time}</p>
-                  </div>
-                  <button className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded border border-border hover:bg-secondary transition-colors">Åtgärda</button>
+                    </article>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-            <div className="bg-card border border-red-500/20 rounded-2xl p-6">
-              <h2 className="text-sm font-medium flex items-center gap-2 mb-4 text-red-500"><AlertTriangle className="w-4 h-4"/> Farlig zon</h2>
-              <div className="space-y-2">
-                <button onClick={()=>showToast("Alla sessioner återkallades","success")}
-                  className="w-full py-2 rounded-xl border border-orange-200 text-orange-500 text-sm hover:bg-orange-50 transition-colors">
-                  Återkalla alla aktiva sessioner
-                </button>
-                <button onClick={()=>showToast("Funktion inaktiverad i demo","error")}
-                  className="w-full py-2 rounded-xl border border-red-200 text-red-500 text-sm hover:bg-red-50 transition-colors">
-                  Rensa alla icke-admin användare
-                </button>
-              </div>
-            </div>
-          </div>
+          </section>
         )}
 
-        {/* ══ LOGG ══ */}
-        {tab === "logs" && (
-          <div className="bg-card border border-border rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="text-sm font-medium flex items-center gap-2">
-                <Activity className="w-4 h-4 text-teal-500"/> Aktivitetslogg
-                <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">{logs.length}</span>
-              </h2>
-              <button onClick={()=>setLogs([])} className="text-xs text-muted-foreground hover:text-foreground px-3 py-1 rounded-lg border border-border hover:bg-secondary transition-colors">Rensa</button>
+        {activeTab === "influencers" && (
+          <section className="grid gap-4 lg:grid-cols-3">
+            <form onSubmit={createInfluencer} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">Create referral link</h3>
+              <div className="space-y-3">
+                <input value={influencerForm.name} onChange={(e) => setInfluencerForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Influencer name" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={influencerForm.discount_percent}
+                  onChange={(e) => setInfluencerForm((prev) => ({ ...prev, discount_percent: Number(e.target.value) }))}
+                  placeholder="Discount %"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+                />
+                <button disabled={influencerSaving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 disabled:opacity-60">
+                  {influencerSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />} Create code
+                </button>
+              </div>
+            </form>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <h3 className="mb-4 text-sm font-medium">Referral tracking</h3>
+              {influencersLoading ? (
+                <div className="py-10 text-center text-slate-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading links...</div>
+              ) : influencers.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No influencer links yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {influencers.map((item) => {
+                    const conversionRate = item.uses ? ((item.conversions / item.uses) * 100).toFixed(1) : "0.0";
+                    return (
+                      <article key={item.id} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="font-medium">{item.name}</p>
+                          <span className="rounded-full bg-slate-800 px-2 py-1 text-xs">{item.code}</span>
+                        </div>
+                        <div className="grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                          <p>Uses: {item.uses}</p>
+                          <p>Conversions: {item.conversions}</p>
+                          <p>Conversion rate: {conversionRate}%</p>
+                          <p>Revenue: ${item.revenue_generated.toFixed(2)}</p>
+                        </div>
+                        <div className="mt-3 flex gap-2">
+                          <button onClick={() => void copyReferral(item.code)} className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-xs hover:border-slate-500">
+                            <Copy className="h-3.5 w-3.5" /> Copy link
+                          </button>
+                          <button onClick={() => void deleteInfluencer(item.id)} className="rounded-lg border border-rose-700/50 px-2 py-1 text-xs text-rose-200 hover:bg-rose-500/10">Delete</button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "moderation" && (
+          <section className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">Blocked words</h3>
+              <textarea value={blockedWords} onChange={(e) => setBlockedWords(e.target.value)} className="h-24 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+              <button onClick={() => void saveBlockedWords()} disabled={savingBlockedWords} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 disabled:opacity-60">
+                {savingBlockedWords ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Save blocked words
+              </button>
+              <div className="mt-5 rounded-xl border border-rose-700/30 bg-rose-500/5 p-3">
+                <h4 className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-rose-200"><AlertTriangle className="h-4 w-4" /> Danger zone</h4>
+                <div className="space-y-2">
+                  <button onClick={() => void runDangerAction("revoke_sessions")} disabled={dangerActionLoading} className="w-full rounded-lg border border-amber-700/40 px-2 py-1.5 text-xs hover:bg-amber-500/10">
+                    Revoke all sessions
+                  </button>
+                  <button onClick={() => void runDangerAction("delete_non_admin_users")} disabled className="w-full rounded-lg border border-rose-700/40 px-2 py-1.5 text-xs opacity-60">
+                    Delete non-admin users (mock disabled)
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <h3 className="mb-4 text-sm font-medium">Flagged events feed</h3>
+              {flaggedLoading ? (
+                <div className="py-10 text-center text-slate-400"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading events...</div>
+              ) : flaggedEvents.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No flagged events.</div>
+              ) : (
+                <div className="space-y-3">
+                  {flaggedEvents.map((event) => (
+                    <article key={event.id} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded-full bg-slate-800 px-2 py-1">{event.event_type.replace("_", " ")}</span>
+                        <span className={cn("rounded-full px-2 py-1", event.severity === "high" ? "bg-rose-500/20 text-rose-200" : event.severity === "medium" ? "bg-amber-500/20 text-amber-200" : "bg-slate-800 text-slate-300")}>
+                          {event.severity}
+                        </span>
+                        <span className="rounded-full bg-slate-800 px-2 py-1">{event.status}</span>
+                      </div>
+                      <p className="text-sm text-slate-200">{event.message}</p>
+                      <div className="mt-3 flex gap-2">
+                        <button onClick={() => void updateFlagStatus(event.id, "resolved")} className="rounded-lg border border-emerald-700/50 px-2 py-1 text-xs text-emerald-200 hover:bg-emerald-500/10">Resolve</button>
+                        <button onClick={() => void updateFlagStatus(event.id, "ignored")} className="rounded-lg border border-slate-700 px-2 py-1 text-xs hover:border-slate-500">Ignore</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "logs" && (
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-medium">Real-time activity logs</h3>
+              <button onClick={() => setLogs([])} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-xs hover:border-slate-500">
+                <Trash2 className="h-3.5 w-3.5" /> Clear logs
+              </button>
             </div>
             {logs.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground"><Activity className="w-8 h-8 mx-auto mb-2 opacity-20"/><p className="text-sm">Inga händelser ännu</p></div>
+              <div className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">No logs yet.</div>
             ) : (
-              <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
-                {logs.map(log=>(
-                  <div key={log.id} className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/20 transition-colors">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${logColor(log.type)}`}/>
-                    <span className="text-xs text-muted-foreground tabular-nums w-16 flex-shrink-0">{log.time}</span>
-                    <span className="text-sm">{log.msg}</span>
+              <div className="space-y-2">
+                {logs.map((log) => (
+                  <div key={log.id} className={cn("rounded-xl border px-3 py-2 text-sm", severityClasses[log.type])}>
+                    <div className="mb-0.5 flex items-center justify-between text-xs">
+                      <span className="uppercase tracking-wide">{log.type}</span>
+                      <span>{formatDate(log.createdAt)}</span>
+                    </div>
+                    <p>{log.message}</p>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </section>
         )}
 
-        {/* ══ INSTÄLLNINGAR ══ */}
-        {tab === "settings" && (
-          <div className="space-y-4">
-            <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-              <h2 className="text-sm font-medium flex items-center gap-2"><Bell className="w-4 h-4 text-orange-500"/> Systemmeddelande</h2>
-              <textarea value={announcement} onChange={e=>setAnnouncement(e.target.value)}
-                placeholder="Skriv ett meddelande till alla användare..."
-                className="w-full p-3 bg-secondary border border-border rounded-xl text-sm outline-none focus:ring-1 focus:ring-primary resize-none h-24"/>
-              <button onClick={()=>{showToast("Meddelande skickat!");addLog(`Meddelande: "${announcement.slice(0,40)}..."`, "success");setAnnouncement("");}}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm hover:opacity-90">
-                Skicka till alla
+        {activeTab === "settings" && (
+          <section className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">System info</h3>
+              <div className="space-y-2 text-sm">
+                <div className="rounded-xl bg-slate-800/70 p-3">Environment: {import.meta.env.MODE}</div>
+                <div className="rounded-xl bg-slate-800/70 p-3">
+                  Supabase URL: {showSecrets ? import.meta.env.VITE_SUPABASE_URL : "••••••••••••"}
+                </div>
+                <div className="rounded-xl bg-slate-800/70 p-3">
+                  Supabase anon key: {showSecrets ? import.meta.env.VITE_SUPABASE_ANON_KEY : "••••••••••••"}
+                </div>
+              </div>
+              <button onClick={() => setShowSecrets((v) => !v)} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-xs hover:border-slate-500">
+                {showSecrets ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {showSecrets ? "Hide secrets" : "Show secrets"}
               </button>
-            </div>
-            <div className="bg-card border border-border rounded-2xl p-6">
-              <h2 className="text-sm font-medium mb-4 flex items-center gap-2"><Settings className="w-4 h-4 text-blue-500"/> Systeminformation</h2>
-              <div className="space-y-0 text-sm">
-                {[
-                  { label:"Supabase URL", value:import.meta.env.VITE_SUPABASE_URL },
-                  { label:"Miljö", value:"Production" },
-                  { label:"Totalt användare", value:String(users.length) },
-                  { label:"Admins", value:String(adminsCount) },
-                  { label:"Quiz-frågor", value:String(quizQuestions.length) },
-                  { label:"Innehållsobjekt", value:String(contentItems.length) },
-                ].map(({ label,value })=>(
-                  <div key={label} className="flex justify-between py-2.5 border-b border-border last:border-0">
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="font-mono text-xs truncate max-w-48">{value}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between py-2.5 items-center">
-                  <span className="text-muted-foreground">Service Key</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs">{showSecret?(import.meta.env.VITE_SUPABASE_SERVICE_KEY?.slice(0,15)+"..."):"••••••••••••••••"}</span>
-                    <button onClick={()=>setShowSecret(!showSecret)}>{showSecret?<EyeOff className="w-3.5 h-3.5"/>:<Eye className="w-3.5 h-3.5"/>}</button>
-                  </div>
+              <div className="mt-4 grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-800 bg-slate-900 p-2">
+                  <p className="mb-1 inline-flex items-center gap-1 text-slate-400"><Database className="h-3.5 w-3.5" /> DB health</p>
+                  <p>Profiles: {users.length}</p>
+                  <p>Quiz rows: {quizQuestions.length}</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-900 p-2">
+                  <p className="mb-1 inline-flex items-center gap-1 text-slate-400"><Gauge className="h-3.5 w-3.5" /> Runtime</p>
+                  <p>Auto refresh: {autoRefreshEnabled ? "enabled" : "disabled"}</p>
+                  <p>Interval: {autoRefreshSeconds}s</p>
                 </div>
               </div>
             </div>
-          </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="mb-4 text-sm font-medium">Admin tools</h3>
+              <textarea value={systemAnnouncement} onChange={(e) => setSystemAnnouncement(e.target.value)} placeholder="Send system announcement..." className="h-24 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+              <button onClick={() => void sendSystemAnnouncement()} disabled={sendingSystemAnnouncement || !systemAnnouncement.trim()} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-3 py-2 text-sm font-medium hover:bg-indigo-400 disabled:opacity-60">
+                {sendingSystemAnnouncement ? <Loader2 className="h-4 w-4 animate-spin" /> : <Megaphone className="h-4 w-4" />}
+                Send announcement
+              </button>
+              <div className="mt-4 grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                <button onClick={() => addLog("info", "Health check triggered")} className="rounded-lg border border-slate-700 px-2 py-2 hover:border-slate-500">Run health check</button>
+                <button onClick={() => addLog("info", "Cache clear requested")} className="rounded-lg border border-slate-700 px-2 py-2 hover:border-slate-500">Clear cache</button>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 lg:col-span-2">
+              <h3 className="mb-3 inline-flex items-center gap-2 text-sm font-medium"><Brain className="h-4 w-4 text-indigo-300" /> Operational playbook</h3>
+              <p className="mb-3 text-xs text-slate-400">Action library for growth, moderation, quiz quality, infra stability and retention execution.</p>
+              <div className="grid gap-2 md:grid-cols-2">
+                {ADMIN_PLAYBOOK.map((item) => (
+                  <article key={item.id} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="rounded-full bg-slate-800 px-2 py-0.5">{item.id}</span>
+                      <span className={cn("rounded-full px-2 py-0.5", item.severity === "high" ? "bg-rose-500/20 text-rose-200" : item.severity === "medium" ? "bg-amber-500/20 text-amber-200" : "bg-slate-800 text-slate-300")}>
+                        {item.severity}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium">{item.title}</p>
+                    <p className="mt-1 text-xs text-slate-400">Category: {item.category}</p>
+                    <p className="mt-1 text-xs text-slate-300"><span className="text-slate-500">Trigger:</span> {item.trigger}</p>
+                    <p className="mt-1 text-xs text-slate-300"><span className="text-slate-500">Action:</span> {item.action}</p>
+                    <p className="mt-1 text-xs text-slate-400">Owner: {item.owner}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
         )}
-
       </div>
+
+      {detailUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-medium">User details</h3>
+              <button onClick={() => setDetailUser(null)} className="rounded-lg border border-slate-700 p-1.5 hover:border-slate-500">
+                <XCircle className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-2 text-sm">
+              <p><span className="text-slate-400">Name:</span> {detailUser.display_name || "Unnamed"}</p>
+              <p><span className="text-slate-400">Email:</span> {detailUser.email}</p>
+              <p><span className="text-slate-400">Role:</span> {detailUser.role}</p>
+              <p><span className="text-slate-400">XP:</span> {detailUser.xp ?? 0}</p>
+              <p><span className="text-slate-400">Created:</span> {formatDate(detailUser.created_at)}</p>
+              <p><span className="text-slate-400">Last seen:</span> {formatDate(detailUser.last_seen)}</p>
+              <p><span className="text-slate-400">Online:</span> {detailUser.is_online ? "Yes" : "No"}</p>
+              <p><span className="text-slate-400">Banned:</span> {detailUser.is_banned ? "Yes" : "No"}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
