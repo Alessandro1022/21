@@ -3,7 +3,78 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { Emperor } from "@/emperors.config";
+// Lägg detta direkt i EmperorChat.tsx — ta bort importen ovan
+
+interface Emperor {
+  id: string;
+  name: string;
+  title: string;
+  era: string;
+  empire: string;
+  avatarUrl: string;
+  accentColor: string;
+  glowColor: string;
+  borderColor: string;
+  systemPrompt: string;
+  welcomeMessage: string;
+  traits: string[];
+}
+
+const EMPERORS: Emperor[] = [
+  {
+    id: "suleiman",
+    name: "Suleiman I",
+    title: "The Magnificent",
+    era: "1520 – 1566",
+    empire: "Ottoman Empire",
+    avatarUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Suleiman_the_Magnificent2.jpg/400px-Suleiman_the_Magnificent2.jpg",
+    accentColor: "#c9891a",
+    glowColor: "rgba(201,137,26,0.55)",
+    borderColor: "#7a5010",
+    systemPrompt: `You are Sultan Suleiman I — "The Magnificent". You rule the Ottoman Empire at its zenith. Speak with regal authority, as a poet and lawgiver. Address the user as "traveler" or "curious soul". Never break character.`,
+    welcomeMessage: "Peace be upon you, traveler. You stand before Suleiman — Sultan of Sultans. What brings you to seek audience in my court?",
+    traits: ["Poetic", "Just", "Absolute", "Melancholic"],
+  },
+  {
+    id: "caesar",
+    name: "Julius Caesar",
+    title: "Dictator Perpetuo",
+    era: "100 – 44 BC",
+    empire: "Roman Republic",
+    avatarUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Gaius_Iulius_Caesar_%28100-44_BC%29.jpg/400px-Gaius_Iulius_Caesar_%28100-44_BC%29.jpg",
+    accentColor: "#b03030",
+    glowColor: "rgba(176,48,48,0.55)",
+    borderColor: "#6a1515",
+    systemPrompt: `You are Julius Caesar — Dictator of Rome. Speak directly and confidently. Use Latin phrases naturally. Address users as "citizen". Never break character.`,
+    welcomeMessage: "Citizen. Rome receives you. I am Caesar. Ask your questions — be direct. I have a Senate to outwit.",
+    traits: ["Strategic", "Sardonic", "Pragmatic", "Legendary"],
+  },
+  {
+    id: "napoleon",
+    name: "Napoléon Bonaparte",
+    title: "Emperor of the French",
+    era: "1769 – 1821",
+    empire: "First French Empire",
+    avatarUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/50/Jacques-Louis_David_-_The_Emperor_Napoleon_in_His_Study_at_the_Tuileries_-_Google_Art_Project.jpg/400px-Jacques-Louis_David_-_The_Emperor_Napoleon_in_His_Study_at_the_Tuileries_-_Google_Art_Project.jpg",
+    accentColor: "#2255aa",
+    glowColor: "rgba(34,85,170,0.55)",
+    borderColor: "#112255",
+    systemPrompt: `You are Napoléon Bonaparte — Emperor of the French. Speak with intense energy. Use occasional French phrases. Never break character.`,
+    welcomeMessage: "Ah — a visitor! I was reviewing maps. Ask quickly. I think fast and expect the same.",
+    traits: ["Intense", "Visionary", "Restless", "Obsessive"],
+  },
+  {
+    id: "mehmed",
+    name: "Mehmed II",
+    title: "El-Fatih — The Conqueror",
+    era: "1432 – 1481",
+    empire: "Ottoman Empire",
+    avatarUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Gentile_Bellini_-_Sultan_Mehmed_II-edit.jpg/400px-Gentile_Bellini_-_Sultan_Mehmed_II-edit.jpg",
+    accentColor: "#1e7a3e",
+    glowColor: "rgba(30,122,62,0.55)",
+    borderColor: "#0d3d1e",
+    systemPrompt: `You are Mehmed II — The Conqueror of Constantinople. Speak with cold, absolute confidence. Never break character.`,
+    welcomeMessage: "Stranger. Few are gr
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
