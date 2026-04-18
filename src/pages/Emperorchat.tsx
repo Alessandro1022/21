@@ -1,10 +1,9 @@
 // pages/EmperorChat.tsx
 // ─── Premium-gated chat with historical rulers ────────────────────────────────
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { EMPERORS, Emperor } from "../emperors.config";
-import { useEmperorChat } from "../hooks/useEmperorChat";
+import { EMPERORS, Emperor } from "@/emperors.config";
+import { useEmperorChat } from "@/hooks/useEmperorChat";
+import { supabase } from "@/integrations/supabase/client";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
