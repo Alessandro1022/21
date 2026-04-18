@@ -10,6 +10,7 @@ import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import Onboarding from "./Onboarding";
 import Chat from "./pages/Chat";
+import EmperorChatPage from "./pages/EmperorChat";
 import Timeline from "./pages/Timeline";
 import MapPage from "./pages/MapPage";
 import Quiz from "./pages/Quiz";
@@ -57,6 +58,7 @@ const App = () => {
               <Route path="/timeline" element={<ProtectedRoute><Timeline /></ProtectedRoute>} />
               <Route path="/map" element={<ProtectedRoute><MapPage /></ProtectedRoute>} />
               <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
+              <Route path="/emperor-chat" element={<EmperorChatPage />} />
               <Route path="/profiles" element={<ProtectedRoute><Profiles /></ProtectedRoute>} />
               <Route path="/profiles/:id" element={<ProtectedRoute><ProfileDetail /></ProtectedRoute>} />
               <Route path="/lineage" element={<ProtectedRoute><Lineage /></ProtectedRoute>} />
