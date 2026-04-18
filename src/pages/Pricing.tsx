@@ -390,20 +390,22 @@ export default function Pricing() {
               </div>
             ) : (
               <button
-                onClick={handleUpgrade}
-                disabled={loading || !user}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold relative overflow-hidden disabled:opacity-50"
-                style={{
-                  background: "linear-gradient(135deg, #C9A227, #D4AF37, #E8CC55, #B8901E)",
-                  color: "#08050F",
-                  fontFamily: "'Cinzel', serif",
-                  fontSize: "0.8rem",
-                  letterSpacing: "0.12em",
-                  boxShadow: "0 4px 24px rgba(212,175,55,0.4)",
-                  transition: "transform 0.2s, box-shadow 0.2s",
-                }}
-              >
-                <Sparkles className="w-4 h-4" />
+          onClick={() => {
+           alert("Premium är tillfälligt avstängt");
+             }}
+           disabled={loading || !user}
+           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold relative overflow-hidden disabled:opacity-50"
+           style={{
+           background: "linear-gradient(135deg, #C9A227, #D4AF37, #E8CC55, #B8901E)",
+             color: "#08050F",
+            fontFamily: "'Cinzel', serif",
+            fontSize: "0.8rem",
+           letterSpacing: "0.12em",
+           boxShadow: "0 4px 24px rgba(212,175,55,0.4)",
+            transition: "transform 0.2s, box-shadow 0.2s",
+          }}
+            >
+             <Sparkles className="w-4 h-4" />
                 {loading ? t.activating : !user ? t.getStarted : t.upgrade}
               </button>
             )}
