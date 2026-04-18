@@ -1,8 +1,24 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEmpire } from "@/contexts/EmpireContext";
-import { MessageSquare, Clock, Map, Brain, Users, Shield, LogOut, Globe, Crown, BookOpen, Settings } from "lucide-react";
+import {
+  MessageSquare,
+  Clock,
+  Map,
+  Brain,
+  Users,
+  Shield,
+  LogOut,
+  Globe,
+  Crown,
+  BookOpen,
+  Settings,
+  Sparkles,
+  Zap,
+  Star,
+} from "lucide-react";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import React, { useMemo, useState, useEffect } from "react";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -13,116 +29,224 @@ interface AppLayoutProps {
 
 const NAV_ITEMS = [
   { path: "/chat", icon: MessageSquare, label: { sv: "Chatt", en: "Chat", tr: "Sohbet" } },
-  { path: "/timeline", icon: Clock, label: { sv: "Tidslinje", en: "Timeline", tr: "Zaman Çizelgesi" } },
+  { path: "/timeline", icon: Clock, label: { sv: "Tidslinje", en: "Timeline", tr: "Zaman" } },
   { path: "/map", icon: Map, label: { sv: "Karta", en: "Map", tr: "Harita" } },
   { path: "/quiz", icon: Brain, label: { sv: "Quiz", en: "Quiz", tr: "Quiz" } },
   { path: "/profiles", icon: Users, label: { sv: "Profiler", en: "Profiles", tr: "Profiller" } },
-  { path: "/lineage", icon: Crown, label: { sv: "Stamtavla", en: "Lineage", tr: "Soy Ağacı" } },
-  { path: "/story", icon: BookOpen, label: { sv: "Berättelse", en: "Story", tr: "Hikaye" } },
+  { path: "/lineage", icon: Crown, label: { sv: "Dynasti", en: "Lineage", tr: "Soy" } },
+  { path: "/story", icon: BookOpen, label: { sv: "Story", en: "Story", tr: "Hikaye" } },
 ];
 
-export function AppLayout({ children, language, setLanguage, hideNav }: AppLayoutProps) {
+function cx(...c: (string | boolean | undefined)[]) {
+  return c.filter(Boolean).join(" ");
+}
+
+/* -------------------- FLOATING PARTICLES -------------------- */
+function Particles() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {Array.from({ length: 40 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-1 h-1 bg-white/20 rounded-full animate-pulse"
+          style={{
+            top: `${Math.random() * 100}%`,
+            left: `${Math.random() * 100}%`,
+            opacity: Math.random(),
+            filter: "blur(1px)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* -------------------- COMMAND BAR (FAKE UI HOOK) -------------------- */
+function CommandHint() {
+  return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xl text-xs text-white/50 flex items-center gap-2">
+      <Zap className="w-3 h-3" />
+      Press <span className="text-white">Ctrl + K</span> for Command
+    </div>
+  );
+}
+
+export function AppLayout({
+  children,
+  language,
+  setLanguage,
+  hideNav,
+}: AppLayoutProps) {
   const { user, isAdmin, signOut } = useAuth();
   const { config } = useEmpire();
   const location = useLocation();
   const navigate = useNavigate();
-  
 
   const crestImage = config?.crestImage;
   const bgImage = config?.backgroundImage;
   const appTitle = config?.appTitle || "Empire AI";
 
+  const active = location.pathname;
+
+  const [glow, setGlow] = useState(false);
+
+  useEffect(() => {
+    setGlow(true);
+    const t = setTimeout(() => setGlow(false), 400);
+    return () => clearTimeout(t);
+  }, [active]);
+
+  const nav = useMemo(() => NAV_ITEMS, []);
+
   return (
-    <div className="flex flex-col h-screen relative" style={bgImage ? { backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
-      <div className="absolute inset-0 bg-background/88 z-0" />
+    <div className="relative flex flex-col h-screen overflow-hidden bg-black text-white">
 
-      {/* Header — safe-area-top för PWA/notch */}
-      <header className="relative z-20 flex-shrink-0 border-b border-border px-3 bg-background/60 backdrop-blur-md" style={{ paddingTop: "max(env(safe-area-inset-top), 8px)", paddingBottom: "8px" }}>
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Link to="/" className="flex items-center gap-2">
-              {crestImage && <img src={crestImage} alt="Empire crest" className="w-7 h-7 rounded-lg object-cover" />}
-              <span className="text-sm font-serif text-primary hidden sm:block">{appTitle}</span>
-            </Link>
-          </div>
+      {/* ================= CINEMATIC BACKGROUND ================= */}
+      <div
+        className="absolute inset-0 scale-110"
+        style={{
+          backgroundImage: bgImage ? `url(${bgImage})` : undefined,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "contrast(1.2) saturate(1.3)",
+        }}
+      />
 
+      {/* DEPTH LAYERS */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/95" />
+
+      {/* AURORA ENGINE */}
+      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-purple-500/20 blur-[160px] rounded-full animate-pulse" />
+      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-blue-500/20 blur-[160px] rounded-full animate-pulse" />
+
+      {/* PARTICLES */}
+      <Particles />
+
+      {/* ================= HEADER ================= */}
+      <header className="relative z-20 backdrop-blur-3xl bg-white/5 border-b border-white/10">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-4 py-3">
+
+          {/* BRAND */}
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="relative">
+              {crestImage && (
+                <img
+                  src={crestImage}
+                  className="w-10 h-10 rounded-xl border border-white/20 group-hover:scale-110 transition"
+                />
+              )}
+              <div className="absolute inset-0 bg-purple-500/30 blur-xl opacity-0 group-hover:opacity-100 transition" />
+            </div>
+
+            <div>
+              <div className="text-sm font-bold tracking-wide flex items-center gap-2">
+                {appTitle}
+                <Star className="w-3 h-3 text-yellow-300" />
+              </div>
+              <div className="text-[10px] text-white/50 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Neural Empire System
+              </div>
+            </div>
+          </Link>
+
+          {/* NAV */}
           {!hideNav && (
-            <nav className="hidden md:flex items-center gap-1">
-              {NAV_ITEMS.map((item) => {
-                const active = location.pathname === item.path;
+            <nav className="hidden md:flex items-center gap-1 p-1 rounded-2xl bg-white/5 border border-white/10">
+              {nav.map((i) => {
+                const isActive = active === i.path;
+
                 return (
                   <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans transition-colors ${
-                      active ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
+                    key={i.path}
+                    to={i.path}
+                    className={cx(
+                      "relative flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-all duration-300",
+                      isActive
+                        ? "bg-white/10 text-white shadow-lg"
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    )}
                   >
-                    <item.icon className="w-3.5 h-3.5" />
-                    {item.label[language as keyof typeof item.label] || item.label.en}
+                    <i.icon className="w-4 h-4" />
+                    {i.label[language as keyof typeof i.label]}
+
+                    {isActive && (
+                      <span className="absolute inset-0 rounded-xl ring-1 ring-white/20 animate-pulse" />
+                    )}
                   </Link>
                 );
               })}
+
               <Link
                 to="/settings"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans transition-colors ${
-                  location.pathname === "/settings" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-white/60 hover:text-white"
               >
-                <Settings className="w-3.5 h-3.5" />
-                {language === "sv" ? "Inställningar" : language === "tr" ? "Ayarlar" : "Settings"}
+                <Settings className="w-4 h-4" />
+                Settings
               </Link>
+
               {isAdmin && (
-                <Link to="/admin" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans text-muted-foreground hover:text-foreground hover:bg-muted">
-                  <Shield className="w-3.5 h-3.5" /> Admin
+                <Link className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-yellow-300">
+                  <Shield className="w-4 h-4" />
+                  Admin
                 </Link>
               )}
             </nav>
           )}
 
-          <div className="flex items-center gap-1 flex-shrink-0">
+          {/* RIGHT */}
+          <div className="flex items-center gap-2">
+
             <button
               onClick={() => navigate("/select-empire")}
-              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-              title="Change Empire"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10"
             >
-              <Globe className="w-4 h-4 text-muted-foreground" />
+              <Globe className="w-4 h-4 text-white/70" />
             </button>
-            {/* Kompakt flaggselektor på mobil */}
-            <div className="flex gap-0.5">
+
+            <div className="flex gap-1 p-1 bg-white/5 rounded-xl border border-white/10">
               {[
-                { value: "sv", emoji: "🇸🇪" },
-                { value: "en", emoji: "🇬🇧" },
-                { value: "tr", emoji: "🇹🇷" },
-              ].map((flag) => (
+                { v: "sv", e: "🇸🇪" },
+                { v: "en", e: "🇬🇧" },
+                { v: "tr", e: "🇹🇷" },
+              ].map((f) => (
                 <button
-                  key={flag.value}
-                  onClick={() => setLanguage(flag.value)}
-                  className={`w-7 h-7 md:w-9 md:h-9 rounded-lg text-sm md:text-lg flex items-center justify-center transition-all ${
-                    language === flag.value
-                      ? "bg-primary/20 ring-2 ring-primary scale-110"
-                      : "hover:bg-muted opacity-60 hover:opacity-100"
-                  }`}
+                  key={f.v}
+                  onClick={() => setLanguage(f.v)}
+                  className={cx(
+                    "w-8 h-8 rounded-lg transition",
+                    language === f.v ? "bg-white/10 scale-110" : "opacity-40"
+                  )}
                 >
-                  {flag.emoji}
+                  {f.e}
                 </button>
               ))}
             </div>
+
             {user && (
-              <button onClick={signOut} className="p-1.5 rounded-lg hover:bg-muted transition-colors hidden md:block" title="Logga ut">
-                <LogOut className="w-4 h-4 text-muted-foreground" />
+              <button onClick={signOut} className="p-2 rounded-xl bg-red-500/10">
+                <LogOut className="w-4 h-4 text-red-300" />
               </button>
             )}
           </div>
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 overflow-hidden pb-[calc(68px+env(safe-area-inset-bottom))] md:pb-0">
-        {children}
+      {/* ACTIVE GLOW STRIKE */}
+      {glow && (
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[2px] bg-purple-400 blur-md animate-pulse" />
+      )}
+
+      {/* MAIN */}
+      <main className="relative z-10 flex-1 overflow-hidden">
+        <div className="h-full overflow-y-auto px-2 md:px-0">
+          {children}
+        </div>
       </main>
 
       {!hideNav && <MobileBottomNav language={language} />}
+
+      <CommandHint />
     </div>
   );
 }
-
