@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { streamChat, type Message } from "@/lib/streamChat";
 import { useEmpire } from "@/contexts/EmpireContext";
 import { useAuth } from "@/hooks/useAuth";
+import { usePremium } from "@/hooks/usePremium";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -39,6 +40,7 @@ export function useChat() {
   const abortRef = useRef(false);
   const { empireId, config } = useEmpire();
   const { user } = useAuth();
+  const { isPremium, creditsLeft, maxCredits, refresh: refreshPremium } = usePremium();
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
@@ -93,32 +95,44 @@ export function useChat() {
     setIsLoading(true);
     abortRef.current = false;
 
-    // DEBUG
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const debugStr = `SUPABASE_URL=${supabaseUrl ? supabaseUrl.slice(0, 30) + "..." : "MISSING"} | SUPABASE_KEY=${supabaseKey ? "OK" : "MISSING"} | EMPIRE=${empireId || "ottoman"} | USER=${user ? "logged in" : "not logged in"}`;
-setDebugInfo(debugStr);
-// ← KLISTRA IN HÄR (efter debug-toasten)
-if (user) {
-  const { data, error } = await supabase.rpc("use_chat_credit", {
-    p_user_id: user.id,
-  });
-  if (error || !data?.allowed) {
-    toast.error(
-      language === "sv"
-        ? `Du har använt dina 5 dagliga frågor. Kom tillbaka imorgon!`
-        : language === "tr"
-        ? `Gunluk 5 sorunuzu kullandınız. Yarın tekrar gelin!`
-        : `You have used your 5 daily questions. Come back tomorrow!`
-    );
-    setIsLoading(false);
-    setMessages((prev) => prev.slice(0, -1));
-    return;
-  }
-}
-// ← SLUT PÅ TILLÄGG
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const debugStr = `URL=${supabaseUrl ? supabaseUrl.slice(0, 30) + "..." : "MISSING"} | KEY=${supabaseKey ? "OK" : "MISSING"} | EMPIRE=${empireId || "ottoman"} | USER=${user ? "in" : "out"} | PREMIUM=${isPremium}`;
+    setDebugInfo(debugStr);
 
-toast.info(debugStr, { duration: 1 });
+    // ── CREDIT CHECK ─────────────────────────────────────────────────────
+    if (user) {
+      const { data, error } = await supabase.rpc("use_chat_credit", {
+        p_user_id: user.id,
+      });
+
+      if (error || !data?.allowed) {
+        const limitMsg = isPremium
+          ? (language === "sv"
+              ? `Du har använt dina ${maxCredits} dagliga frågor. Kom tillbaka imorgon!`
+              : language === "tr"
+              ? `Günlük ${maxCredits} sorunuzu kullandınız. Yarın tekrar gelin!`
+              : `You've used all ${maxCredits} daily questions. Come back tomorrow!`)
+          : (language === "sv"
+              ? `Du har använt dina 5 dagliga frågor. Uppgradera till Premium för 25 frågor/dag!`
+              : language === "tr"
+              ? `5 günlük sorunuzu kullandınız. Günde 25 soru için Premium'a yükseltin!`
+              : `You've used your 5 daily questions. Upgrade to Premium for 25/day!`);
+
+        toast.error(limitMsg, {
+          duration: 6000,
+          action: !isPremium
+            ? { label: language === "sv" ? "Uppgradera" : language === "tr" ? "Yükselt" : "Upgrade", onClick: () => window.location.href = "/pricing" }
+            : undefined,
+        });
+        setIsLoading(false);
+        setMessages(prev => prev.slice(0, -1));
+        await refreshPremium();
+        return;
+      }
+      await refreshPremium();
+    }
+    // ── END CREDIT CHECK ─────────────────────────────────────────────────
 
     let convId = activeConversationId;
     if (!convId && user) {
@@ -173,7 +187,7 @@ toast.info(debugStr, { duration: 1 });
       toast.error(msg, { duration: 10000 });
       setIsLoading(false);
     }
-  }, [messages, isLoading, language, level, empireId, activeConversationId, user, createConversation, saveMessage, loadConversations]);
+  }, [messages, isLoading, language, level, empireId, activeConversationId, user, isPremium, maxCredits, createConversation, saveMessage, loadConversations, refreshPremium]);
 
   const resetMessages = useCallback(() => {
     abortRef.current = true;
@@ -218,5 +232,9 @@ toast.info(debugStr, { duration: 1 });
     deleteConversation,
     loadingConversations,
     config,
+    // Premium info exposed for UI
+    isPremium,
+    creditsLeft,
+    maxCredits,
   };
 }
