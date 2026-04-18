@@ -21,21 +21,25 @@ interface PremiumState {
 export function usePremium(): PremiumState {
   const { user } = useAuth();
 
-  const [isPremium, setIsPremium] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [creditsUsed, setCreditsUsed] = useState(0);
+  const [state, setState] = useState({
+    isPremium: false,
+    loading: true,
+    creditsUsed: 0,
+  });
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    if (!user?.id) {
+      setState({
+        isPremium: false,
+        loading: false,
+        creditsUsed: 0,
+      });
+      return;
+    }
+
+    setState((prev) => ({ ...prev, loading: true }));
 
     try {
-      if (!user?.id) {
-        setIsPremium(false);
-        setCreditsUsed(0);
-        setLoading(false);
-        return;
-      }
-
       const { data, error } = await supabase
         .from("profiles")
         .select("is_premium, premium_expires_at, daily_credits_used")
@@ -43,48 +47,55 @@ export function usePremium(): PremiumState {
         .single();
 
       if (error || !data) {
-        setIsPremium(false);
-        setCreditsUsed(0);
-        setLoading(false);
+        setState({
+          isPremium: false,
+          loading: false,
+          creditsUsed: 0,
+        });
         return;
       }
 
-      const now = new Date();
+      const now = Date.now();
       const expiresAt = data.premium_expires_at
-        ? new Date(data.premium_expires_at)
+        ? new Date(data.premium_expires_at).getTime()
         : null;
 
-      const premiumActive =
+      const isActive =
         data.is_premium === true &&
-        (!expiresAt || expiresAt.getTime() > now.getTime());
+        (!expiresAt || expiresAt > now);
 
-      setIsPremium(premiumActive);
-      setCreditsUsed(data.daily_credits_used ?? 0);
+      setState({
+        isPremium: isActive,
+        loading: false,
+        creditsUsed: data.daily_credits_used ?? 0,
+      });
     } catch (err) {
-      console.error("Premium check error:", err);
-      setIsPremium(false);
-      setCreditsUsed(0);
-    }
+      console.error("Premium error:", err);
 
-    setLoading(false);
-  }, [user]);
+      setState({
+        isPremium: false,
+        loading: false,
+        creditsUsed: 0,
+      });
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const maxCredits = isPremium ? MAX_PREMIUM_CREDITS : MAX_FREE_CREDITS;
-  const creditsLeft = Math.max(0, maxCredits - creditsUsed);
+  const maxCredits =
+    state.isPremium ? MAX_PREMIUM_CREDITS : MAX_FREE_CREDITS;
+
+  const creditsLeft = Math.max(0, maxCredits - state.creditsUsed);
 
   const canAccess = useCallback(
     (empireId: string | null) => {
       if (!empireId) return true;
-
       if (FREE_EMPIRE_IDS.includes(empireId)) return true;
-
-      return isPremium;
+      return state.isPremium;
     },
-    [isPremium]
+    [state.isPremium]
   );
 
   const canChat = useCallback(() => {
@@ -92,9 +103,7 @@ export function usePremium(): PremiumState {
   }, [creditsLeft]);
 
   return {
-    isPremium,
-    loading,
-    creditsUsed,
+    ...state,
     maxCredits,
     creditsLeft,
     canAccess,
