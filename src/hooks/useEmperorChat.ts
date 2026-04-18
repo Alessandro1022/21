@@ -2,8 +2,7 @@
 // Chat hook using Google AI (Gemini) via secure API route — no voice
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-import type { Emperor } from "../emperors.config";
+import { supabase } from "@/integrations/supabase/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
