@@ -3,14 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 export const FREE_EMPIRE_IDS = ["ottoman", "roman"];
-export const PREMIUM_EMPIRE_IDS = [
-  "islamic_caliphate",
-  "mongol_empire",
-  "ancient_egypt",
-  "british_empire",
-  "japanese_empire",
-  "spanish_empire",
-];
 
 export const MAX_FREE_CREDITS = 5;
 export const MAX_PREMIUM_CREDITS = 25;
@@ -28,32 +20,52 @@ interface PremiumState {
 
 export function usePremium(): PremiumState {
   const { user } = useAuth();
+
   const [isPremium, setIsPremium] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creditsUsed, setCreditsUsed] = useState(0);
 
   const refresh = useCallback(async () => {
-    if (!user) {
-      setIsPremium(false);
-      setCreditsUsed(0);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
-    const { data } = await supabase
-      .from("profiles")
-      .select("is_premium, premium_expires_at, daily_credits_used")
-      .eq("id", user.id)
-      .single();
 
-    if (data) {
+    try {
+      if (!user?.id) {
+        setIsPremium(false);
+        setCreditsUsed(0);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("is_premium, premium_expires_at, daily_credits_used")
+        .eq("id", user.id)
+        .single();
+
+      if (error || !data) {
+        setIsPremium(false);
+        setCreditsUsed(0);
+        setLoading(false);
+        return;
+      }
+
+      const now = new Date();
+      const expiresAt = data.premium_expires_at
+        ? new Date(data.premium_expires_at)
+        : null;
+
       const premiumActive =
         data.is_premium === true &&
-        (data.premium_expires_at === null ||
-          new Date(data.premium_expires_at) > new Date());
+        (!expiresAt || expiresAt.getTime() > now.getTime());
+
       setIsPremium(premiumActive);
       setCreditsUsed(data.daily_credits_used ?? 0);
+    } catch (err) {
+      console.error("Premium check error:", err);
+      setIsPremium(false);
+      setCreditsUsed(0);
     }
+
     setLoading(false);
   }, [user]);
 
@@ -67,13 +79,17 @@ export function usePremium(): PremiumState {
   const canAccess = useCallback(
     (empireId: string | null) => {
       if (!empireId) return true;
+
       if (FREE_EMPIRE_IDS.includes(empireId)) return true;
+
       return isPremium;
     },
     [isPremium]
   );
 
-  const canChat = useCallback(() => creditsLeft > 0, [creditsLeft]);
+  const canChat = useCallback(() => {
+    return creditsLeft > 0;
+  }, [creditsLeft]);
 
   return {
     isPremium,
