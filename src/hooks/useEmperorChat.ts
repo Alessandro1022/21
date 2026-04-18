@@ -3,6 +3,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Emperor } from "@/emperors.config";
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
