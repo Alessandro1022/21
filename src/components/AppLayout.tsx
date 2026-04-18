@@ -80,6 +80,13 @@ const NAV_ITEMS: NavItem[] = [
     glowColor: "#0284c7",
   },
   {
+  path: "/emperor-chat",
+  icon: Crown,
+  label: { sv: "Kejsare", en: "Emperors", tr: "İmparator" },
+  accentColor: "text-yellow-300",
+  glowColor: "#c9891a",
+},
+  {
     path: "/profiles",
     icon: Users,
     label: { sv: "Profiler", en: "Profiles", tr: "Profiller" },
