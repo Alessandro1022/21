@@ -1,27 +1,43 @@
-import Stripe from "stripe";
+import { serve } from "https://deno.land/std/http/server.ts";
+import Stripe from "https://esm.sh/stripe?target=deno";
+import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
-  apiVersion: "2024-06-20",
+  apiVersion: "2023-10-16",
 });
 
-Deno.serve(async (req) => {
-  const { userId } = await req.json();
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+);
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    payment_method_types: ["card"],
-    line_items: [
-      {
-        price: "price_xxxxx", // från Stripe dashboard
-        quantity: 1,
-      },
-    ],
-    success_url: "https://din-app.vercel.app/settings",
-    cancel_url: "https://din-app.vercel.app/pricing",
-    metadata: { userId },
-  });
+serve(async (req) => {
+  const sig = req.headers.get("stripe-signature")!;
+  const body = await req.text();
 
-  return new Response(JSON.stringify({ url: session.url }), {
-    headers: { "Content-Type": "application/json" },
-  });
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      body,
+      sig,
+      Deno.env.get("STRIPE_WEBHOOK_SECRET")!
+    );
+  } catch (err) {
+    return new Response("Webhook error", { status: 400 });
+  }
+
+  // 🎯 BETALNING KLAR
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+
+    const userId = session.metadata.userId;
+
+    await supabase
+      .from("profiles")
+      .update({ is_premium: true })
+      .eq("id", userId);
+  }
+
+  return new Response("ok");
 });
