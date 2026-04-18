@@ -3,7 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import { EmpireProvider } from "@/contexts/EmpireContext";
+
 import Home from "./pages/Home";
 import Auth from "./pages/Auth";
 import Onboarding from "./Onboarding";
@@ -21,24 +23,36 @@ import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import Notifications from "./pages/Notifications";
 import Leaderboard from "./pages/Leaderboard";
-import Leaderboard from "./pages/Leaderboard";
+import Pricing from "./pages/Pricing";
+
 import { ProtectedRoute } from "./components/ProtectedRoute";
- 
+
 const queryClient = new QueryClient();
- 
+
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
+
         <BrowserRouter>
           <EmpireProvider>
             <Onboarding />
+
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/select-empire" element={<ProtectedRoute skipEmpireCheck><EmpireSelect /></ProtectedRoute>} />
+
+              <Route
+                path="/select-empire"
+                element={
+                  <ProtectedRoute skipEmpireCheck>
+                    <EmpireSelect />
+                  </ProtectedRoute>
+                }
+              />
+
               <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
               <Route path="/timeline" element={<ProtectedRoute><Timeline /></ProtectedRoute>} />
               <Route path="/map" element={<ProtectedRoute><MapPage /></ProtectedRoute>} />
@@ -47,11 +61,15 @@ const App = () => {
               <Route path="/profiles/:id" element={<ProtectedRoute><ProfileDetail /></ProtectedRoute>} />
               <Route path="/lineage" element={<ProtectedRoute><Lineage /></ProtectedRoute>} />
               <Route path="/story" element={<ProtectedRoute><StoryMode /></ProtectedRoute>} />
+
               <Route path="/settings" element={<ProtectedRoute skipEmpireCheck><Settings /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute skipEmpireCheck><Admin /></ProtectedRoute>} />
               <Route path="/notifications" element={<ProtectedRoute skipEmpireCheck><Notifications /></ProtectedRoute>} />
               <Route path="/leaderboard" element={<ProtectedRoute skipEmpireCheck><Leaderboard /></ProtectedRoute>} />
-              <Route path="/leaderboard" element={<ProtectedRoute skipEmpireCheck><Leaderboard /></ProtectedRoute>} />
+
+              {/* 🔥 NEW */}
+              <Route path="/pricing" element={<Pricing />} />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </EmpireProvider>
@@ -60,5 +78,5 @@ const App = () => {
     </QueryClientProvider>
   );
 };
- 
+
 export default App;
