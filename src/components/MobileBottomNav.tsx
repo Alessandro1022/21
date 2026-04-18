@@ -22,6 +22,7 @@ const MAIN_TABS = [
 const MORE_ITEMS = [
   { path: "/map",         icon: Map,      label: { sv: "Karta",        en: "Map",         tr: "Harita"    } },
   { path: "/quiz",        icon: Brain,    label: { sv: "Quiz",         en: "Quiz",        tr: "Quiz"      } },
+  { path: "/emperor-chat", icon: Crown, label: { sv: "Kejsare", en: "Emperors", tr: "İmparator" } },
   { path: "/leaderboard", icon: Trophy,   label: { sv: "Topplista",    en: "Leaderboard", tr: "Liderlik"  } },
   { path: "/profiles",    icon: Users,    label: { sv: "Profiler",     en: "Profiles",    tr: "Profiller" } },
   { path: "/lineage",     icon: Crown,    label: { sv: "Stamtavla",    en: "Lineage",     tr: "Soy Ağacı" } },
