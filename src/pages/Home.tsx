@@ -3,7 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEmpire } from "@/contexts/EmpireContext";
 import { usePremium, FREE_EMPIRE_IDS } from "@/hooks/usePremium";
-import { PremiumGate } from "@/components/PremiumGate";
+import  PremiumGate  from "@/components/PremiumGate";
 import { empireList } from "@/data/empires";
 import {
   MessageSquare, LogIn, Shield, Clock, Map, Brain,
