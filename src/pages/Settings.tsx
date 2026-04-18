@@ -259,7 +259,19 @@ function useFeatures(planId: PlanId) {
   const hasFeature = useCallback((key: FeatureKey) => plan.features[key], [plan]);
   return { features: plan.features, hasFeature, plan };
 }
+const handleUpgrade = async () => {
+  const res = await fetch(
+    "https://YOUR_PROJECT.supabase.co/functions/v1/stripe-checkout",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user?.id }),
+    }
+  );
 
+  const data = await res.json();
+  window.location.href = data.url;
+};
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // § UI — PLAN BADGE (new)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
