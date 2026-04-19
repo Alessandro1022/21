@@ -7,7 +7,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.VITE_SUPABASE_SERVICE_KEY!  // ← matchar ditt Vercel-namn
 );
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
