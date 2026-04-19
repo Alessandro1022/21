@@ -4,6 +4,7 @@ import {
   Crown, BookOpen, Settings, MoreHorizontal, Shield,
   Bell, Trophy, ChevronRight,
 } from "lucide-react";
+import { Scroll } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
