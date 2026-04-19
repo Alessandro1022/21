@@ -460,34 +460,39 @@ function SelectionScreen({ onSelect }: { onSelect: (e: Emperor) => void }) {
 // ─── Root Export ──────────────────────────────────────────────────────────────
 
 export default function EmperorChatPage() {
+  const { user, isAdmin } = useAuth();
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
   const [selected, setSelected] = useState<Emperor | null>(null);
 
   useEffect(() => {
-  const check = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setIsPremium(false); return; }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_premium, premium_until, is_admin")
-      .eq("id", user.id)
-      .single();
-
-    // Admins får alltid tillgång
-    if (profile?.is_admin === true) {
+    // Admin får alltid in direkt
+    if (isAdmin) {
       setIsPremium(true);
       return;
     }
 
-    const active =
-      profile?.is_premium === true &&
-      (!profile.premium_until || new Date(profile.premium_until) > new Date());
+    if (!user) {
+      setIsPremium(false);
+      return;
+    }
 
-    setIsPremium(active);
-  };
-  check();
-}, []);
+    const check = async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_premium, premium_until")
+        .eq("id", user.id)
+        .single();
+
+      const active =
+        profile?.is_premium === true &&
+        (!profile.premium_until || new Date(profile.premium_until) > new Date());
+
+      setIsPremium(active);
+    };
+
+    check();
+  }, [user, isAdmin]);
+
   if (isPremium === null) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#06040e" }}>
@@ -498,6 +503,11 @@ export default function EmperorChatPage() {
       </div>
     );
   }
+
+  if (!isPremium) return <PremiumGate />;
+  if (selected) return <ChatInterface emperor={selected} onBack={() => setSelected(null)} />;
+  return <SelectionScreen onSelect={setSelected} />;
+}
 
   if (!isPremium) return <PremiumGate />;
   if (selected) return <ChatInterface emperor={selected} onBack={() => setSelected(null)} />;
