@@ -1,6 +1,6 @@
 // src/pages/EmperorChat.tsx
 // Helt självständig — inga externa config-imports
-
+import { useAuth } from "@/hooks/useAuth";
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
