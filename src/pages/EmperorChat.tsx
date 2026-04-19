@@ -464,22 +464,30 @@ export default function EmperorChatPage() {
   const [selected, setSelected] = useState<Emperor | null>(null);
 
   useEffect(() => {
-    const check = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setIsPremium(false); return; }
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_premium, premium_until")
-        .eq("id", user.id)
-        .single();
-      const active =
-        profile?.is_premium === true &&
-        (!profile.premium_until || new Date(profile.premium_until) > new Date());
-      setIsPremium(active);
-    };
-    check();
-  }, []);
+  const check = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setIsPremium(false); return; }
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_premium, premium_until, is_admin")
+      .eq("id", user.id)
+      .single();
+
+    // Admins får alltid tillgång
+    if (profile?.is_admin === true) {
+      setIsPremium(true);
+      return;
+    }
+
+    const active =
+      profile?.is_premium === true &&
+      (!profile.premium_until || new Date(profile.premium_until) > new Date());
+
+    setIsPremium(active);
+  };
+  check();
+}, []);
   if (isPremium === null) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#06040e" }}>
