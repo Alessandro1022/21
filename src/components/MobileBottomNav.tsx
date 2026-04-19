@@ -26,6 +26,8 @@ const MORE_ITEMS = [
   { path: "/leaderboard", icon: Trophy,   label: { sv: "Topplista",    en: "Leaderboard", tr: "Liderlik"  } },
   { path: "/profiles",    icon: Users,    label: { sv: "Profiler",     en: "Profiles",    tr: "Profiller" } },
   { path: "/lineage",     icon: Crown,    label: { sv: "Stamtavla",    en: "Lineage",     tr: "Soy Ağacı" } },
+  { path: "/documents",   icon: Scroll,   label: { sv: "Arkiv", en: "Archive", tr: "Arşiv" } },
+
   { path: "/story",       icon: BookOpen, label: { sv: "Berättelse",   en: "Story",       tr: "Hikaye"    } },
   { path: "/settings",    icon: Settings, label: { sv: "Inställningar",en: "Settings",    tr: "Ayarlar"   } },
 ];
