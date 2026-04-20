@@ -1702,28 +1702,57 @@ function SubmitTab({ t, lang, user }: { t: T; lang: string; user: any }) {
       let fileData: { url: string; type: FileKind; name: string } | null = null;
       try { fileData = await uploadFile(); } catch { /* optional */ }
 
-      await supabase.from("documents").insert({
-        title:       form.title.trim(),
-        content:     form.content.trim(),
-        empire_id:   form.empire_id,
-        user_id:     user.id,
-        author_name: profile?.display_name ?? user.email?.split("@")[0] ?? "Anonymous",
-        status:      "pending",
-        file_url:    fileData?.url  ?? null,
-        file_type:   fileData?.type ?? null,
-        file_name:   fileData?.name ?? null,
-      });
+const handleSubmit = async () => {
+  if (!validate()) return;
+  setBusy(true);
+  try {
+    const { data: profile } = await supabase
+      .from("profiles").select("display_name").eq("id", user.id).single();
 
-      setSuccess(true);
-      setForm({ title: "", content: "", empire_id: "" });
-      setErrors({});
-      setAttached(null);
-      setTimeout(() => setSuccess(false), 8000);
-    } catch (err) {
-      console.error(err);
+    let fileData: { url: string; type: FileKind; name: string } | null = null;
+    try { fileData = await uploadFile(); } catch (fileErr) {
+      console.error("File upload error:", fileErr);
     }
-    setBusy(false);
-  };
+
+    const insertPayload = {
+      title:       form.title.trim(),
+      content:     form.content.trim(),
+      empire_id:   form.empire_id,
+      user_id:     user.id,
+      author_name: profile?.display_name ?? user.email?.split("@")[0] ?? "Anonymous",
+      status:      "pending" as const,
+      file_url:    fileData?.url  ?? null,
+      file_type:   fileData?.type ?? null,
+      file_name:   fileData?.name ?? null,
+    };
+
+    console.log("Inserting:", insertPayload);
+    console.log("Auth user id:", user.id);
+
+    const { data, error } = await supabase
+      .from("documents")
+      .insert(insertPayload)
+      .select();
+
+    console.log("Insert result:", data, "Error:", error);
+
+    if (error) {
+      alert("Fel: " + error.message + " | Code: " + error.code);
+      setBusy(false);
+      return;
+    }
+
+    setSuccess(true);
+    setForm({ title: "", content: "", empire_id: "" });
+    setErrors({});
+    setAttached(null);
+    setTimeout(() => setSuccess(false), 8000);
+  } catch (err) {
+    console.error("Submit error:", err);
+    alert("Oväntat fel: " + JSON.stringify(err));
+  }
+  setBusy(false);
+};
 
   /* ── Not signed in ── */
   if (!user) {
