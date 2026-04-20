@@ -1692,25 +1692,20 @@ function SubmitTab({ t, lang, user }: { t: T; lang: string; user: any }) {
   };
 
   // Submit
-  const handleSubmit = async () => {
-    if (!validate()) return;
-    setBusy(true);
-    try {
-      const { data: profile } = await supabase
-        .from("profiles").select("display_name").eq("id", user.id).single();
-
-      let fileData: { url: string; type: FileKind; name: string } | null = null;
-      try { fileData = await uploadFile(); } catch { /* optional */ }
-
-const handleSubmit = async () => {
+ const handleSubmit = async () => {
   if (!validate()) return;
   setBusy(true);
   try {
     const { data: profile } = await supabase
-      .from("profiles").select("display_name").eq("id", user.id).single();
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .single();
 
     let fileData: { url: string; type: FileKind; name: string } | null = null;
-    try { fileData = await uploadFile(); } catch (fileErr) {
+    try {
+      fileData = await uploadFile();
+    } catch (fileErr) {
       console.error("File upload error:", fileErr);
     }
 
@@ -1727,7 +1722,6 @@ const handleSubmit = async () => {
     };
 
     console.log("Inserting:", insertPayload);
-    console.log("Auth user id:", user.id);
 
     const { data, error } = await supabase
       .from("documents")
@@ -1753,7 +1747,6 @@ const handleSubmit = async () => {
   }
   setBusy(false);
 };
-
   /* ── Not signed in ── */
   if (!user) {
     return (
