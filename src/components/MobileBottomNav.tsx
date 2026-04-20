@@ -28,12 +28,23 @@ const MORE_ITEMS = [
   { path: "/profiles",    icon: Users,    label: { sv: "Profiler",     en: "Profiles",    tr: "Profiller" } },
   { path: "/lineage",     icon: Crown,    label: { sv: "Stamtavla",    en: "Lineage",     tr: "Soy Ağacı" } },
   { path: "/documents",   icon: Scroll,   label: { sv: "Arkiv", en: "Archive", tr: "Arşiv" } },
+  { path: "/ranked", icon: Crown, label: { sv: "Ranked", en: "Ranked", tr: "Turnuva" } },
 
   { path: "/story",       icon: BookOpen, label: { sv: "Berättelse",   en: "Story",       tr: "Hikaye"    } },
   { path: "/settings",    icon: Settings, label: { sv: "Inställningar",en: "Settings",    tr: "Ayarlar"   } },
 ];
  
-const ADMIN_ITEM = { path: "/admin", icon: Shield, label: { sv: "Admin", en: "Admin", tr: "Admin" } };
+const ADMIN_ITEM = {
+  path: "/admin",
+  icon: Shield,
+  label: { sv: "Admin", en: "Admin", tr: "Admin" },
+};
+
+const ADMIN_RANKED_ITEM = {
+  path: "/admin-ranked",
+  icon: Crown,
+  label: { sv: "Ranked Admin", en: "Ranked Admin", tr: "Turnuva Admin" },
+};
  
 /* ─────────────────────────────────────────
    RIPPLE HOOK
