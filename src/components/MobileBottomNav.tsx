@@ -29,6 +29,7 @@ const MORE_ITEMS = [
   { path: "/lineage",     icon: Crown,    label: { sv: "Stamtavla",    en: "Lineage",     tr: "Soy Ağacı" } },
   { path: "/documents",   icon: Scroll,   label: { sv: "Arkiv", en: "Archive", tr: "Arşiv" } },
   { path: "/ranked", icon: Crown, label: { sv: "Ranked", en: "Ranked", tr: "Turnuva" } },
+  { path: "/admin-ranked", icon: Crown, label: { sv: "Ranked Admin", en: "Ranked Admin", tr: "Turnuva Admin" } },
 
   { path: "/story",       icon: BookOpen, label: { sv: "Berättelse",   en: "Story",       tr: "Hikaye"    } },
   { path: "/settings",    icon: Settings, label: { sv: "Inställningar",en: "Settings",    tr: "Ayarlar"   } },
