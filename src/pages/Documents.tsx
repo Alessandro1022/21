@@ -1,1043 +1,2736 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+// src/pages/Documents.tsx — IMPERIAL ARCHIVE v3.0 ✦ SOVEREIGN EDITION
+// ══════════════════════════════════════════════════════════════════════
+// ✔ 2500+ lines of production code
+// ✔ Admin-only review panel — COMPLETELY invisible to non-admins
+// ✔ Image (JPG/PNG/WEBP/GIF) + PDF upload with preview, drag-drop & lightbox
+// ✔ Reject with reason modal
+// ✔ Admin sub-tabs: Pending / All Documents (with delete)
+// ✔ 9 EXACT empires: ottoman, roman, islamic_caliphate, mongol_empire,
+//   ancient_egypt, british_empire, japanese_empire, mali_empire, seljuk_empire
+// ✔ Illuminated manuscript luxury aesthetic
+// ✔ Mobile-first, full i18n sv/en/tr
+// ✔ Sort: newest/oldest/alpha · Empire filter pills · Search
+// ✔ Supabase Storage for file attachments
+// ══════════════════════════════════════════════════════════════════════
+
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
 import { useChat } from "@/hooks/useChat";
 import {
-  BookOpen, Send, FolderOpen, Crown, Clock, CheckCircle,
-  XCircle, Search, Filter, ChevronDown, Plus, X, Scroll,
-  Feather, Library, Eye, Trash2, AlertCircle, Sparkles,
-  Globe, FileText, Calendar, User, Shield, ChevronRight,
-  ArrowLeft,
+  Send, FolderOpen, Crown, Clock, CheckCircle, XCircle,
+  Search, ChevronDown, Plus, Scroll, Feather, Library,
+  AlertCircle, Globe, FileText, Calendar, User, Shield,
+  ChevronRight, Paperclip, X, Download, ZoomIn,
+  MessageSquare, Trash2, Eye, Filter, BookOpen,
 } from "lucide-react";
 
-// ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
 // TYPES
-// ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
 
-type DocStatus = "pending" | "approved" | "rejected";
-type TabId = "explore" | "submit" | "mine" | "admin";
+type DocStatus  = "pending" | "approved" | "rejected";
+type TabId      = "explore" | "submit" | "mine" | "admin";
+type FileKind   = "image" | "pdf" | "none";
+type SortOrder  = "newest" | "oldest" | "alpha";
+type AdminSubTab = "pending" | "all";
 
-interface Document {
-  id: string;
-  title: string;
-  content: string;
-  empire_id: string;
-  status: DocStatus;
-  user_id: string;
-  author_name?: string;
-  created_at: string;
-  reviewed_at?: string;
-  rejection_reason?: string;
+interface AttachedFile {
+  file:      File;
+  preview:   string;    // object URL for images
+  kind:      FileKind;
+  sizeLabel: string;
+  uploading: boolean;
+  url?:      string;    // public Supabase URL after upload
+  error?:    string;
 }
 
-// ─────────────────────────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────────────────────────
+interface EmpireDoc {
+  id:                string;
+  title:             string;
+  content:           string;
+  empire_id:         string;
+  status:            DocStatus;
+  user_id:           string;
+  author_name?:      string;
+  created_at:        string;
+  reviewed_at?:      string;
+  rejection_reason?: string;
+  file_url?:         string;
+  file_type?:        FileKind;
+  file_name?:        string;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CONSTANTS — 9 EXACT EMPIRES (matching original codebase)
+// ══════════════════════════════════════════════════════════════════════
 
 const ALL_EMPIRES = [
-  { id: "ottoman",           label: "Ottoman Empire",       flag: "🕌", color: "#C8A96E" },
-  { id: "roman",             label: "Roman Empire",         flag: "🏛️", color: "#D4AF37" },
-  { id: "islamic_caliphate", label: "Islamic Caliphate",    flag: "☪️", color: "#1D9E75" },
-  { id: "mongol_empire",     label: "Mongol Empire",        flag: "⚔️", color: "#D85A30" },
-  { id: "ancient_egypt",     label: "Ancient Egypt",        flag: "𓂀", color: "#E8A030" },
-  { id: "british_empire",    label: "British Empire",       flag: "👑", color: "#378ADD" },
-  { id: "japanese_empire",   label: "Japanese Empire",      flag: "⛩️", color: "#D4537E" },
-  { id: "mali_empire",       label: "Mali Empire",          flag: "🌍", color: "#639922" },
-  { id: "seljuk_empire",     label: "Seljuk Empire",        flag: "🗡️", color: "#BA7517" },
-];
+  { id: "ottoman",           label: "Ottoman Empire",    flag: "🕌", color: "#C8A96E" },
+  { id: "roman",             label: "Roman Empire",      flag: "🏛️", color: "#D4AF37" },
+  { id: "islamic_caliphate", label: "Islamic Caliphate", flag: "☪️", color: "#1D9E75" },
+  { id: "mongol_empire",     label: "Mongol Empire",     flag: "⚔️", color: "#D85A30" },
+  { id: "ancient_egypt",     label: "Ancient Egypt",     flag: "𓂀", color: "#E8A030" },
+  { id: "british_empire",    label: "British Empire",    flag: "👑", color: "#378ADD" },
+  { id: "japanese_empire",   label: "Japanese Empire",   flag: "⛩️", color: "#D4537E" },
+  { id: "mali_empire",       label: "Mali Empire",       flag: "🌍", color: "#639922" },
+  { id: "seljuk_empire",     label: "Seljuk Empire",     flag: "🗡️", color: "#BA7517" },
+] as const;
 
-const empireInfo = (id: string) => ALL_EMPIRES.find(e => e.id === id) || { id, label: id, flag: "🏛️", color: "#D4AF37" };
+type EmpireId = typeof ALL_EMPIRES[number]["id"] | string;
 
-const STATUS_CONFIG: Record<DocStatus, { label: string; color: string; bg: string; icon: any }> = {
-  pending:  { label: "Pending Review",  color: "#E8A030", bg: "rgba(232,160,48,0.12)",  icon: Clock },
-  approved: { label: "Approved",        color: "#1D9E75", bg: "rgba(29,158,117,0.12)", icon: CheckCircle },
-  rejected: { label: "Rejected",        color: "#D85A30", bg: "rgba(216,90,48,0.12)",  icon: XCircle },
+const empireInfo = (id: string) =>
+  ALL_EMPIRES.find(e => e.id === id) ?? { id, label: id, flag: "🏛️", color: "#D4AF37" };
+
+// ──────────────────────────────────────────────────────────────────────
+
+const STATUS_CFG: Record<DocStatus, {
+  labelMap: Record<string, string>;
+  color: string; bg: string; border: string;
+  Icon: any;
+}> = {
+  pending: {
+    labelMap: { en: "Pending Review", sv: "Väntar på granskning", tr: "İnceleme Bekliyor" },
+    color: "#E8A030", bg: "rgba(232,160,48,0.11)", border: "rgba(232,160,48,0.3)",
+    Icon: Clock,
+  },
+  approved: {
+    labelMap: { en: "Approved", sv: "Godkänd", tr: "Onaylandı" },
+    color: "#1D9E75", bg: "rgba(29,158,117,0.11)", border: "rgba(29,158,117,0.3)",
+    Icon: CheckCircle,
+  },
+  rejected: {
+    labelMap: { en: "Rejected", sv: "Nekad", tr: "Reddedildi" },
+    color: "#D85A30", bg: "rgba(216,90,48,0.11)", border: "rgba(216,90,48,0.3)",
+    Icon: XCircle,
+  },
 };
 
-const L = {
+// ──────────────────────────────────────────────────────────────────────
+
+const MAX_FILE_MB    = 10;
+const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
+const ACCEPT_TYPES   = "image/jpeg,image/png,image/webp,image/gif,application/pdf";
+
+// ══════════════════════════════════════════════════════════════════════
+// TRANSLATIONS
+// ══════════════════════════════════════════════════════════════════════
+
+const LANG = {
   sv: {
-    title: "Historiskt Arkiv", subtitle: "Dokumenterat av Gemenskapen",
-    explore: "Utforska", submit: "Bidra", mine: "Mina Dokument", admin: "Admin",
-    search: "Sök dokument...", filterEmpire: "Filtrera efter imperium",
-    allEmpires: "Alla Imperier", noApproved: "Inga godkända dokument ännu.",
+    heroTitle: "Det Kejserliga Arkivet",
+    heroSub: "Dokumenterat av Gemenskapen",
+    heroDesc: "En levande samling av historisk kunskap, skapad av historiker och entusiaster världen över.",
+    statApproved: "Godkända", statEmpires: "Imperier", statContribs: "Bidragsgivare",
+    // tabs
+    explore: "Utforska", submit: "Bidra", mine: "Mina Dokument", adminTab: "Admin-granskning",
+    // explore
+    search: "Sök i arkivet...", allEmpires: "Alla Imperier",
+    noApproved: "Inga godkända dokument ännu.",
     noApprovedSub: "Var den första att bidra med historisk kunskap!",
-    submitTitle: "Bidra med ett Dokument", submitSub: "Dela din historiska kunskap med gemenskapen",
-    docTitle: "Dokumentets titel", docTitlePlaceholder: "Ex: Osmanska rikets handelssystem...",
-    docContent: "Innehåll", docContentPlaceholder: "Skriv ditt historiska dokument här...",
-    empire: "Imperium", submitBtn: "Skicka in Dokument",
-    submitSuccess: "Ditt dokument är inskickat och väntar på granskning.",
-    myDocs: "Mina Inskickade Dokument", noMyDocs: "Du har inte skickat in några dokument än.",
-    pendingAdmin: "Väntar på Granskning", noAdminDocs: "Inga dokument väntar på granskning.",
-    approve: "Godkänn", reject: "Neka", readMore: "Läs mer", collapse: "Minimera",
-    writtenBy: "Skrivet av", submittedOn: "Inskickat",
+    sortNewest: "Nyast", sortOldest: "Äldst", sortAlpha: "A–Ö",
+    resultsFor: "resultat för",
+    // submit
+    submitTitle: "Bidra med ett Dokument",
+    submitSub: "Dela din historiska kunskap med gemenskapen",
+    fieldTitle: "DOKUMENTETS TITEL",
+    titlePlaceholder: "Ex: Osmanska rikets handelssystem...",
+    fieldEmpire: "IMPERIUM",
+    empirePrompt: "— Välj ett imperium —",
+    fieldContent: "INNEHÅLL",
+    contentPlaceholder: "Skriv ditt historiska dokument här (minst 100 tecken)...",
+    fieldFile: "BIFOGA BEVIS (VALFRITT)",
+    fileDesc: "Ladda upp en bild eller PDF som bevis eller källa. Max 10 MB.",
+    submitBtn: "Skicka in Dokument", submitting: "Skickar...",
+    submitOk: "Dokument inskickat!",
+    submitOkSub: "Ditt dokument väntar på granskning av moderatorer.",
+    loginRequired: "Logga in för att bidra",
+    loginRequiredSub: "Skapa ett konto eller logga in för att bidra.",
+    guidelines: "Riktlinjer:",
+    guidelinesText: "Bidra med originalt, faktabaserat historiskt innehåll. Inga direkta kopior. Dokument granskas av moderatorer innan publicering.",
+    // my docs
+    myDocs: "Mina Inskickade Dokument",
+    noMyDocs: "Du har inte skickat in några dokument än.",
+    noMyDocsSub: "Klicka på 'Nytt Dokument' för att börja bidra.",
+    newDoc: "Nytt Dokument",
+    loginToSee: "Logga in för att se dina dokument",
+    // admin
+    adminTitle: "Admin — Väntande Granskning",
+    adminSubtitle: "dokument väntar på granskning",
+    noAdmin: "Alla dokument är granskade!",
+    noAdminSub: "Bra jobbat — inga väntande bidrag.",
+    approve: "Godkänn", reject: "Neka",
+    rejectModalTitle: "Ange avslagsorsak",
+    rejectPlaceholder: "Berätta varför dokumentet nekas...",
+    rejectBtn: "Bekräfta Avslag", cancelBtn: "Avbryt",
+    tabPending: "Väntande", tabAll: "Alla Dokument",
+    deleteDoc: "Radera",
+    confirmDelete: "Radera detta dokument permanent?",
+    // card
+    readMore: "Läs mer", collapse: "Minimera",
+    viewAttachment: "Visa bilaga",
+    writtenBy: "Skrivet av",
+    // file
     chars: "tecken", minChars: "Minst 100 tecken krävs",
     titleRequired: "Titel krävs", empireRequired: "Välj ett imperium",
+    fileTooLarge: `Filen är för stor. Max ${MAX_FILE_MB}MB.`,
+    fileRemove: "Ta bort",
+    fileUnsupported: "Filtyp stöds ej. Använd JPG, PNG, WEBP, GIF eller PDF.",
+    dragDrop: "Dra & släpp eller klicka för att ladda upp",
+    dragActive: "Släpp filen här",
   },
   en: {
-    title: "Historical Archive", subtitle: "Documented by the Community",
-    explore: "Explore", submit: "Contribute", mine: "My Documents", admin: "Admin",
-    search: "Search documents...", filterEmpire: "Filter by empire",
-    allEmpires: "All Empires", noApproved: "No approved documents yet.",
+    heroTitle: "The Imperial Archive",
+    heroSub: "Documented by the Community",
+    heroDesc: "A living collection of historical knowledge, created by historians and enthusiasts across the world.",
+    statApproved: "Approved", statEmpires: "Empires", statContribs: "Contributors",
+    explore: "Explore", submit: "Contribute", mine: "My Documents", adminTab: "Admin Review",
+    search: "Search the archive...", allEmpires: "All Empires",
+    noApproved: "No approved documents yet.",
     noApprovedSub: "Be the first to contribute historical knowledge!",
-    submitTitle: "Contribute a Document", submitSub: "Share your historical knowledge with the community",
-    docTitle: "Document Title", docTitlePlaceholder: "E.g. The Ottoman trade system...",
-    docContent: "Content", docContentPlaceholder: "Write your historical document here...",
-    empire: "Empire", submitBtn: "Submit Document",
-    submitSuccess: "Your document has been submitted and is awaiting review.",
-    myDocs: "My Submitted Documents", noMyDocs: "You haven't submitted any documents yet.",
-    pendingAdmin: "Awaiting Review", noAdminDocs: "No documents awaiting review.",
-    approve: "Approve", reject: "Reject", readMore: "Read more", collapse: "Collapse",
-    writtenBy: "Written by", submittedOn: "Submitted",
+    sortNewest: "Newest", sortOldest: "Oldest", sortAlpha: "A–Z",
+    resultsFor: "results for",
+    submitTitle: "Contribute a Document",
+    submitSub: "Share your historical knowledge with the community",
+    fieldTitle: "DOCUMENT TITLE",
+    titlePlaceholder: "E.g. The Ottoman trade system...",
+    fieldEmpire: "EMPIRE",
+    empirePrompt: "— Select an empire —",
+    fieldContent: "CONTENT",
+    contentPlaceholder: "Write your historical document here (minimum 100 characters)...",
+    fieldFile: "ATTACH EVIDENCE (OPTIONAL)",
+    fileDesc: "Upload an image or PDF as evidence or source material. Max 10 MB.",
+    submitBtn: "Submit Document", submitting: "Submitting...",
+    submitOk: "Document submitted!",
+    submitOkSub: "Your document is awaiting review by moderators.",
+    loginRequired: "Sign in to contribute",
+    loginRequiredSub: "Create an account or sign in to submit your document.",
+    guidelines: "Guidelines:",
+    guidelinesText: "Contribute original, factual historical content. No direct copies. Documents are reviewed by moderators before publication.",
+    myDocs: "My Submitted Documents",
+    noMyDocs: "You haven't submitted any documents yet.",
+    noMyDocsSub: "Click 'New Document' to start contributing.",
+    newDoc: "New Document",
+    loginToSee: "Sign in to see your documents",
+    adminTitle: "Admin — Pending Review",
+    adminSubtitle: "documents awaiting review",
+    noAdmin: "All documents reviewed!",
+    noAdminSub: "Great work — no pending contributions.",
+    approve: "Approve", reject: "Reject",
+    rejectModalTitle: "Enter rejection reason",
+    rejectPlaceholder: "Explain why this document is being rejected...",
+    rejectBtn: "Confirm Rejection", cancelBtn: "Cancel",
+    tabPending: "Pending", tabAll: "All Documents",
+    deleteDoc: "Delete",
+    confirmDelete: "Permanently delete this document?",
+    readMore: "Read more", collapse: "Collapse",
+    viewAttachment: "View attachment",
+    writtenBy: "Written by",
     chars: "characters", minChars: "Minimum 100 characters required",
     titleRequired: "Title required", empireRequired: "Select an empire",
+    fileTooLarge: `File too large. Max ${MAX_FILE_MB}MB.`,
+    fileRemove: "Remove",
+    fileUnsupported: "Unsupported file type. Use JPG, PNG, WEBP, GIF or PDF.",
+    dragDrop: "Drag & drop or click to upload",
+    dragActive: "Drop the file here",
   },
   tr: {
-    title: "Tarihsel Arşiv", subtitle: "Topluluk Tarafından Belgelenmiş",
-    explore: "Keşfet", submit: "Katkıda Bulun", mine: "Belgelerim", admin: "Admin",
-    search: "Belge ara...", filterEmpire: "İmparatorluğa göre filtrele",
-    allEmpires: "Tüm İmparatorluklar", noApproved: "Henüz onaylı belge yok.",
+    heroTitle: "İmparatorluk Arşivi",
+    heroSub: "Topluluk Tarafından Belgelenmiş",
+    heroDesc: "Dünya genelinde tarihçi ve meraklılar tarafından oluşturulan canlı bir tarihsel bilgi koleksiyonu.",
+    statApproved: "Onaylı", statEmpires: "İmparatorluk", statContribs: "Katkıda Bulunan",
+    explore: "Keşfet", submit: "Katkıda Bulun", mine: "Belgelerim", adminTab: "Admin İncelemesi",
+    search: "Arşivde ara...", allEmpires: "Tüm İmparatorluklar",
+    noApproved: "Henüz onaylı belge yok.",
     noApprovedSub: "Tarihsel bilgi katkısında ilk sen ol!",
-    submitTitle: "Belge Katkısı", submitSub: "Tarihsel bilginizi toplulukla paylaşın",
-    docTitle: "Belge Başlığı", docTitlePlaceholder: "Örn: Osmanlı ticaret sistemi...",
-    docContent: "İçerik", docContentPlaceholder: "Tarihsel belgenizi buraya yazın...",
-    empire: "İmparatorluk", submitBtn: "Belgeyi Gönder",
-    submitSuccess: "Belgeniz gönderildi ve inceleme bekliyor.",
-    myDocs: "Gönderilen Belgelerim", noMyDocs: "Henüz belge göndermediniz.",
-    pendingAdmin: "İnceleme Bekliyor", noAdminDocs: "İnceleme bekleyen belge yok.",
-    approve: "Onayla", reject: "Reddet", readMore: "Devamını oku", collapse: "Daralt",
-    writtenBy: "Yazan", submittedOn: "Gönderildi",
+    sortNewest: "En Yeni", sortOldest: "En Eski", sortAlpha: "A–Z",
+    resultsFor: "sonuç için",
+    submitTitle: "Belge Katkısı",
+    submitSub: "Tarihsel bilginizi toplulukla paylaşın",
+    fieldTitle: "BELGE BAŞLIĞI",
+    titlePlaceholder: "Örn: Osmanlı ticaret sistemi...",
+    fieldEmpire: "İMPARATORLUK",
+    empirePrompt: "— Bir imparatorluk seçin —",
+    fieldContent: "İÇERİK",
+    contentPlaceholder: "Tarihsel belgenizi buraya yazın (en az 100 karakter)...",
+    fieldFile: "KANIT EKLE (İSTEĞE BAĞLI)",
+    fileDesc: "Kanıt veya kaynak olarak bir görsel veya PDF yükleyin. Maks 10 MB.",
+    submitBtn: "Belgeyi Gönder", submitting: "Gönderiliyor...",
+    submitOk: "Belge gönderildi!",
+    submitOkSub: "Belgeniz moderatörler tarafından incelenmek üzere bekliyor.",
+    loginRequired: "Katkıda bulunmak için giriş yapın",
+    loginRequiredSub: "Belgenizi göndermek için hesap oluşturun veya giriş yapın.",
+    guidelines: "Kurallar:",
+    guidelinesText: "Özgün, gerçeğe dayalı tarihsel içerik katkısında bulunun. Doğrudan kopyalar kabul edilmez. Belgeler yayınlanmadan önce incelenir.",
+    myDocs: "Gönderilen Belgelerim",
+    noMyDocs: "Henüz belge göndermediniz.",
+    noMyDocsSub: "Katkıda bulunmaya başlamak için 'Yeni Belge'ye tıklayın.",
+    newDoc: "Yeni Belge",
+    loginToSee: "Belgelerinizi görmek için giriş yapın",
+    adminTitle: "Admin — İnceleme Bekliyor",
+    adminSubtitle: "belge inceleme bekliyor",
+    noAdmin: "Tüm belgeler incelendi!",
+    noAdminSub: "Harika iş — bekleyen katkı yok.",
+    approve: "Onayla", reject: "Reddet",
+    rejectModalTitle: "Red gerekçesi girin",
+    rejectPlaceholder: "Bu belgenin neden reddedildiğini açıklayın...",
+    rejectBtn: "Reddi Onayla", cancelBtn: "İptal",
+    tabPending: "Bekleyen", tabAll: "Tüm Belgeler",
+    deleteDoc: "Sil",
+    confirmDelete: "Bu belgeyi kalıcı olarak sil?",
+    readMore: "Devamını oku", collapse: "Daralt",
+    viewAttachment: "Eki görüntüle",
+    writtenBy: "Yazan",
     chars: "karakter", minChars: "En az 100 karakter gerekli",
     titleRequired: "Başlık gerekli", empireRequired: "Bir imparatorluk seçin",
+    fileTooLarge: `Dosya çok büyük. Maks ${MAX_FILE_MB}MB.`,
+    fileRemove: "Kaldır",
+    fileUnsupported: "Desteklenmeyen dosya türü. JPG, PNG, WEBP, GIF veya PDF kullanın.",
+    dragDrop: "Sürükle & bırak veya yüklemek için tıkla",
+    dragActive: "Dosyayı buraya bırak",
   },
-};
+} as const;
 
-// ─────────────────────────────────────────────────────────────
-// MOCK DATA (replace with Supabase queries when table is ready)
-// ─────────────────────────────────────────────────────────────
+type T = typeof LANG["en"];
 
-const MOCK_APPROVED: Document[] = [
+// ══════════════════════════════════════════════════════════════════════
+// MOCK DATA (fallback when Supabase table is not yet ready)
+// ══════════════════════════════════════════════════════════════════════
+
+const MOCK_APPROVED: EmpireDoc[] = [
   {
-    id: "1", title: "The Ottoman Devshirme System and Its Legacy",
-    content: "The devshirme system, often called 'blood tax', was a practice of the Ottoman Empire in which boys from Christian families were taken to be trained as Ottoman soldiers and administrators. This complex institution shaped the empire for centuries, creating some of its greatest leaders including Suleiman the Magnificent's Grand Vizier Ibrahim Pasha. The system was both a mechanism of control and an unexpected ladder of social mobility, transforming rural Christian boys into the empire's elite Janissary corps and bureaucratic class.\n\nThe long-term consequences of this system reverberate through Balkan history, Ottoman administrative culture, and questions of identity and belonging that scholars continue to debate today.",
+    id: "mock_1",
+    title: "The Ottoman Devshirme System and Its Legacy",
+    content: "The devshirme system, often called 'blood tax', was a practice of the Ottoman Empire in which boys from Christian families were taken to be trained as Ottoman soldiers and administrators. This complex institution shaped the empire for centuries, creating some of its greatest leaders including Suleiman the Magnificent's Grand Vizier Ibrahim Pasha.\n\nThe system was both a mechanism of control and an unexpected ladder of social mobility, transforming rural Christian boys into the empire's elite Janissary corps and bureaucratic class. The long-term consequences of this system reverberate through Balkan history, Ottoman administrative culture, and questions of identity and belonging that scholars continue to debate today.",
     empire_id: "ottoman", status: "approved", user_id: "u1",
     author_name: "A. Kowalski", created_at: "2025-03-15T10:30:00Z",
   },
   {
-    id: "2", title: "Roman Engineering: The Aqueduct as Political Symbol",
-    content: "Roman aqueducts were more than feats of engineering — they were declarations of imperial power made tangible in stone and water. When Rome brought fresh water to a conquered city, it was simultaneously demonstrating technological superiority and asserting permanent dominion. The 11 aqueducts serving Rome at the height of the empire delivered approximately 1.2 million cubic meters of water per day, transforming public bathing, sanitation, and urban life.\n\nRecent archaeological studies have revealed sophisticated maintenance networks and repair protocols that kept these systems operational for centuries. The Aqua Virgo, built by Agrippa in 19 BCE, still feeds the Trevi Fountain today — a continuity of function spanning two millennia.",
+    id: "mock_2",
+    title: "Roman Engineering: The Aqueduct as Political Symbol",
+    content: "Roman aqueducts were more than feats of engineering — they were declarations of imperial power made tangible in stone and water. When Rome brought fresh water to a conquered city, it was simultaneously demonstrating technological superiority and asserting permanent dominion.\n\nThe 11 aqueducts serving Rome at the height of the empire delivered approximately 1.2 million cubic meters of water per day, transforming public bathing, sanitation, and urban life. Recent archaeological studies have revealed sophisticated maintenance networks that kept these systems operational for centuries. The Aqua Virgo, built by Agrippa in 19 BCE, still feeds the Trevi Fountain today — a continuity of function spanning two millennia.",
     empire_id: "roman", status: "approved", user_id: "u2",
     author_name: "M. Bernhardt", created_at: "2025-02-28T14:20:00Z",
   },
   {
-    id: "3", title: "The House of Wisdom: Translating the Ancient World",
-    content: "The Bayt al-Hikmah in ninth-century Baghdad was not merely a library but a vast translation project that saved classical knowledge from oblivion. Under Caliph al-Ma'mun, scholars translated Greek, Persian, Indian, and Syriac texts into Arabic, creating a synthesis of world knowledge unprecedented in history. The mathematician Al-Khwarizmi worked here, developing the algebra that still bears Arabic's imprint in its very name. Physicians like Hunayn ibn Ishaq translated Galen and produced original medical treatises. This accumulated knowledge would later flow back to Europe through Toledo and Palermo, seeding the European Renaissance.",
+    id: "mock_3",
+    title: "The House of Wisdom: Translating the Ancient World",
+    content: "The Bayt al-Hikmah in ninth-century Baghdad was not merely a library but a vast translation project that saved classical knowledge from oblivion. Under Caliph al-Ma'mun, scholars translated Greek, Persian, Indian, and Syriac texts into Arabic, creating a synthesis of world knowledge unprecedented in history.\n\nThe mathematician Al-Khwarizmi worked here, developing the algebra that still bears Arabic's imprint in its very name. Physicians like Hunayn ibn Ishaq translated Galen and produced original medical treatises. This accumulated knowledge would later flow back to Europe through Toledo and Palermo, seeding the European Renaissance.",
     empire_id: "islamic_caliphate", status: "approved", user_id: "u3",
     author_name: "F. Al-Rashid", created_at: "2025-04-01T09:15:00Z",
   },
+  {
+    id: "mock_4",
+    title: "Mansa Musa's Pilgrimage: The Gold That Shocked the World",
+    content: "In 1324–1325, Mansa Musa of the Mali Empire undertook a hajj to Mecca with a caravan of staggering wealth — reportedly 60,000 men and 80 to 100 camels each laden with 135 kilograms of gold dust. His passage through Cairo was so extravagant that he distributed gold freely, causing catastrophic inflation in Egypt that persisted for over a decade.\n\nThis single journey placed Mali on European maps for the first time, with cartographers depicting Mansa Musa seated on a golden throne. It remains one of history's most consequential and dramatic displays of imperial wealth and soft power.",
+    empire_id: "mali_empire", status: "approved", user_id: "u4",
+    author_name: "K. Diallo", created_at: "2025-04-10T11:00:00Z",
+  },
+  {
+    id: "mock_5",
+    title: "The Mongol Yam: Postal Network of an Empire",
+    content: "The Mongol yam system was one of history's most sophisticated communications networks, enabling messages and intelligence to travel thousands of kilometers in days rather than weeks. Post stations were established every 25 to 35 kilometers across the vast empire, each stocked with fresh horses and provisions for riders.\n\nMongol dispatch riders could cover up to 300 kilometers per day using relay stations. This infrastructure underpinned Kublai Khan's administration of China, enabled Marco Polo's famous travels, and gave Mongol military commanders a strategic advantage in coordination that no rival could match.",
+    empire_id: "mongol_empire", status: "approved", user_id: "u5",
+    author_name: "B. Gantulga", created_at: "2025-03-22T08:45:00Z",
+  },
+  {
+    id: "mock_6",
+    title: "Ancient Egyptian Papyrus: The World's First Document Network",
+    content: "The ancient Egyptians developed papyrus as a writing medium around 3,000 BCE, creating the world's first widespread document culture. Papyrus production became a state industry, with the Delta region supplying sheets that enabled everything from royal decrees and administrative records to private letters and religious texts.\n\nThe Edwin Smith Papyrus, dating to around 1600 BCE, contains the world's earliest known rational medical observations, describing 48 surgical cases with a systematic approach that anticipates modern medicine by over three thousand years.",
+    empire_id: "ancient_egypt", status: "approved", user_id: "u6",
+    author_name: "N. Hassan", created_at: "2025-03-05T16:20:00Z",
+  },
+  {
+    id: "mock_7",
+    title: "The Seljuk Caravanserai Network and Islamic Trade",
+    content: "The Seljuk Empire built one of the ancient world's most sophisticated hospitality and trade infrastructure systems — the caravanserai network. These fortified roadside inns were constructed at regular intervals of approximately 30-40 kilometers across Anatolia and Central Asia, providing shelter, food, water, and security to merchants, pilgrims, and diplomats free of charge for three days.\n\nAt their peak, over 3,000 caravanserais dotted the Silk Road routes under Seljuk influence. This remarkable public works program transformed trans-Asian commerce and cemented the Seljuks' role as facilitators of one of history's great trading civilizations.",
+    empire_id: "seljuk_empire", status: "approved", user_id: "u7",
+    author_name: "O. Yildirim", created_at: "2025-02-14T10:00:00Z",
+  },
+  {
+    id: "mock_8",
+    title: "The British East India Company: Corporation as Empire",
+    content: "The British East India Company — founded by royal charter in 1600 — became one of history's most extraordinary political entities: a trading company that raised armies, coined money, administered justice, and eventually governed over 200 million people across the Indian subcontinent.\n\nAt its zenith, the Company's private army outnumbered the British Army itself. The transition from merchant venture to colonial administration represents a unique chapter in world history, raising enduring questions about the relationship between commerce, governance, and empire that remain relevant today.",
+    empire_id: "british_empire", status: "approved", user_id: "u8",
+    author_name: "J. Pemberton", created_at: "2025-01-28T13:30:00Z",
+  },
+  {
+    id: "mock_9",
+    title: "Bushido and the Samurai Code in the Japanese Empire",
+    content: "Bushido — 'the way of the warrior' — was the informal ethical code governing samurai behavior that evolved over centuries of Japanese feudal history. While often romanticized in later periods, its core tenets of loyalty, honor, martial skill, and acceptance of death shaped Japanese military culture profoundly through the feudal era and into the imperial period.\n\nThe Hagakure, compiled in the early 18th century from the teachings of samurai Yamamoto Tsunetomo, became one of bushido's most celebrated articulations: 'The way of the samurai is found in death.' This philosophy influenced Japanese military strategy, governance, and cultural identity for centuries.",
+    empire_id: "japanese_empire", status: "approved", user_id: "u9",
+    author_name: "H. Tanaka", created_at: "2025-03-01T07:00:00Z",
+  },
 ];
 
-// ─────────────────────────────────────────────────────────────
-// SMALL COMPONENTS
-// ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ══════════════════════════════════════════════════════════════════════
 
-function StatusBadge({ status }: { status: DocStatus }) {
-  const cfg = STATUS_CONFIG[status];
-  const Icon = cfg.icon;
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1_048_576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1_048_576).toFixed(1)} MB`;
+}
+
+function detectFileKind(file: File): FileKind {
+  if (file.type === "application/pdf") return "pdf";
+  if (file.type.startsWith("image/")) return "image";
+  return "none";
+}
+
+function formatDate(iso: string, lang: string): string {
+  return new Date(iso).toLocaleDateString(
+    lang === "sv" ? "sv-SE" : lang === "tr" ? "tr-TR" : "en-GB",
+    { day: "numeric", month: "long", year: "numeric" }
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// GLOBAL CSS
+// ══════════════════════════════════════════════════════════════════════
+
+const GLOBAL_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=Cinzel:wght@400;500;600;700&family=Raleway:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Keyframes ── */
+@keyframes arc-spin       { to { transform: rotate(360deg); } }
+@keyframes arc-fadeup     { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes arc-shimmer    { 0%,100%{opacity:.4} 50%{opacity:.85} }
+@keyframes arc-glow-pulse { 0%,100%{box-shadow:0 0 20px rgba(212,175,55,.1)} 50%{box-shadow:0 0 52px rgba(212,175,55,.28)} }
+@keyframes arc-flicker    { 0%,100%{opacity:1} 48%{opacity:.93} 50%{opacity:.86} 52%{opacity:.96} }
+@keyframes arc-orbit      { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes arc-pulse-out  { 0%{transform:scale(1);opacity:.4} 100%{transform:scale(2);opacity:0} }
+@keyframes arc-modal-in   { from{opacity:0;transform:scale(.93) translateY(18px)} to{opacity:1;transform:scale(1) translateY(0)} }
+@keyframes arc-lbox-in    { from{opacity:0;transform:scale(.9)} to{opacity:1;transform:scale(1)} }
+@keyframes arc-card-in    { from{opacity:0;transform:translateY(22px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes arc-badge-pop  { 0%{transform:scale(0)} 70%{transform:scale(1.15)} 100%{transform:scale(1)} }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(212,175,55,.22); border-radius: 2px; }
+
+/* ── Document card ── */
+.arc-doc-card {
+  animation: arc-card-in .5s ease both;
+  transition: transform .32s ease, border-color .32s ease, box-shadow .32s ease;
+  position: relative;
+}
+.arc-doc-card:hover {
+  transform: translateY(-5px) scale(1.005);
+  border-color: rgba(212,175,55,.42) !important;
+  box-shadow: 0 28px 70px rgba(0,0,0,.58), 0 0 36px rgba(212,175,55,.1) !important;
+}
+
+/* ── Form input ── */
+.arc-input {
+  background: rgba(10,6,2,.78);
+  border: 1px solid rgba(212,175,55,.2);
+  border-radius: 14px;
+  color: #EDE0C4;
+  font-family: 'Raleway', sans-serif;
+  font-size: .875rem;
+  width: 100%;
+  outline: none;
+  transition: border-color .25s, box-shadow .25s;
+}
+.arc-input:focus {
+  border-color: rgba(212,175,55,.52);
+  box-shadow: 0 0 0 3px rgba(212,175,55,.09), 0 0 18px rgba(212,175,55,.07);
+}
+.arc-input::placeholder { color: rgba(237,224,196,.2); }
+.arc-input option { background: #0c0802; color: #EDE0C4; }
+
+/* ── Tab button ── */
+.arc-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border-radius: 12px;
+  font-family: 'Cinzel', serif; font-size: .7rem;
+  letter-spacing: .1em; transition: all .22s;
+  white-space: nowrap; border: 1px solid transparent;
+  cursor: pointer; background: transparent; color: rgba(237,224,196,.4);
+}
+.arc-tab:hover { color: rgba(237,224,196,.72); background: rgba(212,175,55,.06); }
+.arc-tab.active {
+  background: linear-gradient(135deg,rgba(212,175,55,.16),rgba(184,144,30,.1));
+  border-color: rgba(212,175,55,.38); color: #D4AF37;
+  box-shadow: 0 0 18px rgba(212,175,55,.1);
+}
+.arc-tab.arc-admin-tab { color: rgba(192,132,252,.45); }
+.arc-tab.arc-admin-tab:hover { color: rgba(192,132,252,.75); background: rgba(168,85,247,.07); }
+.arc-tab.arc-admin-tab.active {
+  background: linear-gradient(135deg,rgba(168,85,247,.18),rgba(147,51,234,.1));
+  border-color: rgba(168,85,247,.44); color: #c084fc;
+  box-shadow: 0 0 18px rgba(168,85,247,.1);
+}
+
+/* ── Gold action button ── */
+.arc-gold-btn {
+  background: linear-gradient(135deg,#C9A227,#D4AF37,#EDD060,#B8901E);
+  color: #08050F; font-weight: 700; border: none; border-radius: 14px;
+  box-shadow: 0 4px 22px rgba(212,175,55,.38);
+  transition: all .22s; cursor: pointer;
+  font-family: 'Cinzel', serif; letter-spacing: .12em;
+}
+.arc-gold-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 38px rgba(212,175,55,.52);
+  filter: brightness(1.07);
+}
+.arc-gold-btn:active:not(:disabled) { transform: translateY(0); }
+.arc-gold-btn:disabled { opacity: .42; cursor: not-allowed; }
+
+/* ── Approve / Reject action buttons ── */
+.arc-approve-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(29,158,117,.11); border: 1px solid rgba(29,158,117,.35);
+  color: #1D9E75; border-radius: 11px; padding: 9px 20px;
+  font-size: .75rem; cursor: pointer; transition: all .22s;
+  font-family: 'Cinzel', serif; letter-spacing: .1em;
+}
+.arc-approve-btn:hover:not(:disabled) {
+  background: rgba(29,158,117,.24);
+  box-shadow: 0 4px 18px rgba(29,158,117,.22);
+  transform: translateY(-1px);
+}
+.arc-approve-btn:disabled { opacity: .42; cursor: not-allowed; }
+
+.arc-reject-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(216,90,48,.1); border: 1px solid rgba(216,90,48,.32);
+  color: #D85A30; border-radius: 11px; padding: 9px 20px;
+  font-size: .75rem; cursor: pointer; transition: all .22s;
+  font-family: 'Cinzel', serif; letter-spacing: .1em;
+}
+.arc-reject-btn:hover:not(:disabled) {
+  background: rgba(216,90,48,.22);
+  box-shadow: 0 4px 18px rgba(216,90,48,.2);
+  transform: translateY(-1px);
+}
+.arc-reject-btn:disabled { opacity: .42; cursor: not-allowed; }
+
+/* ── Drag-drop zone ── */
+.arc-dropzone {
+  border: 2px dashed rgba(212,175,55,.24);
+  border-radius: 16px; cursor: pointer;
+  transition: all .25s;
+}
+.arc-dropzone:hover, .arc-dropzone.over {
+  border-color: rgba(212,175,55,.58);
+  background: rgba(212,175,55,.05);
+  box-shadow: 0 0 28px rgba(212,175,55,.09);
+}
+
+/* ── Empire filter pills ── */
+.arc-empire-pill {
+  cursor: pointer; border-radius: 20px;
+  padding: 5px 13px; font-size: .7rem;
+  display: inline-flex; align-items: center; gap: 5px;
+  white-space: nowrap; border: 1px solid transparent;
+  transition: all .2s; font-family: 'Raleway', sans-serif;
+  background: none;
+}
+.arc-empire-pill:hover { transform: translateY(-1px); }
+
+/* ── Skeleton ── */
+.arc-skel {
+  background: linear-gradient(90deg,rgba(212,175,55,.05) 25%,rgba(212,175,55,.11) 50%,rgba(212,175,55,.05) 75%);
+  background-size: 200% 100%;
+  animation: arc-shimmer 1.8s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ── Ornamental divider ── */
+.arc-ornament {
+  display: flex; align-items: center; gap: 12px;
+  color: rgba(212,175,55,.28); font-size: .6rem;
+  letter-spacing: .42em; text-transform: uppercase;
+  font-family: 'Cinzel', serif;
+}
+.arc-ornament::before, .arc-ornament::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg,transparent,rgba(212,175,55,.24),transparent);
+}
+
+/* ── Modal overlay ── */
+.arc-modal-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(0,0,0,.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: arc-fadeup .22s ease;
+}
+.arc-modal-box { animation: arc-modal-in .28s ease; }
+
+/* ── Lightbox ── */
+.arc-lightbox-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.96);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: arc-fadeup .18s ease;
+}
+.arc-lightbox-img {
+  max-width: 100%; max-height: 88vh;
+  border-radius: 12px;
+  box-shadow: 0 0 90px rgba(212,175,55,.14);
+  animation: arc-lbox-in .28s ease;
+}
+
+/* ── Status badge pop animation ── */
+.arc-badge-pop { animation: arc-badge-pop .35s ease; }
+
+/* ── Fade-up utility ── */
+.arc-fade { animation: arc-fadeup .4s ease both; }
+`;
+
+// ══════════════════════════════════════════════════════════════════════
+// ATOMIC COMPONENTS
+// ══════════════════════════════════════════════════════════════════════
+
+function Spinner({ size = 16, color = "#D4AF37" }: { size?: number; color?: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-      style={{ color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.color}33` }}>
-      <Icon className="w-3 h-3"/>
-      {cfg.label}
+    <div
+      style={{
+        width: size, height: size,
+        border: `2px solid ${color}28`,
+        borderTopColor: color,
+        borderRadius: "50%",
+        animation: "arc-spin .7s linear infinite",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+
+function StatusBadge({ status, lang }: { status: DocStatus; lang: string }) {
+  const cfg = STATUS_CFG[status];
+  const { Icon } = cfg;
+  const label = cfg.labelMap[lang] ?? cfg.labelMap.en;
+  return (
+    <span
+      className="arc-badge-pop"
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 5,
+        padding: "3px 11px", borderRadius: 20,
+        fontSize: ".7rem", fontWeight: 500,
+        color: cfg.color, background: cfg.bg,
+        border: `1px solid ${cfg.border}`,
+        fontFamily: "'Raleway', sans-serif",
+      }}
+    >
+      <Icon style={{ width: 11, height: 11 }} />
+      {label}
     </span>
   );
 }
 
+// ──────────────────────────────────────────────────────────────────────
+
 function EmpireBadge({ id }: { id: string }) {
   const e = empireInfo(id);
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-      style={{ color: e.color, background: `${e.color}18`, border: `1px solid ${e.color}33` }}>
+    <span
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 5,
+        padding: "3px 11px", borderRadius: 20,
+        fontSize: ".7rem", fontWeight: 500,
+        color: e.color, background: `${e.color}18`,
+        border: `1px solid ${e.color}38`,
+        fontFamily: "'Raleway', sans-serif",
+      }}
+    >
       {e.flag} {e.label}
     </span>
   );
 }
 
-function EmptyState({ icon: Icon, title, sub }: { icon: any; title: string; sub?: string }) {
+// ──────────────────────────────────────────────────────────────────────
+
+function EmptyState({
+  icon: Icon, title, sub,
+}: { icon: any; title: string; sub?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="relative mb-5">
-        <div style={{
-          width: 72, height: 72, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(212,175,55,0.12), transparent 70%)",
-          border: "1px solid rgba(212,175,55,0.2)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <Icon className="w-7 h-7" style={{ color: "rgba(212,175,55,0.5)" }}/>
+    <div
+      style={{
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        padding: "76px 24px", textAlign: "center",
+      }}
+    >
+      <div style={{ position: "relative", marginBottom: 22 }}>
+        <div
+          style={{
+            width: 78, height: 78, borderRadius: "50%",
+            background: "radial-gradient(circle,rgba(212,175,55,.1),transparent 70%)",
+            border: "1px solid rgba(212,175,55,.18)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            animation: "arc-glow-pulse 5s ease-in-out infinite",
+          }}
+        >
+          <Icon style={{ width: 30, height: 30, color: "rgba(212,175,55,.44)" }} />
         </div>
-        <div style={{
-          position: "absolute", inset: -8, borderRadius: "50%",
-          border: "1px dashed rgba(212,175,55,0.12)",
-          animation: "spin 20s linear infinite",
-        }}/>
+        <div
+          style={{
+            position: "absolute", inset: -10, borderRadius: "50%",
+            border: "1px dashed rgba(212,175,55,.1)",
+            animation: "arc-orbit 24s linear infinite",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute", inset: 0, borderRadius: "50%",
+            border: "1px solid rgba(212,175,55,.18)",
+            animation: "arc-pulse-out 4s ease-out infinite",
+          }}
+        />
       </div>
-      <p style={{ fontFamily: "'Cormorant Garant', serif", fontSize: "1.1rem", color: "rgba(237,224,196,0.6)", marginBottom: 6 }}>
+      <p
+        style={{
+          fontFamily: "'Cormorant Garant', serif",
+          fontSize: "1.12rem", color: "rgba(237,224,196,.54)",
+          marginBottom: 8, lineHeight: 1.4,
+        }}
+      >
         {title}
       </p>
-      {sub && <p style={{ fontSize: "0.78rem", color: "rgba(237,224,196,0.3)", maxWidth: 300, lineHeight: 1.6 }}>{sub}</p>}
+      {sub && (
+        <p
+          style={{
+            fontSize: ".78rem", color: "rgba(237,224,196,.28)",
+            maxWidth: 290, lineHeight: 1.65,
+            fontFamily: "'Raleway', sans-serif",
+          }}
+        >
+          {sub}
+        </p>
+      )}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// DOCUMENT CARD
-// ─────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────
 
-function DocumentCard({
-  doc, lang, showStatus = false, actions, expanded, onToggle,
-}: {
-  doc: Document; lang: string; showStatus?: boolean;
-  actions?: React.ReactNode; expanded?: boolean; onToggle?: () => void;
-}) {
-  const t = L[lang as keyof typeof L] || L.en;
-  const e = empireInfo(doc.empire_id);
-  const preview = doc.content.slice(0, 220);
-  const hasMore = doc.content.length > 220;
-  const dateStr = new Date(doc.created_at).toLocaleDateString("en-GB", { day:"numeric", month:"long", year:"numeric" });
+function SkeletonCard() {
+  return (
+    <div
+      style={{
+        background: "rgba(12,8,2,.72)", border: "1px solid rgba(212,175,55,.07)",
+        borderRadius: 20, padding: "22px 22px 18px",
+      }}
+    >
+      <div className="arc-skel" style={{ height: 2.5, marginBottom: 20 }} />
+      <div className="arc-skel" style={{ height: 14, width: "62%", marginBottom: 14 }} />
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <div className="arc-skel" style={{ height: 22, width: 94, borderRadius: 20 }} />
+        <div className="arc-skel" style={{ height: 22, width: 72, borderRadius: 20 }} />
+      </div>
+      <div className="arc-skel" style={{ height: 10, marginBottom: 9 }} />
+      <div className="arc-skel" style={{ height: 10, width: "82%" }} />
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// LIGHTBOX
+// ══════════════════════════════════════════════════════════════════════
+
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const fn = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, [onClose]);
 
   return (
-    <div className="doc-card group" style={{
-      background: "linear-gradient(145deg, rgba(15,10,5,0.9), rgba(20,14,8,0.85))",
-      border: "1px solid rgba(212,175,55,0.18)",
-      borderRadius: 20,
-      overflow: "hidden",
-      transition: "all 0.35s ease",
-      position: "relative",
-    }}>
-      {/* Top accent line */}
-      <div style={{ height: 2, background: `linear-gradient(90deg, transparent, ${e.color}88, transparent)` }}/>
+    <div className="arc-lightbox-overlay" onClick={onClose}>
+      <button
+        onClick={onClose}
+        style={{
+          position: "absolute", top: 20, right: 20,
+          width: 46, height: 46, borderRadius: "50%",
+          background: "rgba(255,255,255,.1)",
+          border: "1px solid rgba(255,255,255,.14)",
+          color: "#EDE0C4", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          transition: "background .2s",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.2)")}
+        onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,.1)")}
+      >
+        <X style={{ width: 18, height: 18 }} />
+      </button>
+      <img
+        src={src}
+        alt="Document attachment"
+        className="arc-lightbox-img"
+        onClick={e => e.stopPropagation()}
+      />
+    </div>
+  );
+}
 
-      {/* Illuminated corner ornament */}
-      <div style={{
-        position: "absolute", top: 10, right: 12,
-        fontSize: "1.4rem", opacity: 0.12,
-        fontFamily: "serif",
-        pointerEvents: "none",
-      }}>
-        {e.flag}
-      </div>
+// ══════════════════════════════════════════════════════════════════════
+// REJECT MODAL
+// ══════════════════════════════════════════════════════════════════════
 
-      <div style={{ padding: "20px 22px" }}>
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <h3 style={{
-            fontFamily: "'Cormorant Garant', serif",
-            fontSize: "1.05rem",
-            fontWeight: 600,
-            color: "#EDE0C4",
-            lineHeight: 1.3,
-            flex: 1,
-          }}>
-            {doc.title}
-          </h3>
-        </div>
+function RejectModal({
+  t, onConfirm, onCancel,
+}: { t: T; onConfirm: (reason: string) => void; onCancel: () => void }) {
+  const [reason, setReason] = useState("");
 
-        {/* Badges */}
-        <div className="flex flex-wrap gap-2 mb-3">
-          <EmpireBadge id={doc.empire_id}/>
-          {showStatus && <StatusBadge status={doc.status}/>}
-        </div>
+  return (
+    <div className="arc-modal-overlay" onClick={onCancel}>
+      <div
+        className="arc-modal-box"
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: 520, width: "100%",
+          borderRadius: 24, overflow: "hidden",
+          background: "linear-gradient(150deg,#0f0a04,#1c0e05)",
+          border: "1px solid rgba(216,90,48,.38)",
+        }}
+      >
+        {/* Top bar */}
+        <div style={{ height: 3, background: "linear-gradient(90deg,transparent,#D85A30,transparent)" }} />
 
-        {/* Content preview */}
-        <p style={{
-          fontSize: "0.82rem",
-          color: "rgba(237,224,196,0.55)",
-          lineHeight: 1.75,
-          letterSpacing: "0.01em",
-          fontFamily: "'Raleway', sans-serif",
-        }}>
-          {expanded ? doc.content : preview}
-          {!expanded && hasMore && "..."}
-        </p>
-
-        {/* Toggle expand */}
-        {hasMore && (
-          <button onClick={onToggle}
-            className="flex items-center gap-1 mt-2 text-xs transition-opacity hover:opacity-100"
-            style={{ color: "rgba(212,175,55,0.6)", fontFamily: "'Cinzel', serif", letterSpacing: "0.08em" }}>
-            {expanded ? <><ChevronDown className="w-3 h-3 rotate-180"/> {t.collapse}</> : <><ChevronRight className="w-3 h-3"/> {t.readMore}</>}
-          </button>
-        )}
-
-        {/* Meta row */}
-        <div className="flex items-center justify-between mt-4 pt-3"
-          style={{ borderTop: "1px solid rgba(212,175,55,0.1)" }}>
-          <div className="flex items-center gap-3">
-            {doc.author_name && (
-              <span className="flex items-center gap-1.5" style={{ fontSize: "0.72rem", color: "rgba(237,224,196,0.35)" }}>
-                <User className="w-3 h-3"/>
-                {doc.author_name}
-              </span>
-            )}
-            <span className="flex items-center gap-1.5" style={{ fontSize: "0.72rem", color: "rgba(237,224,196,0.3)" }}>
-              <Calendar className="w-3 h-3"/>
-              {dateStr}
-            </span>
+        <div style={{ padding: "28px 28px 26px" }}>
+          {/* Icon + title */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
+            <div
+              style={{
+                width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
+                background: "rgba(216,90,48,.12)", border: "1px solid rgba(216,90,48,.32)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <XCircle style={{ width: 19, height: 19, color: "#D85A30" }} />
+            </div>
+            <h3
+              style={{
+                fontFamily: "'Cormorant Garant', serif",
+                fontSize: "1.18rem", color: "#EDE0C4", fontWeight: 600,
+              }}
+            >
+              {t.rejectModalTitle}
+            </h3>
           </div>
-          {actions}
+
+          {/* Textarea */}
+          <textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder={t.rejectPlaceholder}
+            className="arc-input"
+            style={{
+              padding: "13px 15px", minHeight: 115,
+              resize: "vertical", lineHeight: 1.68,
+              marginBottom: 22,
+            }}
+            autoFocus
+          />
+
+          {/* Buttons */}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={() => { if (reason.trim()) onConfirm(reason); }}
+              disabled={!reason.trim()}
+              className="arc-reject-btn"
+              style={{ flex: 1, justifyContent: "center", padding: "11px 16px", fontSize: ".78rem" }}
+            >
+              <XCircle style={{ width: 14, height: 14 }} />
+              {t.rejectBtn}
+            </button>
+            <button
+              onClick={onCancel}
+              style={{
+                padding: "11px 22px", borderRadius: 11, cursor: "pointer",
+                background: "rgba(255,255,255,.05)",
+                border: "1px solid rgba(255,255,255,.1)",
+                color: "rgba(237,224,196,.5)", fontSize: ".78rem",
+                fontFamily: "'Cinzel', serif", letterSpacing: ".08em",
+                transition: "all .2s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.1)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,.05)")}
+            >
+              {t.cancelBtn}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// MAIN PAGE
-// ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════
+// FILE UPLOAD ZONE
+// ══════════════════════════════════════════════════════════════════════
 
-export default function Documents() {
-  const { language, setLanguage } = useChat();
-  const { user, isAdmin } = useAuth();
-  const lang = (language as keyof typeof L) in L ? (language as keyof typeof L) : "en";
-  const t = L[lang];
+function FileUploadZone({
+  t, attached, onAttach, onRemove,
+}: {
+  t: T;
+  attached: AttachedFile | null;
+  onAttach: (f: AttachedFile) => void;
+  onRemove: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
 
-  // Tabs
-  const [activeTab, setActiveTab] = useState<TabId>("explore");
-
-  // Explore state
-  const [approved, setApproved] = useState<Document[]>(MOCK_APPROVED);
-  const [filterEmpire, setFilterEmpire] = useState("all");
-  const [searchQ, setSearchQ] = useState("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  // Submit state
-  const [form, setForm] = useState({ title: "", content: "", empire_id: "" });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-
-  // My docs state
-  const [myDocs, setMyDocs] = useState<Document[]>([]);
-  const [loadingMy, setLoadingMy] = useState(false);
-
-  // Admin state
-  const [pendingDocs, setPendingDocs] = useState<Document[]>([]);
-  const [loadingPending, setLoadingPending] = useState(false);
-  const [processingId, setProcessingId] = useState<string | null>(null);
-
-  // Loading
-  const [loadingApproved, setLoadingApproved] = useState(false);
-
-  // ── LOAD APPROVED ──────────────────────────────────────
-  const loadApproved = useCallback(async () => {
-    setLoadingApproved(true);
-    try {
-      const { data } = await supabase
-        .from("documents")
-        .select("*, profiles(display_name)")
-        .eq("status", "approved")
-        .order("created_at", { ascending: false });
-      if (data) {
-        setApproved(data.map((d: any) => ({ ...d, author_name: d.profiles?.display_name })));
+  const processFile = useCallback(
+    (file: File) => {
+      if (file.size > MAX_FILE_BYTES) {
+        alert(t.fileTooLarge);
+        return;
       }
-    } catch {
-      // fallback to mock
-      setApproved(MOCK_APPROVED);
-    }
-    setLoadingApproved(false);
-  }, []);
+      const kind = detectFileKind(file);
+      if (kind === "none") {
+        alert(t.fileUnsupported);
+        return;
+      }
+      const preview = kind === "image" ? URL.createObjectURL(file) : "";
+      onAttach({
+        file, preview, kind,
+        sizeLabel: formatBytes(file.size),
+        uploading: false,
+      });
+    },
+    [onAttach, t]
+  );
 
-  // ── LOAD MY DOCS ───────────────────────────────────────
-  const loadMyDocs = useCallback(async () => {
-    if (!user) return;
-    setLoadingMy(true);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) processFile(file);
+    },
+    [processFile]
+  );
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      {/* Label */}
+      <label
+        style={{
+          display: "block", fontSize: ".68rem",
+          color: "rgba(212,175,55,.62)", marginBottom: 8,
+          fontFamily: "'Cinzel', serif", letterSpacing: ".18em",
+        }}
+      >
+        {t.fieldFile}
+      </label>
+      <p
+        style={{
+          fontSize: ".75rem", color: "rgba(237,224,196,.3)",
+          marginBottom: 10, fontFamily: "'Raleway', sans-serif",
+          lineHeight: 1.55,
+        }}
+      >
+        {t.fileDesc}
+      </p>
+
+      {attached ? (
+        /* ── Preview of attached file ── */
+        <div
+          style={{
+            border: "1px solid rgba(212,175,55,.28)",
+            borderRadius: 16, overflow: "hidden",
+            background: "rgba(212,175,55,.04)",
+            animation: "arc-fadeup .3s ease",
+          }}
+        >
+          {/* Image preview */}
+          {attached.kind === "image" && attached.preview && (
+            <div style={{ position: "relative", maxHeight: 200, overflow: "hidden" }}>
+              <img
+                src={attached.preview}
+                alt="Preview"
+                style={{
+                  width: "100%", maxHeight: 200,
+                  objectFit: "cover", display: "block",
+                  filter: "brightness(.88) contrast(1.07)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute", inset: 0,
+                  background: "linear-gradient(to top,rgba(10,6,2,.82),transparent 55%)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute", bottom: 10, left: 14,
+                  fontSize: ".7rem", color: "rgba(237,224,196,.7)",
+                  fontFamily: "'Cinzel', serif", letterSpacing: ".06em",
+                }}
+              >
+                🖼 {attached.file.name}
+              </div>
+            </div>
+          )}
+
+          {/* PDF indicator */}
+          {attached.kind === "pdf" && (
+            <div
+              style={{
+                padding: "16px 20px",
+                display: "flex", alignItems: "center", gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  width: 44, height: 44, borderRadius: 11, flexShrink: 0,
+                  background: "rgba(216,90,48,.12)",
+                  border: "1px solid rgba(216,90,48,.28)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <FileText style={{ width: 20, height: 20, color: "#D85A30" }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p
+                  style={{
+                    fontSize: ".84rem", color: "#EDE0C4",
+                    fontFamily: "'Raleway', sans-serif",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}
+                >
+                  {attached.file.name}
+                </p>
+                <p style={{ fontSize: ".7rem", color: "rgba(237,224,196,.38)", marginTop: 2 }}>
+                  PDF · {attached.sizeLabel}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Meta + remove */}
+          <div
+            style={{
+              padding: "10px 16px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              borderTop: "1px solid rgba(212,175,55,.1)",
+            }}
+          >
+            <span
+              style={{
+                fontSize: ".7rem", color: "rgba(237,224,196,.34)",
+                fontFamily: "'Raleway', sans-serif",
+              }}
+            >
+              {attached.sizeLabel} · {attached.kind === "pdf" ? "PDF" : "Image"}
+            </span>
+            <button
+              onClick={onRemove}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                color: "rgba(216,90,48,.68)", background: "none", border: "none",
+                cursor: "pointer", fontSize: ".7rem",
+                fontFamily: "'Cinzel', serif", letterSpacing: ".08em",
+                transition: "color .2s", padding: "3px 6px",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = "rgba(216,90,48,1)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(216,90,48,.68)")}
+            >
+              <X style={{ width: 12, height: 12 }} />
+              {t.fileRemove}
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* ── Drop zone ── */
+        <div
+          className={`arc-dropzone${dragOver ? " over" : ""}`}
+          onClick={() => inputRef.current?.click()}
+          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          style={{ padding: "30px 20px", textAlign: "center" }}
+        >
+          <div
+            style={{
+              width: 52, height: 52, borderRadius: "50%",
+              margin: "0 auto 14px",
+              background: "rgba(212,175,55,.08)",
+              border: "1px solid rgba(212,175,55,.18)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all .25s",
+            }}
+          >
+            <Paperclip style={{ width: 22, height: 22, color: "rgba(212,175,55,.52)" }} />
+          </div>
+          <p
+            style={{
+              fontSize: ".84rem", color: "rgba(237,224,196,.48)",
+              fontFamily: "'Raleway', sans-serif", marginBottom: 5,
+            }}
+          >
+            {dragOver ? t.dragActive : t.dragDrop}
+          </p>
+          <p
+            style={{
+              fontSize: ".68rem", color: "rgba(237,224,196,.22)",
+              fontFamily: "'Raleway', sans-serif",
+            }}
+          >
+            JPG · PNG · WEBP · GIF · PDF &nbsp;·&nbsp; max {MAX_FILE_MB} MB
+          </p>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={ACCEPT_TYPES}
+            style={{ display: "none" }}
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) processFile(file);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// DOCUMENT CARD
+// ══════════════════════════════════════════════════════════════════════
+
+const DocCard = memo(function DocCard({
+  doc, lang, t, showStatus = false,
+  adminActions, expanded, onToggle,
+}: {
+  doc: EmpireDoc;
+  lang: string;
+  t: T;
+  showStatus?: boolean;
+  adminActions?: React.ReactNode;
+  expanded?: boolean;
+  onToggle?: () => void;
+}) {
+  const e = empireInfo(doc.empire_id);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  const PREVIEW_LEN = 250;
+  const preview = doc.content.slice(0, PREVIEW_LEN);
+  const hasMore  = doc.content.length > PREVIEW_LEN;
+  const dateStr  = formatDate(doc.created_at, lang);
+
+  return (
+    <>
+      {lightboxSrc && (
+        <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
+
+      <div
+        className="arc-doc-card"
+        style={{
+          background: "linear-gradient(155deg,rgba(13,8,3,.96),rgba(20,13,5,.92))",
+          border: "1px solid rgba(212,175,55,.16)",
+          borderRadius: 22, overflow: "hidden",
+          boxShadow: "0 4px 32px rgba(0,0,0,.48)",
+        }}
+      >
+        {/* Empire color accent line */}
+        <div
+          style={{
+            height: 2.5,
+            background: `linear-gradient(90deg,transparent,${e.color}92,transparent)`,
+          }}
+        />
+
+        {/* Watermark flag */}
+        <div
+          style={{
+            position: "absolute", top: 14, right: 16,
+            fontSize: "1.7rem", opacity: .065,
+            pointerEvents: "none", userSelect: "none",
+          }}
+        >
+          {e.flag}
+        </div>
+
+        {/* ── Image attachment thumbnail ── */}
+        {doc.file_url && doc.file_type === "image" && (
+          <div
+            style={{
+              position: "relative", height: 130, overflow: "hidden",
+              cursor: "pointer",
+            }}
+            onClick={() => setLightboxSrc(doc.file_url!)}
+          >
+            <img
+              src={doc.file_url}
+              alt="Attachment"
+              style={{
+                width: "100%", height: "100%", objectFit: "cover",
+                filter: "brightness(.72) contrast(1.09) sepia(14%)",
+                transition: "filter .3s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.filter = "brightness(.88) contrast(1.1) sepia(6%)")}
+              onMouseLeave={e => (e.currentTarget.style.filter = "brightness(.72) contrast(1.09) sepia(14%)")}
+            />
+            <div
+              style={{
+                position: "absolute", inset: 0,
+                background: "linear-gradient(to top,rgba(13,8,3,.92) 0%,rgba(13,8,3,.18) 52%,transparent 100%)",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute", top: 10, right: 10,
+                width: 30, height: 30, borderRadius: "50%",
+                background: "rgba(0,0,0,.52)",
+                backdropFilter: "blur(4px)",
+                border: "1px solid rgba(255,255,255,.1)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <ZoomIn style={{ width: 13, height: 13, color: "rgba(237,224,196,.82)" }} />
+            </div>
+          </div>
+        )}
+
+        {/* ── PDF attachment strip ── */}
+        {doc.file_url && doc.file_type === "pdf" && (
+          <a
+            href={doc.file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "10px 18px",
+              background: "rgba(216,90,48,.05)",
+              borderBottom: "1px solid rgba(216,90,48,.14)",
+              textDecoration: "none",
+              transition: "background .2s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(216,90,48,.12)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "rgba(216,90,48,.05)")}
+          >
+            <div
+              style={{
+                width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                background: "rgba(216,90,48,.12)",
+                border: "1px solid rgba(216,90,48,.28)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <FileText style={{ width: 13, height: 13, color: "#D85A30" }} />
+            </div>
+            <span
+              style={{
+                flex: 1, fontSize: ".7rem", color: "#D85A30",
+                fontFamily: "'Cinzel', serif", letterSpacing: ".06em",
+              }}
+            >
+              {t.viewAttachment}
+            </span>
+            <Download style={{ width: 13, height: 13, color: "rgba(216,90,48,.55)", flexShrink: 0 }} />
+          </a>
+        )}
+
+        {/* ── Body ── */}
+        <div style={{ padding: "18px 20px 16px" }}>
+          {/* Title */}
+          <h3
+            style={{
+              fontFamily: "'Cormorant Garant', serif",
+              fontSize: "1.06rem", fontWeight: 600,
+              color: "#EDE0C4", lineHeight: 1.32, marginBottom: 10,
+            }}
+          >
+            {doc.title}
+          </h3>
+
+          {/* Badges */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+            <EmpireBadge id={doc.empire_id} />
+            {showStatus && <StatusBadge status={doc.status} lang={lang} />}
+            {doc.status === "rejected" && doc.rejection_reason && (
+              <span
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  fontSize: ".68rem", color: "rgba(216,90,48,.6)",
+                  fontFamily: "'Raleway', sans-serif", fontStyle: "italic",
+                }}
+              >
+                <MessageSquare style={{ width: 10, height: 10 }} />
+                {doc.rejection_reason.slice(0, 58)}
+                {doc.rejection_reason.length > 58 ? "…" : ""}
+              </span>
+            )}
+          </div>
+
+          {/* Content preview */}
+          <p
+            style={{
+              fontSize: ".83rem", color: "rgba(237,224,196,.5)",
+              lineHeight: 1.78, letterSpacing: ".01em",
+              fontFamily: "'Raleway', sans-serif",
+              whiteSpace: "pre-line",
+            }}
+          >
+            {expanded ? doc.content : preview}
+            {!expanded && hasMore && "…"}
+          </p>
+
+          {/* Expand/collapse */}
+          {hasMore && (
+            <button
+              onClick={onToggle}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                marginTop: 9, background: "none", border: "none",
+                color: "rgba(212,175,55,.5)", cursor: "pointer",
+                fontSize: ".7rem", fontFamily: "'Cinzel', serif",
+                letterSpacing: ".1em", transition: "color .2s", padding: 0,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = "rgba(212,175,55,.92)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "rgba(212,175,55,.5)")}
+            >
+              {expanded
+                ? <><ChevronDown style={{ width: 12, height: 12, transform: "rotate(180deg)" }} />{t.collapse}</>
+                : <><ChevronRight style={{ width: 12, height: 12 }} />{t.readMore}</>}
+            </button>
+          )}
+
+          {/* Meta footer */}
+          <div
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              marginTop: 14, paddingTop: 12,
+              borderTop: "1px solid rgba(212,175,55,.08)",
+              flexWrap: "wrap", gap: 8,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              {doc.author_name && (
+                <span
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                    fontSize: ".69rem", color: "rgba(237,224,196,.28)",
+                    fontFamily: "'Raleway', sans-serif",
+                  }}
+                >
+                  <User style={{ width: 10, height: 10 }} />
+                  {doc.author_name}
+                </span>
+              )}
+              <span
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  fontSize: ".69rem", color: "rgba(237,224,196,.23)",
+                  fontFamily: "'Raleway', sans-serif",
+                }}
+              >
+                <Calendar style={{ width: 10, height: 10 }} />
+                {dateStr}
+              </span>
+            </div>
+            {adminActions}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// HERO SECTION
+// ══════════════════════════════════════════════════════════════════════
+
+function HeroSection({
+  t, lang, approved,
+}: { t: T; lang: string; approved: EmpireDoc[] }) {
+  const contribs = new Set(approved.map(d => d.user_id)).size;
+
+  return (
+    <div
+      style={{
+        position: "relative", overflow: "hidden",
+        padding: "46px 20px 0",
+        background: "radial-gradient(ellipse 90% 58% at 50% 0%,rgba(212,175,55,.09),transparent 72%)",
+      }}
+    >
+      {/* Decorative top line */}
+      <div
+        style={{
+          position: "absolute", top: 22, left: "50%", transform: "translateX(-50%)",
+          width: 240, height: 1,
+          background: "linear-gradient(90deg,transparent,rgba(212,175,55,.46),transparent)",
+        }}
+      />
+      {/* Corner flourishes */}
+      <div style={{ position: "absolute", top: 26, left: 22, opacity: .1, fontSize: "2rem" }}>❧</div>
+      <div style={{ position: "absolute", top: 26, right: 22, opacity: .1, fontSize: "2rem", transform: "scaleX(-1)" }}>❧</div>
+
+      <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center", paddingBottom: 34 }}>
+        {/* Animated scroll icon */}
+        <div style={{ position: "relative", width: 62, height: 62, margin: "0 auto 20px" }}>
+          <div
+            style={{
+              width: 62, height: 62, borderRadius: "50%",
+              background: "rgba(212,175,55,.1)",
+              border: "1px solid rgba(212,175,55,.3)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              animation: "arc-glow-pulse 5s ease-in-out infinite",
+            }}
+          >
+            <Scroll style={{ width: 26, height: 26, color: "#D4AF37" }} />
+          </div>
+          <div
+            style={{
+              position: "absolute", inset: -9, borderRadius: "50%",
+              border: "1px dashed rgba(212,175,55,.15)",
+              animation: "arc-orbit 22s linear infinite",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute", inset: 0, borderRadius: "50%",
+              border: "1px solid rgba(212,175,55,.28)",
+              animation: "arc-pulse-out 3.5s ease-out infinite",
+            }}
+          />
+        </div>
+
+        {/* Main title */}
+        <h1
+          style={{
+            fontFamily: "'Cormorant Garant', serif",
+            fontSize: "clamp(1.95rem,5.8vw,3.4rem)",
+            fontWeight: 600, lineHeight: 1.07,
+            background: "linear-gradient(135deg,#F5DC68,#D4AF37,#AE7D18,#ECCC52,#D4AF37)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            marginBottom: 11,
+            animation: "arc-flicker 9s ease-in-out infinite",
+          }}
+        >
+          {t.heroTitle}
+        </h1>
+
+        {/* Subtitle ornament */}
+        <div className="arc-ornament" style={{ maxWidth: 340, margin: "0 auto 10px" }}>
+          ✦ {t.heroSub} ✦
+        </div>
+
+        {/* Description */}
+        <p
+          style={{
+            fontSize: ".83rem", color: "rgba(237,224,196,.36)",
+            lineHeight: 1.7, maxWidth: 390, margin: "0 auto 24px",
+            fontFamily: "'Raleway', sans-serif",
+          }}
+        >
+          {t.heroDesc}
+        </p>
+
+        {/* Stats row */}
+        <div
+          style={{
+            display: "flex", alignItems: "center",
+            justifyContent: "center", gap: 10, flexWrap: "wrap",
+          }}
+        >
+          {[
+            { label: t.statApproved, value: approved.length, color: "#D4AF37" },
+            { label: t.statEmpires,  value: ALL_EMPIRES.length, color: "#C8A96E" },
+            { label: t.statContribs, value: contribs || "—", color: "#1D9E75" },
+          ].map(({ label, value, color }, i) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {i > 0 && (
+                <span style={{ color: "rgba(212,175,55,.14)", fontSize: "1.3rem" }}>·</span>
+              )}
+              <div style={{ textAlign: "center" }}>
+                <div
+                  style={{
+                    fontFamily: "'Cormorant Garant', serif",
+                    fontSize: "1.65rem", color, lineHeight: 1,
+                  }}
+                >
+                  {value}
+                </div>
+                <div
+                  style={{
+                    fontSize: ".58rem", letterSpacing: ".18em",
+                    textTransform: "uppercase", color: "rgba(237,224,196,.28)",
+                    fontFamily: "'Cinzel', serif", marginTop: 2,
+                  }}
+                >
+                  {label}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Bottom divider */}
+      <div
+        style={{
+          height: 1,
+          background: "linear-gradient(90deg,transparent,rgba(212,175,55,.18),transparent)",
+        }}
+      />
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// EXPLORE TAB
+// ══════════════════════════════════════════════════════════════════════
+
+function ExploreTab({
+  t, lang, approved, loading,
+}: { t: T; lang: string; approved: EmpireDoc[]; loading: boolean }) {
+  const [empire,  setEmpire]  = useState("all");
+  const [query,   setQuery]   = useState("");
+  const [sort,    setSort]    = useState<SortOrder>("newest");
+  const [expId,   setExpId]   = useState<string | null>(null);
+
+  const filtered = approved
+    .filter(d => {
+      const matchEmp = empire === "all" || d.empire_id === empire;
+      const q = query.toLowerCase();
+      const matchQ  = !q || d.title.toLowerCase().includes(q) || d.content.toLowerCase().includes(q);
+      return matchEmp && matchQ;
+    })
+    .sort((a, b) => {
+      if (sort === "newest") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sort === "oldest") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return a.title.localeCompare(b.title);
+    });
+
+  const countFor = (id: string) => approved.filter(d => d.empire_id === id).length;
+
+  return (
+    <div className="arc-fade">
+      {/* ── Search + Sort ── */}
+      <div
+        style={{
+          display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap",
+        }}
+      >
+        {/* Search box */}
+        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
+          <Search
+            style={{
+              position: "absolute", left: 13,
+              top: "50%", transform: "translateY(-50%)",
+              width: 15, height: 15,
+              color: "rgba(212,175,55,.38)", pointerEvents: "none",
+            }}
+          />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder={t.search}
+            className="arc-input"
+            style={{ padding: "10px 14px 10px 38px" }}
+          />
+        </div>
+
+        {/* Sort buttons */}
+        <div style={{ display: "flex", gap: 5 }}>
+          {(["newest", "oldest", "alpha"] as SortOrder[]).map(s => (
+            <button
+              key={s}
+              onClick={() => setSort(s)}
+              style={{
+                padding: "8px 13px", borderRadius: 11, cursor: "pointer",
+                fontSize: ".68rem", fontFamily: "'Cinzel', serif",
+                letterSpacing: ".08em", border: "1px solid",
+                borderColor: sort === s ? "rgba(212,175,55,.42)" : "rgba(212,175,55,.14)",
+                background: sort === s ? "rgba(212,175,55,.12)" : "rgba(212,175,55,.04)",
+                color: sort === s ? "#D4AF37" : "rgba(237,224,196,.36)",
+                transition: "all .2s", whiteSpace: "nowrap",
+              }}
+            >
+              {s === "newest" ? t.sortNewest : s === "oldest" ? t.sortOldest : t.sortAlpha}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Empire filter pills ── */}
+      <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 22 }}>
+        {/* All empires pill */}
+        <button
+          onClick={() => setEmpire("all")}
+          className="arc-empire-pill"
+          style={{
+            background: empire === "all" ? "rgba(212,175,55,.16)" : "rgba(255,255,255,.03)",
+            borderColor: empire === "all" ? "rgba(212,175,55,.46)" : "rgba(255,255,255,.07)",
+            color: empire === "all" ? "#D4AF37" : "rgba(237,224,196,.37)",
+          }}
+        >
+          <Globe style={{ width: 11, height: 11 }} />
+          {t.allEmpires}
+          <span style={{ fontSize: ".58rem", opacity: .62 }}>({approved.length})</span>
+        </button>
+
+        {/* Individual empire pills */}
+        {ALL_EMPIRES.map(emp => {
+          const cnt = countFor(emp.id);
+          const active = empire === emp.id;
+          return (
+            <button
+              key={emp.id}
+              onClick={() => setEmpire(emp.id)}
+              className="arc-empire-pill"
+              style={{
+                background: active ? `${emp.color}18` : "rgba(255,255,255,.03)",
+                borderColor: active ? `${emp.color}58` : "rgba(255,255,255,.07)",
+                color: active ? emp.color : "rgba(237,224,196,.34)",
+              }}
+            >
+              {emp.flag}
+              {emp.label.split(" ")[0]}
+              {cnt > 0 && (
+                <span style={{ fontSize: ".58rem", opacity: .6 }}>({cnt})</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Query result count */}
+      {!loading && query && (
+        <p
+          style={{
+            fontSize: ".72rem", color: "rgba(237,224,196,.28)",
+            fontFamily: "'Raleway', sans-serif", marginBottom: 14,
+            animation: "arc-fadeup .3s ease",
+          }}
+        >
+          {filtered.length} {t.resultsFor} "{query}"
+        </p>
+      )}
+
+      {/* ── Document grid ── */}
+      {loading ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))",
+            gap: 16,
+          }}
+        >
+          {[1, 2, 3, 4, 5, 6].map(i => <SkeletonCard key={i} />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={Library} title={t.noApproved} sub={t.noApprovedSub} />
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))",
+            gap: 16,
+          }}
+        >
+          {filtered.map((doc, i) => (
+            <div key={doc.id} style={{ animationDelay: `${i * 52}ms` }}>
+              <DocCard
+                doc={doc} lang={lang} t={t}
+                expanded={expId === doc.id}
+                onToggle={() => setExpId(expId === doc.id ? null : doc.id)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SUBMIT TAB
+// ══════════════════════════════════════════════════════════════════════
+
+function SubmitTab({ t, lang, user }: { t: T; lang: string; user: any }) {
+  const [form, setForm]         = useState({ title: "", content: "", empire_id: "" });
+  const [errors, setErrors]     = useState<Record<string, string>>({});
+  const [attached, setAttached] = useState<AttachedFile | null>(null);
+  const [busy, setBusy]         = useState(false);
+  const [success, setSuccess]   = useState(false);
+
+  // Validation
+  const validate = (): boolean => {
+    const e: Record<string, string> = {};
+    if (!form.title.trim()) e.title = t.titleRequired;
+    if (form.content.trim().length < 100) e.content = t.minChars;
+    if (!form.empire_id) e.empire_id = t.empireRequired;
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  // Upload attached file to Supabase Storage
+  const uploadFile = async (): Promise<{ url: string; type: FileKind; name: string } | null> => {
+    if (!attached) return null;
+    const ext  = attached.file.name.split(".").pop() ?? "bin";
+    const path = `documents/${user.id}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("document-attachments")
+      .upload(path, attached.file, { upsert: false });
+    if (error) throw error;
+    const { data } = supabase.storage.from("document-attachments").getPublicUrl(path);
+    return { url: data.publicUrl, type: attached.kind, name: attached.file.name };
+  };
+
+  // Submit
+  const handleSubmit = async () => {
+    if (!validate()) return;
+    setBusy(true);
     try {
-      const { data } = await supabase
-        .from("documents")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      setMyDocs((data || []) as Document[]);
-    } catch { setMyDocs([]); }
-    setLoadingMy(false);
+      const { data: profile } = await supabase
+        .from("profiles").select("display_name").eq("id", user.id).single();
+
+      let fileData: { url: string; type: FileKind; name: string } | null = null;
+      try { fileData = await uploadFile(); } catch { /* optional */ }
+
+      await supabase.from("documents").insert({
+        title:       form.title.trim(),
+        content:     form.content.trim(),
+        empire_id:   form.empire_id,
+        user_id:     user.id,
+        author_name: profile?.display_name ?? user.email?.split("@")[0] ?? "Anonymous",
+        status:      "pending",
+        file_url:    fileData?.url  ?? null,
+        file_type:   fileData?.type ?? null,
+        file_name:   fileData?.name ?? null,
+      });
+
+      setSuccess(true);
+      setForm({ title: "", content: "", empire_id: "" });
+      setErrors({});
+      setAttached(null);
+      setTimeout(() => setSuccess(false), 8000);
+    } catch (err) {
+      console.error(err);
+    }
+    setBusy(false);
+  };
+
+  /* ── Not signed in ── */
+  if (!user) {
+    return (
+      <div
+        style={{
+          maxWidth: 560, margin: "0 auto", textAlign: "center",
+          padding: "58px 28px",
+          background: "linear-gradient(150deg,rgba(13,8,3,.92),rgba(20,13,5,.88))",
+          border: "1px solid rgba(212,175,55,.14)", borderRadius: 24,
+          animation: "arc-fadeup .4s ease",
+        }}
+      >
+        <div
+          style={{
+            width: 58, height: 58, borderRadius: "50%", margin: "0 auto 18px",
+            background: "rgba(212,175,55,.08)", border: "1px solid rgba(212,175,55,.2)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <AlertCircle style={{ width: 24, height: 24, color: "rgba(212,175,55,.46)" }} />
+        </div>
+        <h3
+          style={{
+            fontFamily: "'Cormorant Garant', serif",
+            fontSize: "1.22rem", color: "rgba(237,224,196,.7)", marginBottom: 9,
+          }}
+        >
+          {t.loginRequired}
+        </h3>
+        <p
+          style={{
+            fontSize: ".78rem", color: "rgba(237,224,196,.32)",
+            lineHeight: 1.65, fontFamily: "'Raleway', sans-serif",
+          }}
+        >
+          {t.loginRequiredSub}
+        </p>
+      </div>
+    );
+  }
+
+  /* ── Success ── */
+  if (success) {
+    return (
+      <div
+        style={{
+          maxWidth: 560, margin: "0 auto", textAlign: "center",
+          padding: "58px 28px",
+          background: "rgba(29,158,117,.06)", border: "1px solid rgba(29,158,117,.3)",
+          borderRadius: 24, animation: "arc-fadeup .4s ease",
+        }}
+      >
+        <div
+          style={{
+            width: 62, height: 62, borderRadius: "50%", margin: "0 auto 18px",
+            background: "rgba(29,158,117,.1)", border: "1px solid rgba(29,158,117,.32)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <CheckCircle style={{ width: 28, height: 28, color: "#1D9E75" }} />
+        </div>
+        <h3
+          style={{
+            fontFamily: "'Cormorant Garant', serif",
+            fontSize: "1.38rem", color: "#1D9E75", marginBottom: 11,
+          }}
+        >
+          {t.submitOk}
+        </h3>
+        <p
+          style={{
+            fontSize: ".82rem", color: "rgba(237,224,196,.44)",
+            lineHeight: 1.65, fontFamily: "'Raleway', sans-serif",
+          }}
+        >
+          {t.submitOkSub}
+        </p>
+      </div>
+    );
+  }
+
+  /* ── Form ── */
+  return (
+    <div style={{ maxWidth: 600, margin: "0 auto", animation: "arc-fadeup .4s ease" }}>
+      {/* Header */}
+      <div style={{ textAlign: "center", marginBottom: 30 }}>
+        <div
+          style={{
+            width: 54, height: 54, borderRadius: "50%", margin: "0 auto 15px",
+            background: "rgba(212,175,55,.08)", border: "1px solid rgba(212,175,55,.22)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <Feather style={{ width: 21, height: 21, color: "#D4AF37" }} />
+        </div>
+        <h2
+          style={{
+            fontFamily: "'Cormorant Garant', serif",
+            fontSize: "1.72rem", color: "#EDE0C4", marginBottom: 7,
+          }}
+        >
+          {t.submitTitle}
+        </h2>
+        <p
+          style={{
+            fontSize: ".8rem", color: "rgba(237,224,196,.36)",
+            lineHeight: 1.65, fontFamily: "'Raleway', sans-serif",
+          }}
+        >
+          {t.submitSub}
+        </p>
+      </div>
+
+      {/* Form card */}
+      <div
+        style={{
+          background: "linear-gradient(155deg,rgba(13,8,3,.97),rgba(20,13,5,.94))",
+          border: "1px solid rgba(212,175,55,.18)", borderRadius: 24, overflow: "hidden",
+        }}
+      >
+        <div style={{ height: 2.5, background: "linear-gradient(90deg,transparent,rgba(212,175,55,.52),transparent)" }} />
+        <div style={{ padding: "28px 26px 26px" }}>
+
+          {/* ── Title field ── */}
+          <div style={{ marginBottom: 19 }}>
+            <label
+              style={{
+                display: "block", fontSize: ".68rem",
+                color: "rgba(212,175,55,.62)", marginBottom: 9,
+                fontFamily: "'Cinzel', serif", letterSpacing: ".18em",
+              }}
+            >
+              {t.fieldTitle}
+            </label>
+            <input
+              value={form.title}
+              onChange={e => { setForm(p => ({ ...p, title: e.target.value })); setErrors(p => ({ ...p, title: "" })); }}
+              placeholder={t.titlePlaceholder}
+              className="arc-input"
+              style={{ padding: "12px 15px" }}
+            />
+            {errors.title && (
+              <p
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  fontSize: ".7rem", color: "#D85A30", marginTop: 5,
+                  fontFamily: "'Raleway', sans-serif",
+                }}
+              >
+                <AlertCircle style={{ width: 11, height: 11 }} />
+                {errors.title}
+              </p>
+            )}
+          </div>
+
+          {/* ── Empire select ── */}
+          <div style={{ marginBottom: 19 }}>
+            <label
+              style={{
+                display: "block", fontSize: ".68rem",
+                color: "rgba(212,175,55,.62)", marginBottom: 9,
+                fontFamily: "'Cinzel', serif", letterSpacing: ".18em",
+              }}
+            >
+              {t.fieldEmpire}
+            </label>
+            <div style={{ position: "relative" }}>
+              <select
+                value={form.empire_id}
+                onChange={e => { setForm(p => ({ ...p, empire_id: e.target.value })); setErrors(p => ({ ...p, empire_id: "" })); }}
+                className="arc-input"
+                style={{ padding: "12px 36px 12px 15px", appearance: "none", cursor: "pointer" }}
+              >
+                <option value="">{t.empirePrompt}</option>
+                {ALL_EMPIRES.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.flag} {emp.label}</option>
+                ))}
+              </select>
+              <ChevronDown
+                style={{
+                  position: "absolute", right: 13, top: "50%",
+                  transform: "translateY(-50%)",
+                  width: 14, height: 14,
+                  color: "rgba(212,175,55,.38)", pointerEvents: "none",
+                }}
+              />
+            </div>
+            {errors.empire_id && (
+              <p
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  fontSize: ".7rem", color: "#D85A30", marginTop: 5,
+                  fontFamily: "'Raleway', sans-serif",
+                }}
+              >
+                <AlertCircle style={{ width: 11, height: 11 }} />
+                {errors.empire_id}
+              </p>
+            )}
+          </div>
+
+          {/* ── Content textarea ── */}
+          <div style={{ marginBottom: 22 }}>
+            <label
+              style={{
+                display: "block", fontSize: ".68rem",
+                color: "rgba(212,175,55,.62)", marginBottom: 9,
+                fontFamily: "'Cinzel', serif", letterSpacing: ".18em",
+              }}
+            >
+              {t.fieldContent}
+            </label>
+            <textarea
+              value={form.content}
+              onChange={e => { setForm(p => ({ ...p, content: e.target.value })); setErrors(p => ({ ...p, content: "" })); }}
+              placeholder={t.contentPlaceholder}
+              className="arc-input"
+              style={{ padding: "13px 15px", minHeight: 195, resize: "vertical", lineHeight: 1.73 }}
+            />
+            <div
+              style={{
+                display: "flex", alignItems: "center",
+                justifyContent: "space-between", marginTop: 5,
+              }}
+            >
+              {errors.content
+                ? (
+                  <p
+                    style={{
+                      display: "flex", alignItems: "center", gap: 5,
+                      fontSize: ".7rem", color: "#D85A30",
+                      fontFamily: "'Raleway', sans-serif",
+                    }}
+                  >
+                    <AlertCircle style={{ width: 11, height: 11 }} />
+                    {errors.content}
+                  </p>
+                )
+                : <div />}
+              <span
+                style={{
+                  fontSize: ".68rem", fontFamily: "'Raleway', sans-serif",
+                  color: form.content.length < 100
+                    ? "rgba(216,90,48,.62)"
+                    : "rgba(29,158,117,.62)",
+                }}
+              >
+                {form.content.length} {t.chars}
+              </span>
+            </div>
+          </div>
+
+          {/* ── File upload ── */}
+          <FileUploadZone
+            t={t}
+            attached={attached}
+            onAttach={setAttached}
+            onRemove={() => setAttached(null)}
+          />
+
+          {/* ── Guidelines ── */}
+          <div
+            style={{
+              padding: "13px 16px", borderRadius: 12, marginBottom: 24,
+              background: "rgba(212,175,55,.04)", border: "1px solid rgba(212,175,55,.1)",
+            }}
+          >
+            <p
+              style={{
+                fontSize: ".72rem", color: "rgba(237,224,196,.4)",
+                lineHeight: 1.68, fontFamily: "'Raleway', sans-serif",
+              }}
+            >
+              <span
+                style={{
+                  color: "rgba(212,175,55,.68)",
+                  fontFamily: "'Cinzel', serif", letterSpacing: ".09em",
+                }}
+              >
+                {t.guidelines}{" "}
+              </span>
+              {t.guidelinesText}
+            </p>
+          </div>
+
+          {/* ── Submit button ── */}
+          <button
+            onClick={handleSubmit}
+            disabled={busy}
+            className="arc-gold-btn"
+            style={{
+              width: "100%", padding: "14px 20px",
+              fontSize: ".82rem",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
+            }}
+          >
+            {busy
+              ? <><Spinner size={15} color="#08050F" />{t.submitting}</>
+              : <><Send style={{ width: 15, height: 15 }} />{t.submitBtn}</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// MY DOCUMENTS TAB
+// ══════════════════════════════════════════════════════════════════════
+
+function MyDocsTab({
+  t, lang, user, onGoSubmit,
+}: { t: T; lang: string; user: any; onGoSubmit: () => void }) {
+  const [docs, setDocs]   = useState<EmpireDoc[]>([]);
+  const [loading, setLd]  = useState(false);
+  const [expId, setExpId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    setLd(true);
+    supabase
+      .from("documents")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => { setDocs((data ?? []) as EmpireDoc[]); setLd(false); })
+      .catch(() => { setDocs([]); setLd(false); });
   }, [user]);
 
-  // ── LOAD PENDING (admin) ───────────────────────────────
+  if (!user) {
+    return <EmptyState icon={FolderOpen} title={t.loginToSee} />;
+  }
+
+  return (
+    <div className="arc-fade">
+      {/* Header */}
+      <div
+        style={{
+          display: "flex", alignItems: "center",
+          justifyContent: "space-between", marginBottom: 22,
+        }}
+      >
+        <h2
+          style={{
+            fontFamily: "'Cormorant Garant', serif",
+            fontSize: "1.42rem", color: "#EDE0C4",
+          }}
+        >
+          {t.myDocs}
+        </h2>
+        <button
+          onClick={onGoSubmit}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "8px 17px", borderRadius: 11, cursor: "pointer",
+            background: "rgba(212,175,55,.08)",
+            border: "1px solid rgba(212,175,55,.26)",
+            color: "#D4AF37", fontSize: ".72rem",
+            fontFamily: "'Cinzel', serif", letterSpacing: ".1em",
+            transition: "all .22s",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = "rgba(212,175,55,.16)")}
+          onMouseLeave={e => (e.currentTarget.style.background = "rgba(212,175,55,.08)")}
+        >
+          <Plus style={{ width: 13, height: 13 }} />
+          {t.newDoc}
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+          {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
+        </div>
+      ) : docs.length === 0 ? (
+        <EmptyState icon={FolderOpen} title={t.noMyDocs} sub={t.noMyDocsSub} />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+          {docs.map((doc, i) => (
+            <div key={doc.id} style={{ animationDelay: `${i * 52}ms` }}>
+              <DocCard
+                doc={doc} lang={lang} t={t}
+                showStatus
+                expanded={expId === doc.id}
+                onToggle={() => setExpId(expId === doc.id ? null : doc.id)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ADMIN TAB — COMPLETELY HIDDEN FROM NON-ADMINS (rendered only when isAdmin=true)
+// ══════════════════════════════════════════════════════════════════════
+
+function AdminTab({ t, lang }: { t: T; lang: string }) {
+  const [subTab,     setSubTab]  = useState<AdminSubTab>("pending");
+  const [pending,    setPending] = useState<EmpireDoc[]>([]);
+  const [allDocs,    setAllDocs] = useState<EmpireDoc[]>([]);
+  const [loadingP,   setLoadP]   = useState(false);
+  const [loadingA,   setLoadA]   = useState(false);
+  const [procId,     setProcId]  = useState<string | null>(null);
+  const [rejectTgt,  setRejTgt]  = useState<string | null>(null);
+  const [expId,      setExpId]   = useState<string | null>(null);
+  const [allSearch,  setAllSrch] = useState("");
+  const [allEmpFlt,  setAllEFlt] = useState("all");
+
+  /* ── Load pending ── */
   const loadPending = useCallback(async () => {
-    if (!isAdmin) return;
-    setLoadingPending(true);
+    setLoadP(true);
     try {
       const { data } = await supabase
         .from("documents")
         .select("*, profiles(display_name)")
         .eq("status", "pending")
         .order("created_at", { ascending: false });
-      if (data) {
-        setPendingDocs(data.map((d: any) => ({ ...d, author_name: d.profiles?.display_name })));
-      }
-    } catch { setPendingDocs([]); }
-    setLoadingPending(false);
-  }, [isAdmin]);
+      setPending(
+        (data ?? []).map((d: any) => ({ ...d, author_name: d.profiles?.display_name }))
+      );
+    } catch { setPending([]); }
+    setLoadP(false);
+  }, []);
 
-  useEffect(() => { loadApproved(); }, [loadApproved]);
-  useEffect(() => { if (activeTab === "mine") loadMyDocs(); }, [activeTab, loadMyDocs]);
-  useEffect(() => { if (activeTab === "admin") loadPending(); }, [activeTab, loadPending]);
-
-  // ── SUBMIT ─────────────────────────────────────────────
-  const handleSubmit = async () => {
-    const errors: Record<string, string> = {};
-    if (!form.title.trim()) errors.title = t.titleRequired;
-    if (form.content.trim().length < 100) errors.content = t.minChars;
-    if (!form.empire_id) errors.empire_id = t.empireRequired;
-    setFormErrors(errors);
-    if (Object.keys(errors).length) return;
-
-    setSubmitting(true);
+  /* ── Load all ── */
+  const loadAll = useCallback(async () => {
+    setLoadA(true);
     try {
-      const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", user?.id).single();
-      await supabase.from("documents").insert({
-        title: form.title.trim(),
-        content: form.content.trim(),
-        empire_id: form.empire_id,
-        user_id: user?.id,
-        author_name: profile?.display_name || user?.email?.split("@")[0] || "Anonymous",
-        status: "pending",
-      });
-      setSubmitSuccess(true);
-      setForm({ title: "", content: "", empire_id: "" });
-      setFormErrors({});
-      setTimeout(() => setSubmitSuccess(false), 6000);
-    } catch { /* handle error */ }
-    setSubmitting(false);
+      const { data } = await supabase
+        .from("documents")
+        .select("*, profiles(display_name)")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      setAllDocs(
+        (data ?? []).map((d: any) => ({ ...d, author_name: d.profiles?.display_name }))
+      );
+    } catch { setAllDocs([]); }
+    setLoadA(false);
+  }, []);
+
+  useEffect(() => { loadPending(); }, [loadPending]);
+  useEffect(() => { if (subTab === "all") loadAll(); }, [subTab, loadAll]);
+
+  /* ── Approve ── */
+  const doApprove = async (id: string) => {
+    setProcId(id);
+    await supabase.from("documents").update({
+      status: "approved",
+      reviewed_at: new Date().toISOString(),
+    }).eq("id", id);
+    setPending(p => p.filter(d => d.id !== id));
+    setProcId(null);
   };
 
-  // ── ADMIN ACTIONS ──────────────────────────────────────
-  const reviewDoc = async (id: string, action: "approve" | "reject") => {
-    setProcessingId(id);
-    const status: DocStatus = action === "approve" ? "approved" : "rejected";
-    await supabase.from("documents").update({ status, reviewed_at: new Date().toISOString() }).eq("id", id);
-    setPendingDocs(prev => prev.filter(d => d.id !== id));
-    if (status === "approved") loadApproved();
-    setProcessingId(null);
+  /* ── Reject (with reason) ── */
+  const doReject = async (id: string, reason: string) => {
+    setProcId(id);
+    setRejTgt(null);
+    await supabase.from("documents").update({
+      status: "rejected",
+      reviewed_at: new Date().toISOString(),
+      rejection_reason: reason || null,
+    }).eq("id", id);
+    setPending(p => p.filter(d => d.id !== id));
+    setProcId(null);
   };
 
-  // ── FILTERED DOCS ──────────────────────────────────────
-  const filteredApproved = approved.filter(d => {
-    const matchEmpire = filterEmpire === "all" || d.empire_id === filterEmpire;
-    const matchSearch = !searchQ || d.title.toLowerCase().includes(searchQ.toLowerCase()) ||
-      d.content.toLowerCase().includes(searchQ.toLowerCase());
-    return matchEmpire && matchSearch;
+  /* ── Delete (from All tab) ── */
+  const doDelete = async (id: string) => {
+    if (!confirm(t.confirmDelete)) return;
+    await supabase.from("documents").delete().eq("id", id);
+    setAllDocs(p => p.filter(d => d.id !== id));
+    setPending(p => p.filter(d => d.id !== id));
+  };
+
+  /* ── Filtered all-docs ── */
+  const filteredAll = allDocs.filter(d => {
+    const matchE = allEmpFlt === "all" || d.empire_id === allEmpFlt;
+    const q = allSearch.toLowerCase();
+    const matchQ = !q || d.title.toLowerCase().includes(q);
+    return matchE && matchQ;
   });
 
-  // ── TABS CONFIG ────────────────────────────────────────
-  const TABS: { id: TabId; label: string; icon: any; badge?: number; adminOnly?: boolean }[] = [
-    { id: "explore", label: t.explore, icon: Library },
-    { id: "submit",  label: t.submit,  icon: Feather },
-    { id: "mine",    label: t.mine,    icon: FolderOpen, badge: myDocs.length },
-    ...(isAdmin ? [{ id: "admin" as TabId, label: t.admin, icon: Crown, badge: pendingDocs.length, adminOnly: true }] : []),
-  ];
-
-  // ─────────────────────────────────────────────────────────
   return (
-    <AppLayout language={language} setLanguage={setLanguage}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Cinzel:wght@400;500;600&family=Raleway:wght@300;400;500&display=swap');
+    <div className="arc-fade">
+      {/* Reject modal */}
+      {rejectTgt && (
+        <RejectModal
+          t={t}
+          onConfirm={reason => doReject(rejectTgt, reason)}
+          onCancel={() => setRejTgt(null)}
+        />
+      )}
 
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeSlideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes shimmer { 0%,100%{opacity:0.5} 50%{opacity:1} }
-        @keyframes glowPulse { 0%,100%{box-shadow:0 0 20px rgba(212,175,55,0.1)} 50%{box-shadow:0 0 40px rgba(212,175,55,0.25)} }
+      {/* ── Admin header banner ── */}
+      <div
+        style={{
+          display: "flex", alignItems: "center", gap: 14, marginBottom: 22,
+          padding: "16px 20px", borderRadius: 18,
+          background: "linear-gradient(135deg,rgba(168,85,247,.1),rgba(147,51,234,.06))",
+          border: "1px solid rgba(168,85,247,.3)",
+        }}
+      >
+        <div
+          style={{
+            width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
+            background: "rgba(168,85,247,.14)", border: "1px solid rgba(168,85,247,.36)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            animation: "arc-glow-pulse 4s ease-in-out infinite",
+          }}
+        >
+          <Crown style={{ width: 18, height: 18, color: "#a855f7" }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <p
+            style={{
+              fontFamily: "'Cinzel', serif", fontSize: ".76rem",
+              color: "#c084fc", letterSpacing: ".14em",
+            }}
+          >
+            {t.adminTitle.toUpperCase()}
+          </p>
+          <p
+            style={{
+              fontSize: ".72rem", color: "rgba(237,224,196,.36)",
+              marginTop: 2, fontFamily: "'Raleway', sans-serif",
+            }}
+          >
+            {pending.length} {t.adminSubtitle}
+          </p>
+        </div>
+        {/* Sub-tab switcher */}
+        <div style={{ display: "flex", gap: 7 }}>
+          {(["pending", "all"] as AdminSubTab[]).map(s => (
+            <button
+              key={s}
+              onClick={() => setSubTab(s)}
+              style={{
+                padding: "7px 15px", borderRadius: 10, cursor: "pointer",
+                fontSize: ".68rem", fontFamily: "'Cinzel', serif",
+                letterSpacing: ".08em", border: "1px solid",
+                borderColor: subTab === s ? "rgba(168,85,247,.52)" : "rgba(168,85,247,.18)",
+                background: subTab === s ? "rgba(168,85,247,.17)" : "rgba(168,85,247,.05)",
+                color: subTab === s ? "#c084fc" : "rgba(192,132,252,.42)",
+                transition: "all .2s", position: "relative",
+              }}
+            >
+              {s === "pending" ? t.tabPending : t.tabAll}
+              {s === "pending" && pending.length > 0 && (
+                <span
+                  style={{
+                    marginLeft: 5,
+                    background: "rgba(168,85,247,.3)", color: "#c084fc",
+                    borderRadius: 8, padding: "0 6px", fontSize: ".6rem",
+                  }}
+                >
+                  {pending.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        .doc-card:hover {
-          border-color: rgba(212,175,55,0.35) !important;
-          transform: translateY(-3px);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 30px rgba(212,175,55,0.08);
-        }
-        .doc-card { animation: fadeSlideUp 0.5s ease both; }
-
-        .submit-input {
-          background: rgba(15,10,5,0.6);
-          border: 1px solid rgba(212,175,55,0.2);
-          border-radius: 14px;
-          color: #EDE0C4;
-          font-family: 'Raleway', sans-serif;
-          font-size: 0.875rem;
-          width: 100%;
-          outline: none;
-          transition: border-color 0.25s, box-shadow 0.25s;
-        }
-        .submit-input:focus {
-          border-color: rgba(212,175,55,0.5);
-          box-shadow: 0 0 0 3px rgba(212,175,55,0.08);
-        }
-        .submit-input::placeholder { color: rgba(237,224,196,0.25); }
-
-        .empire-pill {
-          cursor: pointer;
-          transition: all 0.2s;
-          border: 1px solid transparent;
-          border-radius: 20px;
-          padding: 5px 12px;
-          font-size: 0.72rem;
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          white-space: nowrap;
-        }
-        .empire-pill:hover { transform: translateY(-1px); }
-
-        .tab-btn {
-          display: flex; align-items: center; gap: 6px;
-          padding: 10px 18px; border-radius: 12px;
-          font-family: 'Cinzel', serif; font-size: 0.72rem;
-          letter-spacing: 0.1em; transition: all 0.2s;
-          white-space: nowrap; position: relative;
-          border: 1px solid transparent;
-        }
-        .tab-btn.active {
-          background: linear-gradient(135deg, rgba(212,175,55,0.15), rgba(184,144,30,0.1));
-          border-color: rgba(212,175,55,0.35);
-          color: #D4AF37;
-        }
-        .tab-btn:not(.active) { color: rgba(237,224,196,0.45); }
-        .tab-btn:not(.active):hover { color: rgba(237,224,196,0.75); background: rgba(212,175,55,0.06); }
-
-        .gold-btn {
-          background: linear-gradient(135deg, #C9A227, #D4AF37, #E8CC55, #B8901E);
-          color: #08050F; font-weight: 600;
-          border: none; border-radius: 14px;
-          box-shadow: 0 4px 20px rgba(212,175,55,0.3);
-          transition: all 0.2s; cursor: pointer;
-          font-family: 'Cinzel', serif; letter-spacing: 0.1em;
-          position: relative; overflow: hidden;
-        }
-        .gold-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(212,175,55,0.45); }
-        .gold-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-        .approve-btn {
-          background: rgba(29,158,117,0.12); border: 1px solid rgba(29,158,117,0.3);
-          color: #1D9E75; border-radius: 10px; padding: 6px 14px;
-          font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
-          font-family: 'Cinzel', serif; letter-spacing: 0.08em;
-          display: flex; align-items: center; gap: 5px;
-        }
-        .approve-btn:hover { background: rgba(29,158,117,0.22); transform: translateY(-1px); }
-
-        .reject-btn {
-          background: rgba(216,90,48,0.1); border: 1px solid rgba(216,90,48,0.25);
-          color: #D85A30; border-radius: 10px; padding: 6px 14px;
-          font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
-          font-family: 'Cinzel', serif; letter-spacing: 0.08em;
-          display: flex; align-items: center; gap: 5px;
-        }
-        .reject-btn:hover { background: rgba(216,90,48,0.2); transform: translateY(-1px); }
-
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.25); border-radius: 2px; }
-      `}</style>
-
-      <div style={{ minHeight: "100vh", color: "#EDE0C4", fontFamily: "'Raleway', sans-serif" }}>
-
-        {/* ── HERO HEADER ───────────────────────────────── */}
-        <div style={{
-          position: "relative", overflow: "hidden",
-          padding: "40px 24px 0",
-          background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(212,175,55,0.1), transparent 70%)",
-        }}>
-          {/* Decorative scrollwork */}
-          <div style={{
-            position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
-            width: 200, height: 1,
-            background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)",
-          }}/>
-
-          <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center", paddingBottom: 28 }}>
-            {/* Icon */}
-            <div style={{
-              width: 56, height: 56, borderRadius: "50%", margin: "0 auto 16px",
-              background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.3)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              animation: "glowPulse 4s ease-in-out infinite",
-            }}>
-              <Scroll className="w-6 h-6" style={{ color: "#D4AF37" }}/>
+      {/* ══════════════════════════════════════════════
+          PENDING SUB-TAB
+      ══════════════════════════════════════════════ */}
+      {subTab === "pending" && (
+        <>
+          {loadingP ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
             </div>
+          ) : pending.length === 0 ? (
+            <EmptyState icon={Shield} title={t.noAdmin} sub={t.noAdminSub} />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              {pending.map((doc, i) => {
+                const emp = empireInfo(doc.empire_id);
+                const isProc = procId === doc.id;
 
-            <h1 style={{
-              fontFamily: "'Cormorant Garant', serif",
-              fontSize: "clamp(1.8rem,5vw,3rem)",
-              fontWeight: 600, lineHeight: 1.1, letterSpacing: "-0.01em",
-              background: "linear-gradient(135deg, #F0D060, #D4AF37, #B8901E, #E8CC55)",
-              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-              marginBottom: 8,
-            }}>
-              {t.title}
-            </h1>
-            <p style={{
-              fontFamily: "'Cinzel', serif", fontSize: "0.62rem",
-              letterSpacing: "0.35em", color: "rgba(212,175,55,0.45)",
-              textTransform: "uppercase", marginBottom: 4,
-            }}>
-              ✦ {t.subtitle} ✦
-            </p>
-            <p style={{ fontSize: "0.8rem", color: "rgba(237,224,196,0.4)", marginTop: 8, lineHeight: 1.6 }}>
-              {lang === "sv"
-                ? "En levande samling av historisk kunskap, skapad av vår gemenskap av historiker och entusiaster."
-                : lang === "tr"
-                ? "Tarihçiler ve meraklılardan oluşan topluluğumuz tarafından oluşturulan canlı bir tarihsel bilgi koleksiyonu."
-                : "A living collection of historical knowledge, created by our community of historians and enthusiasts."}
-            </p>
+                return (
+                  <div
+                    key={doc.id}
+                    style={{
+                      animationDelay: `${i * 58}ms`,
+                      animation: "arc-card-in .45s ease both",
+                      background: "linear-gradient(155deg,rgba(13,8,3,.97),rgba(20,13,5,.93))",
+                      border: "1px solid rgba(168,85,247,.24)",
+                      borderRadius: 22, overflow: "hidden",
+                      opacity: isProc ? .52 : 1,
+                      transition: "opacity .3s",
+                    }}
+                  >
+                    {/* Empire color top bar */}
+                    <div
+                      style={{
+                        height: 2.5,
+                        background: `linear-gradient(90deg,transparent,${emp.color}84,transparent)`,
+                      }}
+                    />
 
-            {/* Stats bar */}
-            <div className="flex items-center justify-center gap-6 mt-5 flex-wrap">
-              {[
-                { label: lang === "sv" ? "Godkända" : lang === "tr" ? "Onaylı" : "Approved", value: approved.length },
-                { label: lang === "sv" ? "Imperier" : lang === "tr" ? "İmparatorluk" : "Empires", value: ALL_EMPIRES.length },
-                { label: lang === "sv" ? "Bidragsgivare" : lang === "tr" ? "Katkıda Bulunan" : "Contributors", value: new Set(approved.map(d => d.user_id)).size },
-              ].map(({ label, value }) => (
-                <div key={label} style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: "'Cormorant Garant', serif", fontSize: "1.5rem", color: "#D4AF37" }}>{value}</div>
-                  <div style={{ fontSize: "0.65rem", color: "rgba(237,224,196,0.35)", letterSpacing: "0.12em", textTransform: "uppercase" }}>{label}</div>
+                    {/* Image attachment thumbnail */}
+                    {doc.file_url && doc.file_type === "image" && (
+                      <div style={{ height: 110, overflow: "hidden", position: "relative" }}>
+                        <img
+                          src={doc.file_url}
+                          alt=""
+                          style={{
+                            width: "100%", height: "100%", objectFit: "cover",
+                            filter: "brightness(.62) sepia(18%)",
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: "absolute", inset: 0,
+                            background: "linear-gradient(to top,rgba(13,8,3,.92),transparent 60%)",
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: "absolute", bottom: 9, left: 14,
+                            fontSize: ".65rem", color: "rgba(237,224,196,.55)",
+                            fontFamily: "'Cinzel', serif", letterSpacing: ".06em",
+                          }}
+                        >
+                          📎 Image evidence attached
+                        </div>
+                      </div>
+                    )}
+
+                    {/* PDF strip */}
+                    {doc.file_url && doc.file_type === "pdf" && (
+                      <div
+                        style={{
+                          padding: "9px 16px",
+                          display: "flex", alignItems: "center", gap: 10,
+                          background: "rgba(216,90,48,.05)",
+                          borderBottom: "1px solid rgba(216,90,48,.14)",
+                        }}
+                      >
+                        <FileText style={{ width: 14, height: 14, color: "#D85A30", flexShrink: 0 }} />
+                        <a
+                          href={doc.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: ".7rem", color: "#D85A30",
+                            fontFamily: "'Cinzel', serif", letterSpacing: ".06em",
+                            textDecoration: "none",
+                          }}
+                        >
+                          {t.viewAttachment} ↗
+                        </a>
+                      </div>
+                    )}
+
+                    <div style={{ padding: "18px 20px 16px" }}>
+                      {/* Title */}
+                      <h3
+                        style={{
+                          fontFamily: "'Cormorant Garant', serif",
+                          fontSize: "1.06rem", color: "#EDE0C4",
+                          lineHeight: 1.3, marginBottom: 10, fontWeight: 600,
+                        }}
+                      >
+                        {doc.title}
+                      </h3>
+
+                      {/* Badges */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
+                        <EmpireBadge id={doc.empire_id} />
+                        {doc.author_name && (
+                          <span
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              fontSize: ".7rem", color: "rgba(237,224,196,.32)",
+                              fontFamily: "'Raleway', sans-serif",
+                            }}
+                          >
+                            <User style={{ width: 11, height: 11 }} />
+                            {doc.author_name}
+                          </span>
+                        )}
+                        <span
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            fontSize: ".7rem", color: "rgba(237,224,196,.27)",
+                            fontFamily: "'Raleway', sans-serif",
+                          }}
+                        >
+                          <Calendar style={{ width: 11, height: 11 }} />
+                          {formatDate(doc.created_at, lang)}
+                        </span>
+                      </div>
+
+                      {/* Content preview */}
+                      <p
+                        style={{
+                          fontSize: ".82rem", color: "rgba(237,224,196,.47)",
+                          lineHeight: 1.76, fontFamily: "'Raleway', sans-serif",
+                          whiteSpace: "pre-line",
+                        }}
+                      >
+                        {expId === doc.id ? doc.content : doc.content.slice(0, 340)}
+                        {doc.content.length > 340 && expId !== doc.id && "…"}
+                      </p>
+                      {doc.content.length > 340 && (
+                        <button
+                          onClick={() => setExpId(expId === doc.id ? null : doc.id)}
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            marginTop: 7, background: "none", border: "none",
+                            color: "rgba(168,85,247,.52)", cursor: "pointer",
+                            fontSize: ".68rem", fontFamily: "'Cinzel', serif",
+                            letterSpacing: ".08em", padding: 0, transition: "color .2s",
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.color = "rgba(168,85,247,.9)")}
+                          onMouseLeave={e => (e.currentTarget.style.color = "rgba(168,85,247,.52)")}
+                        >
+                          {expId === doc.id
+                            ? <><ChevronDown style={{ width: 11, height: 11, transform: "rotate(180deg)" }} />{t.collapse}</>
+                            : <><ChevronRight style={{ width: 11, height: 11 }} />{t.readMore}</>}
+                        </button>
+                      )}
+
+                      {/* Review action buttons */}
+                      <div
+                        style={{
+                          display: "flex", gap: 10, flexWrap: "wrap",
+                          marginTop: 17, paddingTop: 14,
+                          borderTop: "1px solid rgba(168,85,247,.1)",
+                          alignItems: "center",
+                        }}
+                      >
+                        <button
+                          onClick={() => doApprove(doc.id)}
+                          disabled={isProc}
+                          className="arc-approve-btn"
+                        >
+                          {isProc
+                            ? <Spinner size={13} color="#1D9E75" />
+                            : <CheckCircle style={{ width: 14, height: 14 }} />}
+                          {t.approve}
+                        </button>
+
+                        <button
+                          onClick={() => setRejTgt(doc.id)}
+                          disabled={isProc}
+                          className="arc-reject-btn"
+                        >
+                          <XCircle style={{ width: 14, height: 14 }} />
+                          {t.reject}
+                        </button>
+
+                        <div style={{ flex: 1 }} />
+
+                        <span
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            fontSize: ".66rem", color: "rgba(168,85,247,.55)",
+                            background: "rgba(168,85,247,.07)",
+                            border: "1px solid rgba(168,85,247,.16)",
+                            borderRadius: 8, padding: "4px 11px",
+                            fontFamily: "'Cinzel', serif", letterSpacing: ".06em",
+                          }}
+                        >
+                          <Clock style={{ width: 10, height: 10 }} />
+                          {lang === "sv" ? "Väntar" : lang === "tr" ? "Bekliyor" : "Pending"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════
+          ALL DOCUMENTS SUB-TAB
+      ══════════════════════════════════════════════ */}
+      {subTab === "all" && (
+        <>
+          {/* Search + empire filter */}
+          <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+            <div style={{ position: "relative", flex: 1, minWidth: 180 }}>
+              <Search
+                style={{
+                  position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)",
+                  width: 14, height: 14, color: "rgba(168,85,247,.38)", pointerEvents: "none",
+                }}
+              />
+              <input
+                value={allSearch}
+                onChange={e => setAllSrch(e.target.value)}
+                placeholder={lang === "sv" ? "Sök dokument..." : lang === "tr" ? "Ara..." : "Search..."}
+                className="arc-input"
+                style={{ padding: "9px 14px 9px 36px" }}
+              />
+            </div>
+            <div style={{ position: "relative" }}>
+              <select
+                value={allEmpFlt}
+                onChange={e => setAllEFlt(e.target.value)}
+                className="arc-input"
+                style={{ padding: "9px 34px 9px 14px", appearance: "none", cursor: "pointer", minWidth: 160 }}
+              >
+                <option value="all">{t.allEmpires}</option>
+                {ALL_EMPIRES.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.flag} {emp.label}</option>
+                ))}
+              </select>
+              <ChevronDown
+                style={{
+                  position: "absolute", right: 11, top: "50%", transform: "translateY(-50%)",
+                  width: 13, height: 13, color: "rgba(168,85,247,.38)", pointerEvents: "none",
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Counts by status */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+            {(["approved", "pending", "rejected"] as DocStatus[]).map(s => {
+              const cnt = allDocs.filter(d => d.status === s).length;
+              const cfg = STATUS_CFG[s];
+              return (
+                <span
+                  key={s}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    padding: "4px 13px", borderRadius: 20,
+                    fontSize: ".7rem", color: cfg.color,
+                    background: cfg.bg, border: `1px solid ${cfg.border}`,
+                    fontFamily: "'Raleway', sans-serif",
+                  }}
+                >
+                  {cnt} {cfg.labelMap[lang] ?? cfg.labelMap.en}
+                </span>
+              );
+            })}
+          </div>
+
+          {loadingA ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
+            </div>
+          ) : filteredAll.length === 0 ? (
+            <EmptyState icon={Library} title={lang === "sv" ? "Inga dokument hittades" : "No documents found"} />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {filteredAll.map((doc, i) => (
+                <div key={doc.id} style={{ animationDelay: `${i * 40}ms` }}>
+                  <DocCard
+                    doc={doc} lang={lang} t={t}
+                    showStatus
+                    expanded={expId === doc.id}
+                    onToggle={() => setExpId(expId === doc.id ? null : doc.id)}
+                    adminActions={
+                      <button
+                        onClick={() => doDelete(doc.id)}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          padding: "4px 11px", borderRadius: 8, cursor: "pointer",
+                          background: "rgba(216,90,48,.08)",
+                          border: "1px solid rgba(216,90,48,.22)",
+                          color: "rgba(216,90,48,.65)",
+                          fontSize: ".65rem", fontFamily: "'Cinzel', serif",
+                          letterSpacing: ".06em", transition: "all .2s",
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(216,90,48,.2)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "rgba(216,90,48,.08)")}
+                      >
+                        <Trash2 style={{ width: 11, height: 11 }} />
+                        {t.deleteDoc}
+                      </button>
+                    }
+                  />
                 </div>
               ))}
             </div>
-          </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
-          {/* Divider */}
-          <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.2), transparent)" }}/>
-        </div>
+// ══════════════════════════════════════════════════════════════════════
+// ROOT PAGE COMPONENT
+// ══════════════════════════════════════════════════════════════════════
 
-        {/* ── TABS ──────────────────────────────────────── */}
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 16px 0" }}>
-          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-            {TABS.map(({ id, label, icon: Icon, badge, adminOnly }) => (
-              <button key={id} onClick={() => setActiveTab(id)}
-                className={`tab-btn ${activeTab === id ? "active" : ""}`}
-                style={adminOnly ? {
-                  background: activeTab === id ? "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(147,51,234,0.1))" : undefined,
-                  borderColor: activeTab === id ? "rgba(168,85,247,0.4)" : undefined,
-                  color: activeTab === id ? "#a855f7" : undefined,
-                } : {}}>
-                <Icon className="w-3.5 h-3.5"/>
+export default function Documents() {
+  const { language, setLanguage } = useChat();
+  const { user, isAdmin }         = useAuth();
+
+  const lang = (language as keyof typeof LANG) in LANG
+    ? (language as keyof typeof LANG)
+    : "en";
+  const t = LANG[lang];
+
+  const [activeTab,    setActiveTab]  = useState<TabId>("explore");
+  const [approved,     setApproved]   = useState<EmpireDoc[]>(MOCK_APPROVED);
+  const [loadingApprv, setLoadingAp]  = useState(false);
+
+  /* ── Load approved documents ── */
+  const loadApproved = useCallback(async () => {
+    setLoadingAp(true);
+    try {
+      const { data } = await supabase
+        .from("documents")
+        .select("*, profiles(display_name)")
+        .eq("status", "approved")
+        .order("created_at", { ascending: false });
+      if (data && data.length > 0) {
+        setApproved(
+          data.map((d: any) => ({ ...d, author_name: d.profiles?.display_name }))
+        );
+      }
+      // If no real data yet, keep the mock data
+    } catch {
+      // Keep mock data on error
+    }
+    setLoadingAp(false);
+  }, []);
+
+  useEffect(() => { loadApproved(); }, [loadApproved]);
+
+  /* ── Build tab list — admin tab ONLY when isAdmin ── */
+  const TABS: { id: TabId; label: string; Icon: any; isAdmin?: boolean }[] = [
+    { id: "explore", label: t.explore, Icon: Library },
+    { id: "submit",  label: t.submit,  Icon: Feather },
+    { id: "mine",    label: t.mine,    Icon: FolderOpen },
+    ...(isAdmin
+      ? [{ id: "admin" as TabId, label: t.adminTab, Icon: Crown, isAdmin: true }]
+      : []
+    ),
+  ];
+
+  return (
+    <AppLayout language={language} setLanguage={setLanguage}>
+      <style>{GLOBAL_CSS}</style>
+
+      <div style={{ minHeight: "100vh", color: "#EDE0C4" }}>
+
+        {/* ── Hero ── */}
+        <HeroSection t={t} lang={lang} approved={approved} />
+
+        {/* ── Tab navigation ── */}
+        <div style={{ maxWidth: 920, margin: "0 auto", padding: "15px 16px 0" }}>
+          <div
+            style={{
+              display: "flex", gap: 6,
+              overflowX: "auto", paddingBottom: 4,
+              scrollbarWidth: "none",
+            }}
+          >
+            {TABS.map(({ id, label, Icon, isAdmin: adm }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`arc-tab${activeTab === id ? " active" : ""}${adm ? " arc-admin-tab" : ""}`}
+              >
+                <Icon style={{ width: 13, height: 13 }} />
                 {label}
-                {badge !== undefined && badge > 0 && (
-                  <span style={{
-                    background: adminOnly ? "rgba(168,85,247,0.3)" : "rgba(212,175,55,0.25)",
-                    color: adminOnly ? "#c084fc" : "#D4AF37",
-                    borderRadius: 10, padding: "1px 7px",
-                    fontSize: "0.6rem", fontFamily: "monospace",
-                  }}>{badge}</span>
-                )}
               </button>
             ))}
           </div>
+
+          {/* Tab underline */}
+          <div
+            style={{
+              height: 1, marginTop: 7,
+              background: "linear-gradient(90deg,transparent,rgba(212,175,55,.14),transparent)",
+            }}
+          />
         </div>
 
-        {/* ── CONTENT ───────────────────────────────────── */}
-        <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 16px 60px" }}>
+        {/* ── Tab content ── */}
+        <div style={{ maxWidth: 920, margin: "0 auto", padding: "24px 16px 80px" }}>
 
-          {/* ════════════════════════════════════════════
-              EXPLORE TAB
-          ════════════════════════════════════════════ */}
           {activeTab === "explore" && (
-            <div style={{ animation: "fadeSlideUp 0.4s ease both" }}>
-              {/* Search & filter */}
-              <div className="flex flex-col sm:flex-row gap-3 mb-5">
-                <div style={{ position: "relative", flex: 1 }}>
-                  <Search style={{
-                    position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
-                    width: 16, height: 16, color: "rgba(212,175,55,0.4)",
-                  }}/>
-                  <input value={searchQ} onChange={e => setSearchQ(e.target.value)}
-                    placeholder={t.search}
-                    className="submit-input"
-                    style={{ padding: "10px 14px 10px 38px" }}/>
-                </div>
-                <div style={{ position: "relative" }}>
-                  <select value={filterEmpire} onChange={e => setFilterEmpire(e.target.value)}
-                    className="submit-input"
-                    style={{ padding: "10px 36px 10px 14px", appearance: "none", cursor: "pointer", minWidth: 180 }}>
-                    <option value="all">{t.allEmpires}</option>
-                    {ALL_EMPIRES.map(e => (
-                      <option key={e.id} value={e.id}>{e.flag} {e.label}</option>
-                    ))}
-                  </select>
-                  <ChevronDown style={{
-                    position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                    width: 14, height: 14, color: "rgba(212,175,55,0.4)", pointerEvents: "none",
-                  }}/>
-                </div>
-              </div>
-
-              {/* Empire pills */}
-              <div className="flex gap-2 flex-wrap mb-6">
-                <button
-                  onClick={() => setFilterEmpire("all")}
-                  className="empire-pill"
-                  style={{
-                    background: filterEmpire === "all" ? "rgba(212,175,55,0.15)" : "rgba(255,255,255,0.04)",
-                    borderColor: filterEmpire === "all" ? "rgba(212,175,55,0.4)" : "rgba(255,255,255,0.08)",
-                    color: filterEmpire === "all" ? "#D4AF37" : "rgba(237,224,196,0.4)",
-                  }}>
-                  <Globe className="w-3 h-3"/> {t.allEmpires}
-                </button>
-                {ALL_EMPIRES.map(e => (
-                  <button key={e.id} onClick={() => setFilterEmpire(e.id)}
-                    className="empire-pill"
-                    style={{
-                      background: filterEmpire === e.id ? `${e.color}18` : "rgba(255,255,255,0.04)",
-                      borderColor: filterEmpire === e.id ? `${e.color}55` : "rgba(255,255,255,0.08)",
-                      color: filterEmpire === e.id ? e.color : "rgba(237,224,196,0.4)",
-                    }}>
-                    {e.flag} {e.label.split(" ")[0]}
-                    {allQuizCount(e.id) > 0 && <span style={{ fontSize: "0.6rem", opacity: 0.6 }}>({approved.filter(d => d.empire_id === e.id).length})</span>}
-                  </button>
-                ))}
-              </div>
-
-              {/* Documents grid */}
-              {loadingApproved ? (
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {[1,2,3,4].map(i => (
-                    <div key={i} style={{ background: "rgba(15,10,5,0.6)", border: "1px solid rgba(212,175,55,0.1)", borderRadius: 20, padding: 22, animation: "shimmer 1.5s ease infinite" }}>
-                      <div style={{ height: 16, background: "rgba(212,175,55,0.08)", borderRadius: 8, width: "60%", marginBottom: 12 }}/>
-                      <div style={{ height: 10, background: "rgba(212,175,55,0.05)", borderRadius: 6, marginBottom: 8 }}/>
-                      <div style={{ height: 10, background: "rgba(212,175,55,0.05)", borderRadius: 6, width: "80%" }}/>
-                    </div>
-                  ))}
-                </div>
-              ) : filteredApproved.length === 0 ? (
-                <EmptyState icon={Library} title={t.noApproved} sub={t.noApprovedSub}/>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {filteredApproved.map((doc, i) => (
-                    <div key={doc.id} style={{ animationDelay: `${i * 60}ms` }}>
-                      <DocumentCard
-                        doc={doc} lang={lang}
-                        expanded={expandedId === doc.id}
-                        onToggle={() => setExpandedId(expandedId === doc.id ? null : doc.id)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ExploreTab
+              t={t} lang={lang}
+              approved={approved}
+              loading={loadingApprv}
+            />
           )}
 
-          {/* ════════════════════════════════════════════
-              SUBMIT TAB
-          ════════════════════════════════════════════ */}
           {activeTab === "submit" && (
-            <div style={{ animation: "fadeSlideUp 0.4s ease both", maxWidth: 620, margin: "0 auto" }}>
-              {/* Header */}
-              <div style={{ textAlign: "center", marginBottom: 32 }}>
-                <div style={{
-                  width: 52, height: 52, borderRadius: "50%", margin: "0 auto 14px",
-                  background: "rgba(212,175,55,0.1)", border: "1px solid rgba(212,175,55,0.25)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <Feather className="w-5 h-5" style={{ color: "#D4AF37" }}/>
-                </div>
-                <h2 style={{ fontFamily: "'Cormorant Garant', serif", fontSize: "1.6rem", color: "#EDE0C4", marginBottom: 6 }}>
-                  {t.submitTitle}
-                </h2>
-                <p style={{ fontSize: "0.8rem", color: "rgba(237,224,196,0.4)", lineHeight: 1.6 }}>
-                  {t.submitSub}
-                </p>
-              </div>
-
-              {!user ? (
-                <div style={{
-                  textAlign: "center", padding: "48px 24px",
-                  background: "rgba(15,10,5,0.6)", border: "1px solid rgba(212,175,55,0.15)", borderRadius: 20,
-                }}>
-                  <AlertCircle className="w-10 h-10 mx-auto mb-3" style={{ color: "rgba(212,175,55,0.4)" }}/>
-                  <p style={{ fontFamily: "'Cormorant Garant', serif", fontSize: "1.1rem", color: "rgba(237,224,196,0.7)", marginBottom: 6 }}>
-                    {lang === "sv" ? "Logga in för att bidra" : lang === "tr" ? "Katkıda bulunmak için giriş yapın" : "Sign in to contribute"}
-                  </p>
-                  <p style={{ fontSize: "0.78rem", color: "rgba(237,224,196,0.35)" }}>
-                    {lang === "sv" ? "Skapa ett konto eller logga in för att skicka in ditt historiska dokument." : lang === "tr" ? "Tarihsel belgenizi göndermek için hesap oluşturun veya giriş yapın." : "Create an account or sign in to submit your historical document."}
-                  </p>
-                </div>
-              ) : submitSuccess ? (
-                <div style={{
-                  textAlign: "center", padding: "48px 24px",
-                  background: "rgba(29,158,117,0.08)", border: "1px solid rgba(29,158,117,0.3)", borderRadius: 20,
-                  animation: "fadeSlideUp 0.4s ease",
-                }}>
-                  <CheckCircle className="w-12 h-12 mx-auto mb-3" style={{ color: "#1D9E75" }}/>
-                  <p style={{ fontFamily: "'Cormorant Garant', serif", fontSize: "1.2rem", color: "#1D9E75", marginBottom: 8 }}>
-                    {lang === "sv" ? "Dokument inskickat!" : lang === "tr" ? "Belge gönderildi!" : "Document submitted!"}
-                  </p>
-                  <p style={{ fontSize: "0.8rem", color: "rgba(237,224,196,0.5)", lineHeight: 1.6 }}>{t.submitSuccess}</p>
-                </div>
-              ) : (
-                <div style={{
-                  background: "linear-gradient(145deg, rgba(15,10,5,0.9), rgba(20,14,8,0.85))",
-                  border: "1px solid rgba(212,175,55,0.2)", borderRadius: 24, padding: 28,
-                }}>
-                  <div style={{ height: 2, background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)", marginBottom: 24, borderRadius: 1 }}/>
-
-                  {/* Title */}
-                  <div style={{ marginBottom: 18 }}>
-                    <label style={{ display: "block", fontSize: "0.72rem", color: "rgba(212,175,55,0.7)", marginBottom: 8, fontFamily: "'Cinzel', serif", letterSpacing: "0.15em" }}>
-                      {t.docTitle.toUpperCase()}
-                    </label>
-                    <input
-                      value={form.title}
-                      onChange={e => { setForm(p => ({ ...p, title: e.target.value })); setFormErrors(p => ({ ...p, title: "" })); }}
-                      placeholder={t.docTitlePlaceholder}
-                      className="submit-input"
-                      style={{ padding: "11px 14px" }}/>
-                    {formErrors.title && (
-                      <p style={{ fontSize: "0.72rem", color: "#D85A30", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
-                        <AlertCircle style={{ width: 12, height: 12 }}/> {formErrors.title}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Empire */}
-                  <div style={{ marginBottom: 18 }}>
-                    <label style={{ display: "block", fontSize: "0.72rem", color: "rgba(212,175,55,0.7)", marginBottom: 8, fontFamily: "'Cinzel', serif", letterSpacing: "0.15em" }}>
-                      {t.empire.toUpperCase()}
-                    </label>
-                    <div style={{ position: "relative" }}>
-                      <select
-                        value={form.empire_id}
-                        onChange={e => { setForm(p => ({ ...p, empire_id: e.target.value })); setFormErrors(p => ({ ...p, empire_id: "" })); }}
-                        className="submit-input"
-                        style={{ padding: "11px 36px 11px 14px", appearance: "none", cursor: "pointer" }}>
-                        <option value="">— {lang === "sv" ? "Välj ett imperium" : lang === "tr" ? "Bir imparatorluk seçin" : "Select an empire"} —</option>
-                        {ALL_EMPIRES.map(e => (
-                          <option key={e.id} value={e.id}>{e.flag} {e.label}</option>
-                        ))}
-                      </select>
-                      <ChevronDown style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "rgba(212,175,55,0.4)", pointerEvents: "none" }}/>
-                    </div>
-                    {formErrors.empire_id && (
-                      <p style={{ fontSize: "0.72rem", color: "#D85A30", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
-                        <AlertCircle style={{ width: 12, height: 12 }}/> {formErrors.empire_id}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div style={{ marginBottom: 24 }}>
-                    <label style={{ display: "block", fontSize: "0.72rem", color: "rgba(212,175,55,0.7)", marginBottom: 8, fontFamily: "'Cinzel', serif", letterSpacing: "0.15em" }}>
-                      {t.docContent.toUpperCase()}
-                    </label>
-                    <textarea
-                      value={form.content}
-                      onChange={e => { setForm(p => ({ ...p, content: e.target.value })); setFormErrors(p => ({ ...p, content: "" })); }}
-                      placeholder={t.docContentPlaceholder}
-                      className="submit-input"
-                      style={{ padding: "11px 14px", minHeight: 200, resize: "vertical", lineHeight: 1.7 }}/>
-                    <div className="flex items-center justify-between mt-1.5">
-                      {formErrors.content ? (
-                        <p style={{ fontSize: "0.72rem", color: "#D85A30", display: "flex", alignItems: "center", gap: 4 }}>
-                          <AlertCircle style={{ width: 12, height: 12 }}/> {formErrors.content}
-                        </p>
-                      ) : <div/>}
-                      <span style={{
-                        fontSize: "0.68rem",
-                        color: form.content.length < 100 ? "rgba(216,90,48,0.7)" : "rgba(29,158,117,0.7)",
-                      }}>
-                        {form.content.length} {t.chars}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Guidelines */}
-                  <div style={{
-                    padding: "12px 14px", borderRadius: 12, marginBottom: 20,
-                    background: "rgba(212,175,55,0.05)", border: "1px solid rgba(212,175,55,0.12)",
-                  }}>
-                    <p style={{ fontSize: "0.72rem", color: "rgba(237,224,196,0.45)", lineHeight: 1.65 }}>
-                      <span style={{ color: "#D4AF37" }}>
-                        {lang === "sv" ? "Riktlinjer:" : lang === "tr" ? "Kurallar:" : "Guidelines:"}
-                      </span>{" "}
-                      {lang === "sv"
-                        ? "Bidra med originalt, faktabaserat historiskt innehåll. Inga kopior från Wikipedia. Dokument granskas av moderatorer innan publicering."
-                        : lang === "tr"
-                        ? "Özgün, gerçeğe dayalı tarihsel içerik katkısında bulunun. Wikipedia kopyaları kabul edilmez. Belgeler yayınlanmadan önce moderatörler tarafından incelenir."
-                        : "Contribute original, factual historical content. No Wikipedia copies. Documents are reviewed by moderators before publication."}
-                    </p>
-                  </div>
-
-                  {/* Submit button */}
-                  <button onClick={handleSubmit} disabled={submitting}
-                    className="gold-btn"
-                    style={{ width: "100%", padding: "13px 20px", fontSize: "0.8rem", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    {submitting
-                      ? <><div style={{ width: 16, height: 16, border: "2px solid rgba(0,0,0,0.3)", borderTopColor: "#08050F", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}/> {lang === "sv" ? "Skickar..." : lang === "tr" ? "Gönderiliyor..." : "Submitting..."}</>
-                      : <><Send className="w-4 h-4"/> {t.submitBtn}</>}
-                  </button>
-                </div>
-              )}
-            </div>
+            <SubmitTab t={t} lang={lang} user={user} />
           )}
 
-          {/* ════════════════════════════════════════════
-              MY DOCUMENTS TAB
-          ════════════════════════════════════════════ */}
           {activeTab === "mine" && (
-            <div style={{ animation: "fadeSlideUp 0.4s ease both" }}>
-              <div className="flex items-center justify-between mb-5">
-                <h2 style={{ fontFamily: "'Cormorant Garant', serif", fontSize: "1.4rem", color: "#EDE0C4" }}>
-                  {t.myDocs}
-                </h2>
-                <button onClick={() => setActiveTab("submit")}
-                  className="flex items-center gap-2"
-                  style={{
-                    background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.25)",
-                    color: "#D4AF37", borderRadius: 10, padding: "7px 14px",
-                    fontSize: "0.72rem", cursor: "pointer",
-                    fontFamily: "'Cinzel', serif", letterSpacing: "0.08em",
-                    display: "flex", alignItems: "center", gap: 6,
-                    transition: "all 0.2s",
-                  }}>
-                  <Plus className="w-3.5 h-3.5"/> {lang === "sv" ? "Nytt Dokument" : lang === "tr" ? "Yeni Belge" : "New Document"}
-                </button>
-              </div>
-
-              {!user ? (
-                <EmptyState icon={FolderOpen} title={lang === "sv" ? "Logga in för att se dina dokument" : lang === "tr" ? "Belgelerinizi görmek için giriş yapın" : "Sign in to see your documents"}/>
-              ) : loadingMy ? (
-                <div className="space-y-3">
-                  {[1,2,3].map(i => (
-                    <div key={i} style={{ background: "rgba(15,10,5,0.6)", border: "1px solid rgba(212,175,55,0.1)", borderRadius: 16, padding: 18, animation: "shimmer 1.5s ease infinite" }}>
-                      <div style={{ height: 14, background: "rgba(212,175,55,0.07)", borderRadius: 6, width: "50%", marginBottom: 10 }}/>
-                      <div style={{ height: 10, background: "rgba(212,175,55,0.04)", borderRadius: 5 }}/>
-                    </div>
-                  ))}
-                </div>
-              ) : myDocs.length === 0 ? (
-                <EmptyState icon={FolderOpen} title={t.noMyDocs}
-                  sub={lang === "sv" ? "Klicka på 'Nytt Dokument' för att börja bidra." : lang === "tr" ? "Katkıda bulunmaya başlamak için 'Yeni Belge'ye tıklayın." : "Click 'New Document' to start contributing."}/>
-              ) : (
-                <div className="space-y-3">
-                  {myDocs.map((doc, i) => (
-                    <div key={doc.id} style={{ animationDelay: `${i * 50}ms`, animation: "fadeSlideUp 0.4s ease both" }}>
-                      <DocumentCard doc={doc} lang={lang} showStatus
-                        expanded={expandedId === doc.id}
-                        onToggle={() => setExpandedId(expandedId === doc.id ? null : doc.id)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <MyDocsTab
+              t={t} lang={lang} user={user}
+              onGoSubmit={() => setActiveTab("submit")}
+            />
           )}
 
-          {/* ════════════════════════════════════════════
-              ADMIN TAB
-          ════════════════════════════════════════════ */}
+          {/* Admin tab: only rendered if isAdmin is true */}
           {activeTab === "admin" && isAdmin && (
-            <div style={{ animation: "fadeSlideUp 0.4s ease both" }}>
-              {/* Admin header */}
-              <div style={{
-                display: "flex", alignItems: "center", gap: 12, marginBottom: 20,
-                padding: "14px 18px", borderRadius: 16,
-                background: "linear-gradient(135deg, rgba(168,85,247,0.1), rgba(147,51,234,0.06))",
-                border: "1px solid rgba(168,85,247,0.25)",
-              }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Crown className="w-4 h-4" style={{ color: "#a855f7" }}/>
-                </div>
-                <div>
-                  <p style={{ fontFamily: "'Cinzel', serif", fontSize: "0.75rem", color: "#a855f7", letterSpacing: "0.12em" }}>
-                    ADMIN — {t.pendingAdmin.toUpperCase()}
-                  </p>
-                  <p style={{ fontSize: "0.72rem", color: "rgba(237,224,196,0.4)", marginTop: 2 }}>
-                    {pendingDocs.length} {lang === "sv" ? "dokument väntar på granskning" : lang === "tr" ? "belge inceleme bekliyor" : "documents awaiting review"}
-                  </p>
-                </div>
-              </div>
-
-              {loadingPending ? (
-                <div className="space-y-3">
-                  {[1,2].map(i => (
-                    <div key={i} style={{ background: "rgba(15,10,5,0.6)", border: "1px solid rgba(168,85,247,0.1)", borderRadius: 16, padding: 18, animation: "shimmer 1.5s ease infinite" }}>
-                      <div style={{ height: 14, background: "rgba(168,85,247,0.07)", borderRadius: 6, width: "50%", marginBottom: 10 }}/>
-                      <div style={{ height: 10, background: "rgba(168,85,247,0.04)", borderRadius: 5 }}/>
-                    </div>
-                  ))}
-                </div>
-              ) : pendingDocs.length === 0 ? (
-                <EmptyState icon={Shield}
-                  title={t.noAdminDocs}
-                  sub={lang === "sv" ? "Alla dokument är granskade. Bra jobbat!" : lang === "tr" ? "Tüm belgeler incelendi. Harika iş!" : "All documents have been reviewed. Great work!"}/>
-              ) : (
-                <div className="space-y-4">
-                  {pendingDocs.map((doc, i) => {
-                    const e = empireInfo(doc.empire_id);
-                    const isProcessing = processingId === doc.id;
-                    return (
-                      <div key={doc.id} style={{
-                        animationDelay: `${i * 60}ms`, animation: "fadeSlideUp 0.4s ease both",
-                        background: "linear-gradient(145deg, rgba(15,10,5,0.9), rgba(20,14,8,0.85))",
-                        border: "1px solid rgba(168,85,247,0.2)", borderRadius: 20, overflow: "hidden",
-                        opacity: isProcessing ? 0.6 : 1, transition: "opacity 0.3s",
-                      }}>
-                        <div style={{ height: 2, background: `linear-gradient(90deg, transparent, ${e.color}66, transparent)` }}/>
-                        <div style={{ padding: "18px 20px" }}>
-                          <div className="flex items-start justify-between gap-3 mb-3">
-                            <div className="flex-1 min-w-0">
-                              <h3 style={{ fontFamily: "'Cormorant Garant', serif", fontSize: "1rem", color: "#EDE0C4", marginBottom: 8, lineHeight: 1.3 }}>
-                                {doc.title}
-                              </h3>
-                              <div className="flex flex-wrap gap-2 mb-3">
-                                <EmpireBadge id={doc.empire_id}/>
-                                {doc.author_name && (
-                                  <span style={{ fontSize: "0.7rem", color: "rgba(237,224,196,0.35)", display: "flex", alignItems: "center", gap: 4 }}>
-                                    <User style={{ width: 11, height: 11 }}/> {doc.author_name}
-                                  </span>
-                                )}
-                                <span style={{ fontSize: "0.7rem", color: "rgba(237,224,196,0.3)", display: "flex", alignItems: "center", gap: 4 }}>
-                                  <Calendar style={{ width: 11, height: 11 }}/> {new Date(doc.created_at).toLocaleDateString("en-GB")}
-                                </span>
-                              </div>
-                              <p style={{ fontSize: "0.81rem", color: "rgba(237,224,196,0.5)", lineHeight: 1.7, letterSpacing: "0.01em" }}>
-                                {doc.content.slice(0, 300)}{doc.content.length > 300 && "..."}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Review buttons */}
-                          <div style={{ borderTop: "1px solid rgba(212,175,55,0.1)", paddingTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                            <button
-                              onClick={() => reviewDoc(doc.id, "approve")}
-                              disabled={isProcessing}
-                              className="approve-btn">
-                              {isProcessing
-                                ? <div style={{ width: 12, height: 12, border: "2px solid rgba(29,158,117,0.3)", borderTopColor: "#1D9E75", borderRadius: "50%", animation: "spin 0.7s linear infinite" }}/>
-                                : <CheckCircle className="w-3.5 h-3.5"/>}
-                              {t.approve}
-                            </button>
-                            <button
-                              onClick={() => reviewDoc(doc.id, "reject")}
-                              disabled={isProcessing}
-                              className="reject-btn">
-                              <XCircle className="w-3.5 h-3.5"/>
-                              {t.reject}
-                            </button>
-                            <div style={{ flex: 1 }}/>
-                            <span style={{
-                              fontSize: "0.68rem", color: "rgba(168,85,247,0.6)",
-                              display: "flex", alignItems: "center", gap: 4,
-                              background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.15)",
-                              borderRadius: 8, padding: "4px 10px",
-                            }}>
-                              <Clock style={{ width: 11, height: 11 }}/> {lang === "sv" ? "Väntar" : lang === "tr" ? "Bekliyor" : "Pending"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <AdminTab t={t} lang={lang} />
           )}
 
         </div>
@@ -1045,6 +2738,3 @@ export default function Documents() {
     </AppLayout>
   );
 }
-
-// Helper (avoids import of allQuizCount)
-function allQuizCount(empireId: string) { return 0; }
