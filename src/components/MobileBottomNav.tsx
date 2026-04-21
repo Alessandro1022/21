@@ -28,6 +28,7 @@ const MORE_ITEMS = [
   { path: "/profiles",      icon: Users,    label: { sv: "Profiler",     en: "Profiles",    tr: "Profiller" } },
   { path: "/lineage",       icon: Crown,    label: { sv: "Stamtavla",    en: "Lineage",     tr: "Soy Ağacı" } },
   { path: "/documents",     icon: Scroll,   label: { sv: "Arkiv",        en: "Archive",     tr: "Arşiv"     } },
+  { path: "/badges", icon: Trophy, label: { sv: "Badges", en: "Badges", tr: "Rozetler" } },
   { path: "/ranked",        icon: Crown,    label: { sv: "Ranked",       en: "Ranked",      tr: "Turnuva"   } },
   { path: "/admin-ranked",  icon: Crown,    label: { sv: "Ranked Admin", en: "Ranked Admin",tr: "Turnuva Admin" } },
   { path: "/story",         icon: BookOpen, label: { sv: "Berättelse",   en: "Story",       tr: "Hikaye"    } },
