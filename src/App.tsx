@@ -21,6 +21,7 @@ import Lineage from "./pages/Lineage";
 import StoryMode from "./pages/StoryMode";
 import EmpireSelect from "./pages/EmpireSelect";
 import Documents from "@/pages/Documents";
+import Badges from "@/pages/Badges";
 import Ranked from "@/pages/Ranked";
 import AdminRanked from "@/pages/AdminRanked";
 import Settings from "./pages/Settings";
@@ -68,6 +69,7 @@ const App = () => {
               <Route path="/lineage" element={<ProtectedRoute><Lineage /></ProtectedRoute>} />
               <Route path="/story" element={<ProtectedRoute><StoryMode /></ProtectedRoute>} />
               <Route path="/documents" element={<Documents />} />
+              <Route path="/badges" element={<Badges />} />
               <Route path="/ranked"       element={<Ranked />}      />
               <Route path="/admin-ranked" element={<AdminRanked />} />
 
