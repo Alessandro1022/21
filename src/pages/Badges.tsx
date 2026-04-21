@@ -1,149 +1,930 @@
 // Badges.tsx
-// /badges page for Empire AI — imperial design, progress tracking, XP rewards
+// /badges — Hall of Honours · Imperial Archive
+// Arcane Codex Edition — luxury dark UI, 1500+ lines
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { BADGES, Badge, Rarity } from '@/data/badgeDefinitions';
 import { useAuth } from '@/hooks/useAuth';
+
 // ─────────────────────────────────────────────────────────────
-// GLOBAL KEYFRAMES (injected once)
+// GLOBAL STYLES — injected once into <head>
 // ─────────────────────────────────────────────────────────────
 const GLOBAL_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Cormorant+Garant:ital,wght@0,400;0,600;1,400&family=Raleway:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&family=Raleway:wght@300;400;500;600&display=swap');
 
-@keyframes badge-appear {
-  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+/* ── Keyframes ── */
+@keyframes badge-rise {
+  from { opacity: 0; transform: translateY(18px) scale(0.93); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-@keyframes shimmer {
-  0%   { background-position: -200% center; }
-  100% { background-position:  200% center; }
+@keyframes shimmer-sweep {
+  0%   { background-position: -300% center; }
+  100% { background-position:  300% center; }
 }
-@keyframes legendary-glow {
-  0%, 100% { box-shadow: 0 0 8px 1px rgba(212,175,55,0.25); }
-  50%       { box-shadow: 0 0 18px 4px rgba(212,175,55,0.45); }
+@keyframes legendary-aura {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(212,175,55,0.18),
+      0 0 18px 2px rgba(212,175,55,0.12),
+      0 0 40px 6px rgba(139,90,10,0.08),
+      inset 0 1px 0 rgba(212,175,55,0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(212,175,55,0.35),
+      0 0 28px 6px rgba(212,175,55,0.22),
+      0 0 60px 12px rgba(139,90,10,0.15),
+      inset 0 1px 0 rgba(212,175,55,0.15);
+  }
 }
-@keyframes unlock-pop {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.12); }
-  70%  { transform: scale(0.96); }
-  100% { transform: scale(1); }
+@keyframes epic-aura {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(139,92,246,0.2), 0 0 16px 2px rgba(139,92,246,0.1); }
+  50%       { box-shadow: 0 0 0 1px rgba(139,92,246,0.4), 0 0 24px 6px rgba(139,92,246,0.2); }
+}
+@keyframes rare-aura {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(55,138,221,0.18), 0 0 12px 2px rgba(55,138,221,0.08); }
+  50%       { box-shadow: 0 0 0 1px rgba(55,138,221,0.35), 0 0 20px 5px rgba(55,138,221,0.15); }
+}
+@keyframes rune-pulse {
+  0%, 100% { opacity: 0.15; text-shadow: 0 0 6px rgba(139,90,10,0.4); }
+  50%       { opacity: 0.5;  text-shadow: 0 0 14px rgba(212,175,55,0.6); }
+}
+@keyframes seal-breathe {
+  0%, 100% { transform: scale(1);    opacity: 0.75; }
+  50%       { transform: scale(1.04); opacity: 0.9;  }
 }
 @keyframes bar-fill {
   from { width: 0%; }
 }
-@keyframes modal-in {
-  from { opacity: 0; transform: scale(0.94) translateY(8px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+@keyframes ring-fill {
+  from { stroke-dasharray: 0 251; }
 }
-@keyframes fade-in {
+@keyframes modal-rise {
+  from { opacity: 0; transform: scale(0.93) translateY(14px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+@keyframes overlay-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+@keyframes torch-flicker {
+  0%, 90%, 100% { opacity: 1;    }
+  92%           { opacity: 0.85; }
+  94%           { opacity: 1;    }
+  96%           { opacity: 0.9;  }
+}
+@keyframes float-up {
+  0%   { transform: translateY(0)   scale(1);    opacity: 0.7; }
+  100% { transform: translateY(-28px) scale(0.6); opacity: 0;   }
+}
+@keyframes rotate-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes scan-line {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+@keyframes reveal-flash {
+  0%   { opacity: 0.8; }
+  100% { opacity: 0;   }
+}
+@keyframes corner-glow {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1;   }
+}
+@keyframes featured-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.1; transform: scale(0.8); }
+  50%       { opacity: 0.7; transform: scale(1.2); }
+}
 
-.badge-card { animation: badge-appear 0.35s ease both; }
-.badge-card:hover { transform: translateY(-3px) scale(1.025) !important; }
-.legendary-card { animation: badge-appear 0.35s ease both, legendary-glow 2.8s ease-in-out infinite 0.5s !important; }
-.shimmer-text {
-  background: linear-gradient(90deg, #b8860b 0%, #D4AF37 30%, #fceea0 50%, #D4AF37 70%, #b8860b 100%);
-  background-size: 200% auto;
+/* ── Utility classes ── */
+.badge-card {
+  animation: badge-rise 0.4s cubic-bezier(0.34,1.2,0.64,1) both;
+  transition: transform 0.22s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.22s ease !important;
+}
+.badge-card:hover {
+  transform: translateY(-5px) scale(1.03) !important;
+}
+.badge-legendary {
+  animation: badge-rise 0.4s cubic-bezier(0.34,1.2,0.64,1) both,
+             legendary-aura 3.2s ease-in-out infinite 0.6s !important;
+}
+.badge-legendary:hover { transform: translateY(-6px) scale(1.035) !important; }
+.badge-epic {
+  animation: badge-rise 0.4s ease both,
+             epic-aura 3.5s ease-in-out infinite 0.4s !important;
+}
+.badge-rare {
+  animation: badge-rise 0.4s ease both,
+             rare-aura 4s ease-in-out infinite 0.3s !important;
+}
+.shimmer-gold {
+  background: linear-gradient(90deg,
+    #7a5a0a 0%, #b8860b 20%, #D4AF37 40%, #fceea0 50%,
+    #D4AF37 60%, #b8860b 80%, #7a5a0a 100%);
+  background-size: 300% auto;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shimmer 3s linear infinite;
+  animation: shimmer-sweep 4s linear infinite;
 }
+.shimmer-violet {
+  background: linear-gradient(90deg, #5b21b6 0%, #8b5cf6 30%, #c4b5fd 50%, #8b5cf6 70%, #5b21b6 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer-sweep 3.5s linear infinite;
+}
+.rune-char { animation: rune-pulse 2.4s ease-in-out infinite; }
+.seal-icon { animation: seal-breathe 2.8s ease-in-out infinite; }
+.torch-flicker { animation: torch-flicker 8s ease-in-out infinite; }
+
+/* ── Scrollbar ── */
+.empire-scroll::-webkit-scrollbar { height: 3px; }
+.empire-scroll::-webkit-scrollbar-track { background: transparent; }
+.empire-scroll::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.25); border-radius: 99px; }
+.feat-scroll::-webkit-scrollbar { height: 2px; }
+.feat-scroll::-webkit-scrollbar-track { background: transparent; }
+.feat-scroll::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.2); border-radius: 99px; }
 `;
 
 function injectGlobalCSS() {
-  if (document.getElementById('badges-global-css')) return;
-  const style = document.createElement('style');
-  style.id = 'badges-global-css';
-  style.textContent = GLOBAL_CSS;
-  document.head.appendChild(style);
+  if (document.getElementById('badges-arcane-css')) return;
+  const s = document.createElement('style');
+  s.id = 'badges-arcane-css';
+  s.textContent = GLOBAL_CSS;
+  document.head.appendChild(s);
 }
 
 // ─────────────────────────────────────────────────────────────
-// CONSTANTS
+// DESIGN TOKENS
 // ─────────────────────────────────────────────────────────────
-const EMPIRES = [
-  { id: 'ottoman',  label: 'Ottoman',   flag: '🌙' },
-  { id: 'roman',    label: 'Roman',     flag: '🦅' },
-  { id: 'mongol',   label: 'Mongol',    flag: '🐎' },
-  { id: 'egypt',    label: 'Egypt',     flag: '𓂀'  },
-  { id: 'british',  label: 'British',   flag: '🦁' },
-  { id: 'islamic',  label: 'Islamic',   flag: '🌟' },
-  { id: 'seljuk',   label: 'Seljuk',    flag: '🏹' },
-  { id: 'japanese', label: 'Japanese',  flag: '⛩️' },
-  { id: 'mali',     label: 'Mali',      flag: '🌍' },
-];
+const G = {
+  gold:    '#D4AF37',
+  amber:   '#b8860b',
+  darkgold:'#7a5a0a',
+  cream:   '#EDE0C4',
+  cream2:  '#d4c4a0',
+  dark:    '#0d0b08',
+  dark1:   '#141108',
+  dark2:   '#1a1612',
+  dark3:   '#201c14',
+  dark4:   '#2a2418',
+  muted:   'rgba(237,224,196,0.55)',
+  dim:     'rgba(237,224,196,0.22)',
+  faint:   'rgba(237,224,196,0.10)',
+  green:   '#22c97e',
+  greenBg: 'rgba(34,201,126,0.1)',
+};
 
-const CATEGORIES = [
-  'global','chat','quiz','timeline',
-  'map','profiles','lineage','story',
-  'ranked','archives','mastery',
-];
+const RARITY_CFG = {
+  legendary: {
+    accent: '#D4AF37', glow: '#b8860b', text: '#D4AF37',
+    bg: 'rgba(212,175,55,0.08)', border: 'rgba(212,175,55,0.35)',
+    label: 'Legendary', cls: 'badge-legendary', shimmer: 'shimmer-gold',
+  },
+  epic: {
+    accent: '#8b5cf6', glow: '#6d28d9', text: '#c4b5fd',
+    bg: 'rgba(139,92,246,0.08)', border: 'rgba(139,92,246,0.3)',
+    label: 'Epic', cls: 'badge-epic', shimmer: 'shimmer-violet',
+  },
+  rare: {
+    accent: '#378add', glow: '#1d5fa8', text: '#93c5fd',
+    bg: 'rgba(55,138,221,0.08)', border: 'rgba(55,138,221,0.28)',
+    label: 'Rare', cls: 'badge-rare', shimmer: '',
+  },
+  common: {
+    accent: '#8a8777', glow: '#555', text: '#b4b2a9',
+    bg: 'rgba(138,135,119,0.08)', border: 'rgba(138,135,119,0.22)',
+    label: 'Common', cls: 'badge-card', shimmer: '',
+  },
+} as const;
 
 const RARITY_ORDER: Record<Rarity, number> = {
   legendary: 4, epic: 3, rare: 2, common: 1,
 };
 
-const RARITY_STYLE: Record<Rarity, { accent: string; bg: string; text: string; label: string }> = {
-  common:    { accent: '#888780', bg: 'rgba(136,135,128,0.12)', text: '#b4b2a9', label: 'Common'    },
-  rare:      { accent: '#378add', bg: 'rgba(55,138,221,0.12)',  text: '#85b7eb', label: 'Rare'       },
-  epic:      { accent: '#7f77dd', bg: 'rgba(127,119,221,0.12)', text: '#afa9ec', label: 'Epic'       },
-  legendary: { accent: '#D4AF37', bg: 'rgba(212,175,55,0.15)',  text: '#D4AF37', label: 'Legendary'  },
-};
+// ─────────────────────────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────────────────────────
+const EMPIRES = [
+  { id: 'ottoman',  label: 'Ottoman',  flag: '🌙', color: '#c0392b' },
+  { id: 'roman',    label: 'Roman',    flag: '🦅', color: '#d4af37' },
+  { id: 'mongol',   label: 'Mongol',   flag: '🐎', color: '#8B7355' },
+  { id: 'egypt',    label: 'Egypt',    flag: '𓂀',  color: '#C5A028' },
+  { id: 'british',  label: 'British',  flag: '🦁', color: '#003366' },
+  { id: 'islamic',  label: 'Islamic',  flag: '🌟', color: '#2e7d32' },
+  { id: 'seljuk',   label: 'Seljuk',   flag: '🏹', color: '#6B4423' },
+  { id: 'japanese', label: 'Japanese', flag: '⛩️', color: '#b71c1c' },
+  { id: 'mali',     label: 'Mali',     flag: '🌍', color: '#e65100' },
+];
 
-const GOLD  = '#D4AF37';
-const CREAM = '#EDE0C4';
-const DARK  = '#1a1612';
-const DARK2 = '#242018';
-const DARK3 = '#2e2820';
-const MUTED = 'rgba(237,224,196,0.5)';
-const DIM   = 'rgba(237,224,196,0.25)';
+const CATEGORIES = [
+  'chat','quiz','timeline','map','profiles',
+  'lineage','story','ranked','archives','mastery',
+];
+
+const RUNES = ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ','ᛇ','ᛈ','ᛉ','ᛊ','ᛏ','ᛒ','ᛖ','ᛗ','ᛚ','ᛜ','ᛞ','ᛟ'];
+
+// deterministic "is this badge fully cloaked?" — ~40% of locked badges
+function isCloaked(badgeId: string, isHidden: boolean): boolean {
+  if (isHidden) return true;
+  // Simple hash: sum char codes mod 5, cloak if 0 or 1
+  let h = 0;
+  for (let i = 0; i < badgeId.length; i++) h += badgeId.charCodeAt(i);
+  return h % 5 <= 1;
+}
 
 // ─────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────
-interface UserBadge  { badge_id: string; unlocked_at: string; }
+interface UserBadge     { badge_id: string; unlocked_at: string; }
 interface BadgeProgress { badge_id: string; current_value: number; }
 
 // ─────────────────────────────────────────────────────────────
 // SUB-COMPONENTS
 // ─────────────────────────────────────────────────────────────
-function ProgressBar({ value, max, color = GOLD }: { value: number; max: number; color?: string }) {
-  const pct = Math.min(100, max > 0 ? Math.round((value / max) * 100) : 0);
+
+/** SVG circular progress ring */
+function ProgressRing({
+  value, max, size = 54, stroke = 3, color = G.gold,
+}: { value: number; max: number; size?: number; stroke?: number; color?: string }) {
+  const r    = (size - stroke * 2) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct  = max > 0 ? Math.min(1, value / max) : 0;
+  const cx   = size / 2;
   return (
-    <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden', marginTop: 6 }}>
-      <div
-        style={{
-          height: '100%',
-          width: `${pct}%`,
-          background: color,
-          borderRadius: 99,
-          animation: 'bar-fill 0.8s ease both',
-        }}
+    <svg width={size} height={size} style={{ overflow: 'visible' }}>
+      {/* Track */}
+      <circle
+        cx={cx} cy={cx} r={r}
+        fill="none"
+        stroke="rgba(255,255,255,0.06)"
+        strokeWidth={stroke}
       />
+      {/* Progress */}
+      <circle
+        cx={cx} cy={cx} r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={`${pct * circ} ${circ}`}
+        transform={`rotate(-90 ${cx} ${cx})`}
+        style={{ animation: 'ring-fill 1s ease both', transition: 'stroke-dasharray 1s ease' }}
+      />
+      {/* Glow dot at end */}
+      {pct > 0.02 && (
+        <circle
+          cx={cx + r * Math.cos(-Math.PI / 2 + pct * 2 * Math.PI)}
+          cy={cx + r * Math.sin(-Math.PI / 2 + pct * 2 * Math.PI)}
+          r={stroke * 1.2}
+          fill={color}
+          style={{ filter: `drop-shadow(0 0 3px ${color})` }}
+        />
+      )}
+    </svg>
+  );
+}
+
+/** Thin flat progress bar */
+function ProgressBar({ value, max, color = G.gold, height = 3 }: {
+  value: number; max: number; color?: string; height?: number;
+}) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  return (
+    <div style={{ height, background: 'rgba(255,255,255,0.07)', borderRadius: 99, overflow: 'hidden', marginTop: 8 }}>
+      <div style={{
+        height: '100%', width: `${pct}%`, background: color,
+        borderRadius: 99, animation: 'bar-fill 1s ease both',
+      }} />
     </div>
   );
 }
 
-function RarityPill({ rarity }: { rarity: Rarity }) {
-  const s = RARITY_STYLE[rarity];
+/** Rarity pill with shimmer for legendary */
+function RarityPill({ rarity, small }: { rarity: Rarity; small?: boolean }) {
+  const c = RARITY_CFG[rarity];
+  const fs = small ? 8 : 9;
   return (
     <span style={{
-      fontSize: 9,
-      fontFamily: "'Raleway', sans-serif",
-      letterSpacing: '0.08em',
-      textTransform: 'uppercase',
-      padding: '2px 8px',
-      borderRadius: 99,
-      background: s.bg,
-      color: s.text,
-      border: `0.5px solid ${s.accent}40`,
+      fontSize: fs, fontFamily: "'Raleway', sans-serif",
+      letterSpacing: '0.1em', textTransform: 'uppercase',
+      padding: small ? '1px 7px' : '2px 9px', borderRadius: 99,
+      background: c.bg, border: `0.5px solid ${c.border}`,
+      color: c.text, display: 'inline-block',
     }}>
-      {rarity === 'legendary' ? <span className="shimmer-text">{s.label}</span> : s.label}
+      {c.shimmer
+        ? <span className={c.shimmer}>{c.label}</span>
+        : c.label}
     </span>
+  );
+}
+
+/** Ornate corner flourish (SVG) */
+function CornerFlourish({ color, size = 18, flip }: { color: string; size?: number; flip?: boolean }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 18 18"
+      style={{
+        position: 'absolute',
+        ...(flip ? { bottom: 6, right: 6, transform: 'rotate(180deg)' } : { top: 6, left: 6 }),
+        opacity: 0.45,
+        animation: 'corner-glow 3s ease-in-out infinite',
+      }}
+    >
+      <path d="M2 2 L2 7 M2 2 L7 2" stroke={color} strokeWidth="1" fill="none" strokeLinecap="round"/>
+      <circle cx="2" cy="2" r="1.2" fill={color} />
+    </svg>
+  );
+}
+
+/** Stat box for the header */
+function StatBox({ value, label, icon }: { value: string | number; label: string; icon: string }) {
+  return (
+    <div style={{
+      background: G.dark3,
+      border: `0.5px solid ${G.dim}`,
+      borderRadius: 10,
+      padding: '14px 20px',
+      minWidth: 110,
+      textAlign: 'center',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* subtle glow at top */}
+      <div style={{
+        position: 'absolute', top: 0, left: '20%', right: '20%', height: 1,
+        background: `linear-gradient(90deg, transparent, ${G.gold}40, transparent)`,
+      }} />
+      <div style={{ fontSize: 20, marginBottom: 4, lineHeight: 1 }}>{icon}</div>
+      <div style={{
+        fontFamily: "'Cinzel', serif", fontSize: 22, fontWeight: 600,
+        color: G.gold, lineHeight: 1.1, marginBottom: 4,
+      }}>
+        {value}
+      </div>
+      <div style={{
+        fontFamily: "'Raleway', sans-serif", fontSize: 9,
+        letterSpacing: '0.12em', textTransform: 'uppercase', color: G.muted,
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+/** Cloaked / hidden badge card — shows rune mystery */
+function CloakedBadgeCard({
+  onClick, delay,
+}: { onClick: () => void; delay: number }) {
+  const runeSet = useRef(
+    Array.from({ length: 6 }, () => RUNES[Math.floor(Math.random() * RUNES.length)])
+  );
+
+  return (
+    <button
+      className="badge-card"
+      onClick={onClick}
+      style={{
+        animationDelay: `${delay}s`,
+        background: G.dark2,
+        border: `0.5px solid rgba(139,90,10,0.2)`,
+        borderRadius: 14,
+        padding: '18px 12px 16px',
+        cursor: 'pointer',
+        textAlign: 'center',
+        transition: 'transform 0.22s ease',
+        position: 'relative',
+        overflow: 'hidden',
+        minHeight: 165,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+      }}
+    >
+      {/* Dark inner noise overlay */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'radial-gradient(ellipse at 50% 60%, rgba(139,90,10,0.05) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Wax seal */}
+      <div className="seal-icon" style={{ fontSize: 28, lineHeight: 1, filter: 'sepia(1) opacity(0.55)' }}>
+        🔒
+      </div>
+
+      {/* Rune scatter */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 4, maxWidth: 90,
+      }}>
+        {runeSet.current.map((r, i) => (
+          <span
+            key={i}
+            className="rune-char"
+            style={{
+              fontFamily: 'serif', fontSize: 13, color: G.amber,
+              animationDelay: `${i * 0.38}s`,
+            }}
+          >
+            {r}
+          </span>
+        ))}
+      </div>
+
+      {/* Label */}
+      <div style={{
+        fontFamily: "'Cinzel', serif", fontSize: 9,
+        letterSpacing: '0.2em', textTransform: 'uppercase',
+        color: 'rgba(139,90,10,0.5)',
+      }}>
+        Concealed
+      </div>
+    </button>
+  );
+}
+
+/** Main badge card */
+function BadgeCard({
+  badge, isUnlocked, progress, delay, onClick,
+}: {
+  badge: Badge; isUnlocked: boolean; progress: number; delay: number; onClick: () => void;
+}) {
+  const c      = RARITY_CFG[badge.rarity];
+  const ringPct = !isUnlocked && badge.condition_value > 0
+    ? Math.round((progress / badge.condition_value) * 100)
+    : 0;
+
+  return (
+    <button
+      className={isUnlocked ? c.cls : 'badge-card'}
+      onClick={onClick}
+      style={{
+        animationDelay: `${delay}s`,
+        background: G.dark2,
+        border: isUnlocked
+          ? `0.5px solid ${c.border}`
+          : `0.5px solid ${G.dim}`,
+        borderRadius: 14,
+        padding: '18px 12px 16px',
+        cursor: 'pointer',
+        textAlign: 'center',
+        opacity: isUnlocked ? 1 : 0.46,
+        position: 'relative',
+        overflow: 'hidden',
+        minHeight: 165,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        gap: 0,
+      }}
+    >
+      {/* Top rarity strip */}
+      {isUnlocked && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+          background: `linear-gradient(90deg, transparent, ${c.accent}, transparent)`,
+          opacity: 0.85,
+        }} />
+      )}
+
+      {/* Corner flourishes for unlocked */}
+      {isUnlocked && <CornerFlourish color={c.accent} size={16} />}
+      {isUnlocked && <CornerFlourish color={c.accent} size={16} flip />}
+
+      {/* Unlock tick */}
+      {isUnlocked && (
+        <div style={{
+          position: 'absolute', top: 9, left: 9,
+          width: 16, height: 16, borderRadius: '50%',
+          background: G.green, display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          fontSize: 8, color: '#fff', fontWeight: 800,
+        }}>
+          ✓
+        </div>
+      )}
+
+      {/* XP */}
+      {badge.xp_reward > 0 && (
+        <div style={{
+          position: 'absolute', top: 9, right: 9,
+          fontSize: 8, fontFamily: "'Raleway', sans-serif",
+          letterSpacing: '0.04em', color: G.gold, opacity: 0.8,
+        }}>
+          +{badge.xp_reward}&thinsp;XP
+        </div>
+      )}
+
+      {/* Icon — optionally overlaid on progress ring */}
+      <div style={{ position: 'relative', marginBottom: 10, marginTop: 8 }}>
+        {!isUnlocked && badge.condition_value > 0 && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <ProgressRing value={progress} max={badge.condition_value} size={54} stroke={2.5} color={c.accent} />
+          </div>
+        )}
+        <div style={{
+          fontSize: 28, lineHeight: 1,
+          filter: isUnlocked ? 'none' : 'grayscale(1) brightness(0.6)',
+          position: 'relative', zIndex: 1,
+          width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {badge.icon}
+        </div>
+      </div>
+
+      {/* Name */}
+      <div style={{
+        fontSize: 10, fontFamily: "'Cinzel', serif", fontWeight: 600,
+        color: isUnlocked ? G.cream : G.muted,
+        lineHeight: 1.4, marginBottom: 8,
+        letterSpacing: '0.025em',
+        flex: 1, display: 'flex', alignItems: 'center', textAlign: 'center',
+      }}>
+        {badge.name}
+      </div>
+
+      {/* Rarity pill */}
+      <RarityPill rarity={badge.rarity} small />
+
+      {/* Progress count for locked */}
+      {!isUnlocked && badge.condition_value > 0 && (
+        <div style={{
+          fontSize: 9, color: G.dim, marginTop: 5,
+          fontFamily: "'Raleway', sans-serif",
+        }}>
+          {progress}&thinsp;/&thinsp;{badge.condition_value}
+        </div>
+      )}
+    </button>
+  );
+}
+
+/** Featured card — 2 cols wide, for unlocked legendary/epic */
+function FeaturedBadgeCard({
+  badge, unlockedAt, onClick,
+}: { badge: Badge; unlockedAt: string; onClick: () => void }) {
+  const c = RARITY_CFG[badge.rarity];
+  return (
+    <button
+      className={c.cls}
+      onClick={onClick}
+      style={{
+        gridColumn: 'span 2',
+        background: `linear-gradient(135deg, ${G.dark2} 0%, ${G.dark3} 100%)`,
+        border: `0.5px solid ${c.border}`,
+        borderRadius: 16,
+        padding: '22px 24px',
+        cursor: 'pointer',
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 20,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Radial glow behind icon */}
+      <div style={{
+        position: 'absolute', left: 0, top: 0, bottom: 0, width: 120,
+        background: `radial-gradient(ellipse at 30% 50%, ${c.bg} 0%, transparent 70%)`,
+        pointerEvents: 'none',
+      }} />
+
+      {/* Top strip */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+        background: `linear-gradient(90deg, ${c.accent}, transparent)`,
+      }} />
+
+      <CornerFlourish color={c.accent} size={18} />
+      <CornerFlourish color={c.accent} size={18} flip />
+
+      {/* Icon */}
+      <div style={{
+        fontSize: 44, lineHeight: 1,
+        filter: `drop-shadow(0 0 8px ${c.glow}60)`,
+        flexShrink: 0,
+        position: 'relative', zIndex: 1,
+      }}>
+        {badge.icon}
+      </div>
+
+      {/* Text */}
+      <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+          <span style={{
+            fontFamily: "'Cinzel', serif", fontSize: 15, fontWeight: 600,
+            color: G.cream, letterSpacing: '0.04em',
+          }}>
+            {badge.name}
+          </span>
+          <RarityPill rarity={badge.rarity} small />
+          {badge.xp_reward > 0 && (
+            <span style={{
+              fontSize: 9, color: G.green, fontFamily: "'Raleway', sans-serif",
+              letterSpacing: '0.06em',
+            }}>
+              +{badge.xp_reward} XP
+            </span>
+          )}
+        </div>
+        <p style={{
+          fontFamily: "'IM Fell English', serif", fontSize: 12,
+          color: G.muted, margin: 0, lineHeight: 1.65,
+          fontStyle: 'italic',
+          overflow: 'hidden', display: '-webkit-box',
+          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+        }}>
+          {badge.description}
+        </p>
+        <div style={{
+          marginTop: 8, fontSize: 10,
+          fontFamily: "'Raleway', sans-serif", color: G.green,
+          letterSpacing: '0.04em',
+        }}>
+          ✓ Earned {new Date(unlockedAt).toLocaleDateString('en-GB', {
+            day: 'numeric', month: 'long', year: 'numeric',
+          })}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/** Empire filter tile */
+function EmpireTile({
+  id, label, flag, color, selected, unlocked, total, onClick,
+}: {
+  id: string; label: string; flag: string; color: string;
+  selected: boolean; unlocked: number; total: number; onClick: () => void;
+}) {
+  const pct = total > 0 ? Math.round((unlocked / total) * 100) : 0;
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flexShrink: 0,
+        width: 90,
+        background: selected
+          ? `linear-gradient(160deg, ${color}18 0%, ${G.dark3} 100%)`
+          : G.dark3,
+        border: selected
+          ? `1px solid ${color}50`
+          : `0.5px solid ${G.dim}`,
+        borderRadius: 12,
+        padding: '12px 8px 10px',
+        cursor: 'pointer',
+        textAlign: 'center',
+        transition: 'all 0.2s ease',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {selected && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+          background: `linear-gradient(90deg, transparent, ${color}, transparent)`,
+        }} />
+      )}
+      <div style={{ fontSize: 22, lineHeight: 1, marginBottom: 5 }}>{flag}</div>
+      <div style={{
+        fontSize: 9, fontFamily: "'Raleway', sans-serif",
+        letterSpacing: '0.08em', textTransform: 'uppercase',
+        color: selected ? G.cream : G.muted, marginBottom: 7,
+        fontWeight: selected ? 600 : 400,
+      }}>
+        {label}
+      </div>
+      <ProgressBar value={unlocked} max={total} color={selected ? color : G.dim} height={2} />
+      <div style={{
+        fontSize: 9, marginTop: 4,
+        color: pct === 100 ? G.gold : G.dim,
+        fontFamily: "'Cinzel', serif",
+      }}>
+        {pct}%
+      </div>
+    </button>
+  );
+}
+
+/** Detail modal */
+function DetailModal({
+  badge, isUnlocked, unlockedAt, progress, cloaked, onClose,
+}: {
+  badge: Badge | null; isUnlocked: boolean; unlockedAt?: string;
+  progress: number; cloaked: boolean; onClose: () => void;
+}) {
+  if (!badge) return null;
+  const c      = RARITY_CFG[badge.rarity];
+  const empire = EMPIRES.find(e => e.id === badge.empire_id);
+  const pct    = badge.condition_value > 0
+    ? Math.min(100, Math.round((progress / badge.condition_value) * 100))
+    : 0;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(8,6,3,0.82)',
+        backdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 200, padding: 20,
+        animation: 'overlay-in 0.22s ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: G.dark2,
+          border: `0.5px solid ${c.border}`,
+          borderRadius: 20,
+          padding: '2.5rem 2rem 2rem',
+          maxWidth: 420, width: '100%',
+          textAlign: 'center',
+          position: 'relative',
+          animation: 'modal-rise 0.28s cubic-bezier(0.34,1.2,0.64,1)',
+          overflow: 'hidden',
+          boxShadow: `0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px ${c.border}`,
+        }}
+      >
+        {/* Background radial glow */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: `radial-gradient(ellipse at 50% 0%, ${c.bg} 0%, transparent 65%)`,
+        }} />
+
+        {/* Top gradient strip */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+          background: `linear-gradient(90deg, transparent 0%, ${c.accent} 50%, transparent 100%)`,
+        }} />
+
+        <CornerFlourish color={c.accent} size={20} />
+        <CornerFlourish color={c.accent} size={20} flip />
+
+        {/* Icon */}
+        <div style={{
+          fontSize: 64, lineHeight: 1, marginBottom: 18,
+          filter: isUnlocked
+            ? `drop-shadow(0 0 12px ${c.glow}70)`
+            : cloaked ? 'grayscale(1) opacity(0.3)' : 'grayscale(0.7) brightness(0.7)',
+          position: 'relative', zIndex: 1,
+        }}>
+          {cloaked ? '🔒' : badge.icon}
+        </div>
+
+        {/* Name */}
+        <h2 style={{
+          fontFamily: "'Cinzel', serif", fontSize: 22, fontWeight: 600,
+          letterSpacing: '0.06em',
+          color: isUnlocked ? G.cream : G.muted,
+          margin: '0 0 6px',
+          position: 'relative', zIndex: 1,
+        }}>
+          {cloaked ? <span style={{ color: 'rgba(139,90,10,0.55)' }}>Hidden Record</span> : badge.name}
+        </h2>
+
+        {/* Description */}
+        <p style={{
+          fontFamily: "'IM Fell English', serif", fontSize: 15,
+          color: G.muted, margin: '0 0 22px',
+          lineHeight: 1.75, fontStyle: 'italic',
+          position: 'relative', zIndex: 1,
+        }}>
+          {cloaked
+            ? 'This record lies sealed within the Imperial Archive. Continue your conquest to reveal its secrets.'
+            : badge.description}
+        </p>
+
+        {/* Chips */}
+        <div style={{
+          display: 'flex', justifyContent: 'center',
+          gap: 6, flexWrap: 'wrap', marginBottom: 22,
+          position: 'relative', zIndex: 1,
+        }}>
+          <RarityPill rarity={badge.rarity} />
+          {!cloaked && (
+            <span style={{
+              fontSize: 9, padding: '2px 9px', borderRadius: 99,
+              background: 'rgba(255,255,255,0.05)', color: G.muted,
+              fontFamily: "'Raleway', sans-serif",
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              border: `0.5px solid ${G.faint}`,
+            }}>
+              {badge.category}
+            </span>
+          )}
+          {empire && !cloaked && (
+            <span style={{
+              fontSize: 9, padding: '2px 9px', borderRadius: 99,
+              background: `${empire.color}15`, color: G.gold,
+              fontFamily: "'Raleway', sans-serif",
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              border: `0.5px solid ${empire.color}35`,
+            }}>
+              {empire.flag} {empire.label}
+            </span>
+          )}
+          {badge.xp_reward > 0 && !cloaked && (
+            <span style={{
+              fontSize: 9, padding: '2px 9px', borderRadius: 99,
+              background: G.greenBg, color: G.green,
+              fontFamily: "'Raleway', sans-serif",
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              border: `0.5px solid rgba(34,201,126,0.28)`,
+            }}>
+              +{badge.xp_reward} XP
+            </span>
+          )}
+        </div>
+
+        {/* Progress */}
+        {!isUnlocked && !cloaked && badge.condition_value > 0 && (
+          <div style={{ marginBottom: 22, position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+              <span style={{
+                fontSize: 9, color: G.muted, fontFamily: "'Raleway', sans-serif",
+                letterSpacing: '0.1em', textTransform: 'uppercase',
+              }}>
+                Progress
+              </span>
+              <span style={{ fontSize: 10, color: c.accent, fontFamily: "'Cinzel', serif" }}>
+                {pct}%
+              </span>
+            </div>
+            <div style={{ height: 5, background: G.dark4, borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', width: `${pct}%`,
+                background: `linear-gradient(90deg, ${c.glow}, ${c.accent})`,
+                borderRadius: 99, animation: 'bar-fill 0.9s ease both',
+              }} />
+            </div>
+            <div style={{
+              fontSize: 10, color: G.dim, marginTop: 5,
+              fontFamily: "'Raleway', sans-serif", textAlign: 'right',
+            }}>
+              {progress}&thinsp;/&thinsp;{badge.condition_value}
+            </div>
+          </div>
+        )}
+
+        {/* Earned date */}
+        {isUnlocked && unlockedAt && (
+          <p style={{
+            fontSize: 13, color: G.green,
+            fontFamily: "'IM Fell English', serif", fontStyle: 'italic',
+            margin: '0 0 22px',
+            position: 'relative', zIndex: 1,
+          }}>
+            Earned {new Date(unlockedAt).toLocaleDateString('en-GB', {
+              day: 'numeric', month: 'long', year: 'numeric',
+            })}
+          </p>
+        )}
+
+        {/* Close */}
+        <button
+          onClick={onClose}
+          style={{
+            background: 'transparent',
+            border: `0.5px solid ${G.dim}`,
+            borderRadius: 8, padding: '10px 32px',
+            color: G.muted, fontSize: 11,
+            fontFamily: "'Raleway', sans-serif",
+            letterSpacing: '0.14em', textTransform: 'uppercase',
+            cursor: 'pointer', transition: 'all 0.15s',
+            position: 'relative', zIndex: 1,
+          }}
+          onMouseEnter={e => {
+            const b = e.currentTarget;
+            b.style.borderColor = c.accent;
+            b.style.color = c.accent;
+            b.style.background = `${c.bg}`;
+          }}
+          onMouseLeave={e => {
+            const b = e.currentTarget;
+            b.style.borderColor = G.dim;
+            b.style.color = G.muted;
+            b.style.background = 'transparent';
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -154,16 +935,21 @@ export default function Badges() {
   const { user } = useAuth();
   const [unlockedMap,  setUnlockedMap]  = useState<Record<string, string>>({});
   const [progressMap,  setProgressMap]  = useState<Record<string, number>>({});
-  const [selectedEmpire,   setSelectedEmpire]   = useState('all');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedRarity,   setSelectedRarity]   = useState<Rarity | 'all'>('all');
-  const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
-  const [showUnlockedOnly, setShowUnlockedOnly] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading,      setLoading]      = useState(true);
+
+  // Filters
+  const [empireFilter,   setEmpireFilter]   = useState('all');
+  const [catFilter,      setCatFilter]      = useState('all');
+  const [rarityFilter,   setRarityFilter]   = useState<Rarity | 'all'>('all');
+  const [unlockedOnly,   setUnlockedOnly]   = useState(false);
+  const [searchQuery,    setSearchQuery]    = useState('');
+
+  // Modal
+  const [modalBadge,   setModalBadge]   = useState<Badge | null>(null);
+  const [modalCloaked, setModalCloaked] = useState(false);
 
   useEffect(() => { injectGlobalCSS(); }, []);
 
-  // Fetch unlocked badges + progress
   useEffect(() => {
     if (!user) return;
     Promise.all([
@@ -173,510 +959,494 @@ export default function Badges() {
       const uMap: Record<string, string> = {};
       (ub as UserBadge[] ?? []).forEach(r => { uMap[r.badge_id] = r.unlocked_at; });
       setUnlockedMap(uMap);
-
       const pMap: Record<string, number> = {};
       (bp as BadgeProgress[] ?? []).forEach(r => { pMap[r.badge_id] = r.current_value; });
       setProgressMap(pMap);
-
       setLoading(false);
     });
   }, [user]);
 
-  // Filter + sort
-  const filteredBadges = BADGES
+  const openModal = (badge: Badge, cloaked: boolean) => {
+    setModalBadge(badge);
+    setModalCloaked(cloaked);
+  };
+
+  // ── Derived data ──
+  const unlockedCount = Object.keys(unlockedMap).length;
+  const totalCount    = BADGES.length;
+  const globalPct     = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
+  const totalXP       = BADGES
+    .filter(b => unlockedMap[b.id] && b.xp_reward)
+    .reduce((acc, b) => acc + b.xp_reward, 0);
+
+  const empireData = EMPIRES.map(emp => {
+    const all      = BADGES.filter(b => b.empire_id === emp.id);
+    const unlocked = all.filter(b => unlockedMap[b.id]).length;
+    return { ...emp, total: all.length, unlocked };
+  });
+
+  // Featured: unlocked legendaries + epics (most recent)
+  const featuredBadges = BADGES
+    .filter(b => unlockedMap[b.id] && (b.rarity === 'legendary' || b.rarity === 'epic'))
+    .sort((a, b) =>
+      new Date(unlockedMap[b.id]).getTime() - new Date(unlockedMap[a.id]).getTime()
+    )
+    .slice(0, 6);
+
+  // Main grid
+  const gridBadges = BADGES
     .filter(b => {
-      if (showUnlockedOnly && !unlockedMap[b.id]) return false;
-      if (selectedEmpire   !== 'all' && b.empire_id !== selectedEmpire)   return false;
-      if (selectedCategory !== 'all' && b.category  !== selectedCategory) return false;
-      if (selectedRarity   !== 'all' && b.rarity    !== selectedRarity)   return false;
+      if (unlockedOnly && !unlockedMap[b.id]) return false;
+      if (empireFilter !== 'all' && b.empire_id !== empireFilter) return false;
+      if (catFilter    !== 'all' && b.category  !== catFilter)    return false;
+      if (rarityFilter !== 'all' && b.rarity    !== rarityFilter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (
+          !b.name.toLowerCase().includes(q) &&
+          !b.description?.toLowerCase().includes(q) &&
+          !b.category.toLowerCase().includes(q)
+        ) return false;
+      }
       return true;
     })
-    // Unlocked first, then by rarity desc
     .sort((a, b) => {
       const aU = !!unlockedMap[a.id], bU = !!unlockedMap[b.id];
       if (aU !== bU) return aU ? -1 : 1;
       return RARITY_ORDER[b.rarity] - RARITY_ORDER[a.rarity];
     });
 
-  const unlockedCount = Object.keys(unlockedMap).length;
-  const totalCount    = BADGES.length;
-  const globalPct     = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
+  // ── Pill button factory ──
+  function Pill({
+    active, onClick, children, activeColor,
+  }: {
+    active: boolean; onClick: () => void; children: React.ReactNode; activeColor?: string;
+  }) {
+    return (
+      <button
+        onClick={onClick}
+        style={{
+          fontSize: 10, fontFamily: "'Raleway', sans-serif",
+          letterSpacing: '0.06em', textTransform: 'capitalize',
+          padding: '5px 14px', borderRadius: 99,
+          border: active ? `0.5px solid ${activeColor ?? G.gold}50` : `0.5px solid ${G.dim}`,
+          background: active ? `${activeColor ?? G.gold}14` : 'transparent',
+          color: active ? (activeColor ?? G.gold) : G.muted,
+          cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+        }}
+      >
+        {children}
+      </button>
+    );
+  }
 
-  const empireProgress = EMPIRES.map(emp => {
-    const empBadges   = BADGES.filter(b => b.empire_id === emp.id);
-    const empUnlocked = empBadges.filter(b => unlockedMap[b.id]).length;
-    return {
-      ...emp,
-      total:    empBadges.length,
-      unlocked: empUnlocked,
-      pct: empBadges.length ? Math.round((empUnlocked / empBadges.length) * 100) : 0,
-    };
-  });
-
-  // ── Styles ──
-  const pageStyle: React.CSSProperties = {
-    maxWidth: 940,
-    margin: '0 auto',
-    padding: '2.5rem 1.25rem 4rem',
-    fontFamily: "'Raleway', sans-serif",
-    color: CREAM,
-    minHeight: '100vh',
-  };
-
-  const sectionTitle: React.CSSProperties = {
-    fontFamily: "'Cinzel', serif",
-    fontSize: 11,
-    letterSpacing: '0.16em',
-    textTransform: 'uppercase',
-    color: GOLD,
-    marginBottom: 12,
-    opacity: 0.8,
-  };
-
-  const divider: React.CSSProperties = {
-    border: 'none',
-    borderTop: `0.5px solid ${DIM}`,
-    margin: '2rem 0',
-  };
-
-  const filterPillBase: React.CSSProperties = {
-    fontSize: 11,
-    fontFamily: "'Raleway', sans-serif",
-    letterSpacing: '0.05em',
-    padding: '5px 14px',
-    borderRadius: 99,
-    border: `0.5px solid ${DIM}`,
-    background: 'transparent',
-    color: MUTED,
-    cursor: 'pointer',
-    transition: 'all 0.15s ease',
-    whiteSpace: 'nowrap' as const,
-    textTransform: 'capitalize' as const,
-  };
-
-  const filterPillActive: React.CSSProperties = {
-    ...filterPillBase,
-    background: 'rgba(212,175,55,0.12)',
-    border: `0.5px solid ${GOLD}60`,
-    color: GOLD,
-  };
-
+  // ─── Layout ───
   return (
-    <div style={pageStyle}>
+    <div style={{
+      maxWidth: 980, margin: '0 auto',
+      padding: '2.5rem 1.25rem 5rem',
+      fontFamily: "'Raleway', sans-serif",
+      color: G.cream,
+      minHeight: '100vh',
+      position: 'relative',
+    }}>
+
+      {/* ── PAGE BACKGROUND TEXTURE ── */}
+      <div style={{
+        position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
+        background: `radial-gradient(ellipse at 50% 30%, rgba(139,90,10,0.04) 0%, transparent 60%)`,
+      }} />
 
       {/* ── HEADER ── */}
-      <div style={{ marginBottom: '2.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <h1 style={{
-            fontFamily: "'Cinzel', serif",
-            fontSize: 32,
-            fontWeight: 600,
-            margin: 0,
-            letterSpacing: '0.04em',
-            color: CREAM,
+      <header style={{ marginBottom: '3rem', position: 'relative', zIndex: 1 }}>
+
+        {/* Decorative top rule */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24,
+        }}>
+          <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${G.dim})` }} />
+          <span style={{
+            fontFamily: "'Cinzel', serif", fontSize: 9,
+            letterSpacing: '0.3em', textTransform: 'uppercase', color: G.gold, opacity: 0.6,
           }}>
-            Hall of Honours
-          </h1>
-          <span style={{ fontFamily: "'Cormorant Garant', serif", fontSize: 16, color: MUTED, fontStyle: 'italic' }}>
-            {unlockedCount} of {totalCount} earned
+            Imperial Archive
           </span>
+          <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${G.dim}, transparent)` }} />
         </div>
 
-        {/* Global progress bar */}
-        <div style={{ marginTop: 16, position: 'relative' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ ...sectionTitle, margin: 0 }}>Overall progress</span>
-            <span style={{ fontSize: 12, color: GOLD, fontFamily: "'Cinzel', serif" }}>{globalPct}%</span>
+        {/* Title row */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h1 style={{
+              fontFamily: "'Cinzel Decorative', serif",
+              fontSize: 34, fontWeight: 700, margin: 0,
+              letterSpacing: '0.03em', lineHeight: 1.1,
+              color: G.cream,
+            }}>
+              Hall of Honours
+            </h1>
+            <p style={{
+              fontFamily: "'IM Fell English', serif",
+              fontSize: 15, color: G.muted, fontStyle: 'italic',
+              margin: '6px 0 0', letterSpacing: '0.01em',
+            }}>
+              Your deeds etched into the annals of empire
+            </p>
           </div>
-          <div style={{ height: 4, background: DARK3, borderRadius: 99, overflow: 'hidden' }}>
+
+          {/* Stats row */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <StatBox value={unlockedCount} label="Earned" icon="🏅" />
+            <StatBox value={`${globalPct}%`} label="Complete" icon="📜" />
+            <StatBox value={totalXP.toLocaleString()} label="Total XP" icon="⚡" />
+          </div>
+        </div>
+
+        {/* Master progress bar */}
+        <div style={{ marginTop: 28 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{
+              fontSize: 9, fontFamily: "'Cinzel', serif",
+              letterSpacing: '0.18em', textTransform: 'uppercase',
+              color: G.gold, opacity: 0.7,
+            }}>
+              Overall conquest
+            </span>
+            <span style={{
+              fontSize: 11, color: G.gold,
+              fontFamily: "'Cinzel', serif",
+            }}>
+              {unlockedCount} / {totalCount}
+            </span>
+          </div>
+          <div style={{
+            height: 6, background: G.dark4, borderRadius: 99, overflow: 'hidden',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)',
+          }}>
             <div style={{
-              height: '100%',
-              width: `${globalPct}%`,
-              background: `linear-gradient(90deg, #a07c1a, ${GOLD}, #fceea0)`,
+              height: '100%', width: `${globalPct}%`,
+              background: `linear-gradient(90deg, ${G.darkgold}, ${G.gold}, #fceea0 85%, ${G.gold})`,
               borderRadius: 99,
-              animation: 'bar-fill 1.2s ease both',
+              animation: 'bar-fill 1.4s ease both',
+              boxShadow: `0 0 10px ${G.gold}50`,
             }} />
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* ── EMPIRE STRIP ── */}
-      <div style={{ marginBottom: '2rem' }}>
-        <p style={sectionTitle}>Filter by empire</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(82px, 1fr))', gap: 8 }}>
-          {/* "All" tile */}
-          <button
-            onClick={() => setSelectedEmpire('all')}
+      {/* ── FEATURED STRIP (unlocked legendaries/epics) ── */}
+      {featuredBadges.length > 0 && (
+        <section style={{ marginBottom: '2.5rem', position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+            <span style={{
+              fontFamily: "'Cinzel', serif", fontSize: 9,
+              letterSpacing: '0.2em', textTransform: 'uppercase',
+              color: G.gold, opacity: 0.75,
+            }}>
+              ✦ Distinguished Honours
+            </span>
+            <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${G.dim}, transparent)` }} />
+          </div>
+
+          <div
+            className="feat-scroll"
             style={{
-              background: selectedEmpire === 'all' ? 'rgba(212,175,55,0.1)' : DARK2,
-              border: selectedEmpire === 'all' ? `1px solid ${GOLD}70` : `0.5px solid ${DIM}`,
-              borderRadius: 'var(--border-radius-md, 8px)',
-              padding: '10px 4px',
-              cursor: 'pointer',
-              textAlign: 'center',
-              transition: 'all 0.15s',
+              display: 'flex', gap: 10, overflowX: 'auto',
+              paddingBottom: 6,
             }}
           >
-            <div style={{ fontSize: 18, lineHeight: 1 }}>🌐</div>
-            <div style={{ fontSize: 9, color: selectedEmpire === 'all' ? GOLD : MUTED, marginTop: 5, fontFamily: "'Raleway', sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase' }}>All</div>
-          </button>
-
-          {empireProgress.map(emp => (
-            <button
-              key={emp.id}
-              onClick={() => setSelectedEmpire(selectedEmpire === emp.id ? 'all' : emp.id)}
-              style={{
-                background: selectedEmpire === emp.id ? 'rgba(212,175,55,0.1)' : DARK2,
-                border: selectedEmpire === emp.id ? `1px solid ${GOLD}70` : `0.5px solid ${DIM}`,
-                borderRadius: 'var(--border-radius-md, 8px)',
-                padding: '10px 4px',
-                cursor: 'pointer',
-                textAlign: 'center',
-                transition: 'all 0.15s',
-              }}
-            >
-              <div style={{ fontSize: 18, lineHeight: 1 }}>{emp.flag}</div>
-              <div style={{ fontSize: 9, color: selectedEmpire === emp.id ? GOLD : MUTED, marginTop: 5, fontFamily: "'Raleway', sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                {emp.label}
+            {featuredBadges.map(b => (
+              <div key={b.id} style={{ minWidth: 260, maxWidth: 300, flex: '0 0 auto' }}>
+                <FeaturedBadgeCard
+                  badge={b}
+                  unlockedAt={unlockedMap[b.id]}
+                  onClick={() => openModal(b, false)}
+                />
               </div>
-              <ProgressBar value={emp.unlocked} max={emp.total} />
-              <div style={{ fontSize: 9, color: emp.pct === 100 ? GOLD : DIM, marginTop: 3 }}>{emp.pct}%</div>
-            </button>
-          ))}
-        </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Divider */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12, marginBottom: '2rem',
+        position: 'relative', zIndex: 1,
+      }}>
+        <div style={{ flex: 1, height: '0.5px', background: G.dim }} />
+        <span style={{
+          fontSize: 16, opacity: 0.25,
+          fontFamily: 'serif',
+        }}>
+          ⚜
+        </span>
+        <div style={{ flex: 1, height: '0.5px', background: G.dim }} />
       </div>
 
-      <hr style={divider} />
+      {/* ── EMPIRE FILTER ── */}
+      <section style={{ marginBottom: '2rem', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <span style={{
+            fontFamily: "'Cinzel', serif", fontSize: 9,
+            letterSpacing: '0.2em', textTransform: 'uppercase',
+            color: G.gold, opacity: 0.7,
+          }}>
+            Filter by Empire
+          </span>
+        </div>
 
-      {/* ── FILTERS ROW ── */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: '1.5rem', alignItems: 'center' }}>
+        <div
+          className="empire-scroll"
+          style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}
+        >
+          {/* All */}
+          <button
+            onClick={() => setEmpireFilter('all')}
+            style={{
+              flexShrink: 0, width: 90,
+              background: empireFilter === 'all' ? `rgba(212,175,55,0.1)` : G.dark3,
+              border: empireFilter === 'all' ? `1px solid ${G.gold}50` : `0.5px solid ${G.dim}`,
+              borderRadius: 12, padding: '12px 8px 10px',
+              cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s ease',
+              position: 'relative', overflow: 'hidden',
+            }}
+          >
+            {empireFilter === 'all' && (
+              <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+                background: `linear-gradient(90deg, transparent, ${G.gold}, transparent)`,
+              }} />
+            )}
+            <div style={{ fontSize: 22, lineHeight: 1, marginBottom: 5 }}>🌐</div>
+            <div style={{
+              fontSize: 9, fontFamily: "'Raleway', sans-serif",
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: empireFilter === 'all' ? G.gold : G.muted, marginBottom: 7,
+              fontWeight: empireFilter === 'all' ? 600 : 400,
+            }}>
+              All
+            </div>
+            <div style={{ height: 2, background: G.dim, borderRadius: 99 }} />
+            <div style={{ fontSize: 9, marginTop: 4, color: G.dim }}>—</div>
+          </button>
+
+          {empireData.map(emp => (
+            <EmpireTile
+              key={emp.id}
+              {...emp}
+              selected={empireFilter === emp.id}
+              onClick={() => setEmpireFilter(empireFilter === emp.id ? 'all' : emp.id)}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* ── FILTER BAR ── */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: 10,
+        marginBottom: '1.75rem', alignItems: 'center',
+        position: 'relative', zIndex: 1,
+        background: `${G.dark3}cc`,
+        backdropFilter: 'blur(8px)',
+        padding: '12px 16px', borderRadius: 12,
+        border: `0.5px solid ${G.dim}`,
+      }}>
+
+        {/* Search */}
+        <div style={{ position: 'relative' }}>
+          <span style={{
+            position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+            fontSize: 11, color: G.dim, pointerEvents: 'none',
+          }}>
+            ⌕
+          </span>
+          <input
+            type="text"
+            placeholder="Search badges…"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{
+              background: G.dark2, border: `0.5px solid ${G.dim}`,
+              borderRadius: 8, padding: '6px 12px 6px 26px',
+              fontSize: 11, color: G.cream, outline: 'none',
+              fontFamily: "'Raleway', sans-serif",
+              width: 160, letterSpacing: '0.04em',
+            }}
+          />
+        </div>
 
         {/* Category pills */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          {['all', ...CATEGORIES].map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              style={selectedCategory === cat ? filterPillActive : filterPillBase}
-            >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          <Pill active={catFilter === 'all'} onClick={() => setCatFilter('all')}>all</Pill>
+          {CATEGORIES.map(cat => (
+            <Pill key={cat} active={catFilter === cat} onClick={() => setCatFilter(cat)}>
               {cat}
-            </button>
+            </Pill>
           ))}
         </div>
 
-        {/* Rarity pills */}
-        <div style={{ display: 'flex', gap: 5, marginLeft: 'auto' }}>
-          {(['all', 'common', 'rare', 'epic', 'legendary'] as const).map(r => (
-            <button
+        {/* Rarity pills — pushed right */}
+        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexWrap: 'wrap' }}>
+          {(['all', 'legendary', 'epic', 'rare', 'common'] as const).map(r => (
+            <Pill
               key={r}
-              onClick={() => setSelectedRarity(r)}
-              style={{
-                ...(selectedRarity === r ? filterPillActive : filterPillBase),
-                ...(r !== 'all' ? { color: selectedRarity === r ? RARITY_STYLE[r].accent : RARITY_STYLE[r].text } : {}),
-              }}
+              active={rarityFilter === r}
+              onClick={() => setRarityFilter(r)}
+              activeColor={r !== 'all' ? RARITY_CFG[r].accent : undefined}
             >
               {r}
-            </button>
+            </Pill>
           ))}
         </div>
 
         {/* Unlocked toggle */}
         <button
-          onClick={() => setShowUnlockedOnly(p => !p)}
+          onClick={() => setUnlockedOnly(p => !p)}
           style={{
-            ...filterPillBase,
-            ...(showUnlockedOnly ? { background: 'rgba(29,158,117,0.15)', border: '0.5px solid rgba(29,158,117,0.5)', color: '#5dcaa5' } : {}),
+            fontSize: 10, fontFamily: "'Raleway', sans-serif",
+            letterSpacing: '0.06em', padding: '5px 14px', borderRadius: 99,
+            border: unlockedOnly
+              ? `0.5px solid rgba(34,201,126,0.45)`
+              : `0.5px solid ${G.dim}`,
+            background: unlockedOnly ? G.greenBg : 'transparent',
+            color: unlockedOnly ? G.green : G.muted,
+            cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
           }}
         >
-          ✓ Unlocked only
+          ✓ Earned only
         </button>
       </div>
 
+      {/* ── COUNT LABEL ── */}
+      <div style={{
+        marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: 8,
+        position: 'relative', zIndex: 1,
+      }}>
+        <span style={{
+          fontFamily: "'Cinzel', serif", fontSize: 9,
+          letterSpacing: '0.18em', textTransform: 'uppercase',
+          color: G.gold, opacity: 0.6,
+        }}>
+          {gridBadges.length} Records
+        </span>
+        <div style={{ flex: 1, height: '0.5px', background: G.faint }} />
+      </div>
+
       {/* ── BADGE GRID ── */}
-      {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 10 }}>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} style={{ height: 160, borderRadius: 12, background: DARK2, opacity: 0.4 + i * 0.03 }} />
-          ))}
-        </div>
-      ) : filteredBadges.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '4rem 0', color: MUTED }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
-          <p style={{ fontFamily: "'Cormorant Garant', serif", fontSize: 18, fontStyle: 'italic' }}>No badges match these filters</p>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 10 }}>
-          {filteredBadges.map((badge, i) => {
-            const isUnlocked = !!unlockedMap[badge.id];
-            const isHidden   = badge.is_hidden && !isUnlocked;
-            const rs         = RARITY_STYLE[badge.rarity];
-            const progress   = progressMap[badge.id] ?? 0;
-            const isLegendary = badge.rarity === 'legendary';
-
-            return (
-              <button
-                key={badge.id}
-                className={isLegendary && isUnlocked ? 'legendary-card' : 'badge-card'}
-                onClick={() => setSelectedBadge(badge)}
-                title={isHidden ? 'Hidden badge' : badge.name}
+      <section style={{ position: 'relative', zIndex: 1 }}>
+        {loading ? (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+            gap: 10,
+          }}>
+            {Array.from({ length: 16 }).map((_, i) => (
+              <div
+                key={i}
                 style={{
-                  animationDelay: `${i * 0.03}s`,
-                  background: DARK2,
-                  border: isUnlocked
-                    ? `0.5px solid ${rs.accent}60`
-                    : `0.5px solid ${DIM}`,
-                  borderRadius: 12,
-                  padding: '16px 12px 14px',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  opacity: isUnlocked ? 1 : 0.42,
-                  transition: 'transform 0.18s ease, opacity 0.2s ease',
-                  position: 'relative',
-                  overflow: 'hidden',
+                  height: 165, borderRadius: 14,
+                  background: G.dark3,
+                  opacity: 0.2 + (i % 4) * 0.06,
+                  animation: `badge-rise 0.4s ${i * 0.04}s both`,
                 }}
-              >
-                {/* Rarity glow strip at top */}
-                {isUnlocked && (
-                  <div style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-                    background: rs.accent,
-                    opacity: 0.7,
-                  }} />
-                )}
+              />
+            ))}
+          </div>
+        ) : gridBadges.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '5rem 0', color: G.muted }}>
+            <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.5 }}>⚔</div>
+            <p style={{
+              fontFamily: "'Cinzel', serif", fontSize: 14,
+              letterSpacing: '0.1em', marginBottom: 8, color: G.dim,
+            }}>
+              No Records Found
+            </p>
+            <p style={{
+              fontFamily: "'IM Fell English', serif", fontSize: 14,
+              fontStyle: 'italic', color: G.dim,
+            }}>
+              Adjust your filters to uncover more of the archive.
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+            gap: 10,
+          }}>
+            {gridBadges.map((badge, i) => {
+              const isUnlocked = !!unlockedMap[badge.id];
+              const progress   = progressMap[badge.id] ?? 0;
+              const cloak      = !isUnlocked && isCloaked(badge.id, badge.is_hidden ?? false);
+              const delay      = i * 0.025;
 
-                {/* Unlock tick */}
-                {isUnlocked && (
-                  <div style={{
-                    position: 'absolute', top: 8, left: 8,
-                    width: 15, height: 15, borderRadius: '50%',
-                    background: '#1d9e75',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 8, color: '#fff', fontWeight: 700,
-                    animation: 'unlock-pop 0.4s ease',
-                  }}>✓</div>
-                )}
-
-                {/* XP badge */}
-                {badge.xp_reward > 0 && (
-                  <div style={{
-                    position: 'absolute', top: 8, right: 8,
-                    fontSize: 8,
-                    fontFamily: "'Raleway', sans-serif",
-                    letterSpacing: '0.04em',
-                    color: GOLD,
-                    opacity: 0.8,
-                  }}>
-                    +{badge.xp_reward} XP
+              // Featured 2-wide for unlocked legendaries (every other one)
+              if (isUnlocked && badge.rarity === 'legendary') {
+                return (
+                  <div key={badge.id} style={{ gridColumn: 'span 2' }}>
+                    <FeaturedBadgeCard
+                      badge={badge}
+                      unlockedAt={unlockedMap[badge.id]}
+                      onClick={() => openModal(badge, false)}
+                    />
                   </div>
-                )}
+                );
+              }
 
-                {/* Icon */}
-                <div style={{ fontSize: 30, marginBottom: 8, lineHeight: 1, filter: isUnlocked ? 'none' : 'grayscale(1)' }}>
-                  {isHidden ? '❓' : badge.icon}
-                </div>
+              if (cloak) {
+                return (
+                  <CloakedBadgeCard
+                    key={badge.id}
+                    delay={delay}
+                    onClick={() => openModal(badge, true)}
+                  />
+                );
+              }
 
-                {/* Name */}
-                <div style={{
-                  fontSize: 11,
-                  fontFamily: "'Cinzel', serif",
-                  fontWeight: 600,
-                  color: isUnlocked ? CREAM : MUTED,
-                  lineHeight: 1.35,
-                  marginBottom: 8,
-                  letterSpacing: '0.02em',
-                }}>
-                  {isHidden ? '???' : badge.name}
-                </div>
+              return (
+                <BadgeCard
+                  key={badge.id}
+                  badge={badge}
+                  isUnlocked={isUnlocked}
+                  progress={progress}
+                  delay={delay}
+                  onClick={() => openModal(badge, false)}
+                />
+              );
+            })}
+          </div>
+        )}
+      </section>
 
-                {/* Rarity pill */}
-                <RarityPill rarity={badge.rarity} />
-
-                {/* Progress bar for locked badges */}
-                {!isUnlocked && !isHidden && badge.condition_value > 0 && (
-                  <div style={{ marginTop: 8 }}>
-                    <ProgressBar value={progress} max={badge.condition_value} color={rs.accent} />
-                    <div style={{ fontSize: 9, color: DIM, marginTop: 4 }}>
-                      {progress} / {badge.condition_value}
-                    </div>
-                  </div>
-                )}
-              </button>
-            );
-          })}
+      {/* ── FOOTER ORNAMENT ── */}
+      <div style={{
+        marginTop: '4rem', textAlign: 'center',
+        position: 'relative', zIndex: 1,
+      }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 14,
+        }}>
+          <div style={{ width: 60, height: '0.5px', background: G.dim }} />
+          <span style={{
+            fontFamily: "'Cinzel', serif", fontSize: 9,
+            letterSpacing: '0.25em', textTransform: 'uppercase',
+            color: G.gold, opacity: 0.35,
+          }}>
+            Finis Coronat Opus
+          </span>
+          <div style={{ width: 60, height: '0.5px', background: G.dim }} />
         </div>
-      )}
+      </div>
 
       {/* ── DETAIL MODAL ── */}
-      {selectedBadge && (() => {
-        const badge      = selectedBadge;
-        const isUnlocked = !!unlockedMap[badge.id];
-        const isHidden   = badge.is_hidden && !isUnlocked;
-        const rs         = RARITY_STYLE[badge.rarity];
-        const progress   = progressMap[badge.id] ?? 0;
-        const empire     = EMPIRES.find(e => e.id === badge.empire_id);
-
-        return (
-          <div
-            onClick={() => setSelectedBadge(null)}
-            style={{
-              position: 'fixed', inset: 0,
-              background: 'rgba(10,8,5,0.75)',
-              backdropFilter: 'blur(4px)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              zIndex: 50,
-              padding: 20,
-              animation: 'fade-in 0.2s ease',
-            }}
-          >
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{
-                background: DARK2,
-                border: `0.5px solid ${rs.accent}50`,
-                borderRadius: 16,
-                padding: '2.25rem 2rem',
-                maxWidth: 380,
-                width: '100%',
-                textAlign: 'center',
-                position: 'relative',
-                animation: 'modal-in 0.25s ease',
-                overflow: 'hidden',
-              }}
-            >
-              {/* Top rarity strip */}
-              <div style={{
-                position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-                background: `linear-gradient(90deg, transparent, ${rs.accent}, transparent)`,
-              }} />
-
-              {/* Icon */}
-              <div style={{
-                fontSize: 60,
-                marginBottom: 14,
-                filter: isUnlocked ? 'none' : 'grayscale(0.7)',
-                lineHeight: 1,
-              }}>
-                {isHidden ? '❓' : badge.icon}
-              </div>
-
-              {/* Name */}
-              <h2 style={{
-                fontFamily: "'Cinzel', serif",
-                fontSize: 20,
-                fontWeight: 600,
-                letterSpacing: '0.05em',
-                color: isUnlocked ? CREAM : MUTED,
-                margin: '0 0 8px',
-              }}>
-                {isHidden ? 'Hidden Badge' : badge.name}
-              </h2>
-
-              {/* Description */}
-              <p style={{
-                fontFamily: "'Cormorant Garant', serif",
-                fontSize: 15,
-                color: MUTED,
-                margin: '0 0 20px',
-                lineHeight: 1.7,
-                fontStyle: 'italic',
-              }}>
-                {isHidden ? 'Unlock this badge to reveal its secrets.' : badge.description}
-              </p>
-
-              {/* Chips row */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-                <RarityPill rarity={badge.rarity} />
-                <span style={{
-                  fontSize: 9, padding: '2px 8px', borderRadius: 99,
-                  background: 'rgba(255,255,255,0.06)', color: MUTED,
-                  fontFamily: "'Raleway', sans-serif",
-                  letterSpacing: '0.08em', textTransform: 'uppercase',
-                }}>
-                  {badge.category}
-                </span>
-                {empire && (
-                  <span style={{
-                    fontSize: 9, padding: '2px 8px', borderRadius: 99,
-                    background: 'rgba(212,175,55,0.1)', color: GOLD,
-                    fontFamily: "'Raleway', sans-serif",
-                    letterSpacing: '0.08em', textTransform: 'uppercase',
-                    border: `0.5px solid ${GOLD}30`,
-                  }}>
-                    {empire.flag} {empire.label}
-                  </span>
-                )}
-                {badge.xp_reward > 0 && (
-                  <span style={{
-                    fontSize: 9, padding: '2px 8px', borderRadius: 99,
-                    background: 'rgba(29,158,117,0.12)', color: '#5dcaa5',
-                    fontFamily: "'Raleway', sans-serif",
-                    letterSpacing: '0.08em', textTransform: 'uppercase',
-                    border: '0.5px solid rgba(29,158,117,0.3)',
-                  }}>
-                    +{badge.xp_reward} XP
-                  </span>
-                )}
-              </div>
-
-              {/* Progress (locked) */}
-              {!isUnlocked && !isHidden && badge.condition_value > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, color: MUTED, fontFamily: "'Raleway', sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase' }}>Progress</span>
-                    <span style={{ fontSize: 10, color: rs.accent }}>{progress} / {badge.condition_value}</span>
-                  </div>
-                  <div style={{ height: 5, background: DARK3, borderRadius: 99, overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%',
-                      width: `${Math.min(100, Math.round((progress / badge.condition_value) * 100))}%`,
-                      background: rs.accent,
-                      borderRadius: 99,
-                      animation: 'bar-fill 0.8s ease both',
-                    }} />
-                  </div>
-                </div>
-              )}
-
-              {/* Unlocked date */}
-              {isUnlocked && unlockedMap[badge.id] && (
-                <p style={{
-                  fontSize: 12,
-                  color: '#5dcaa5',
-                  fontFamily: "'Cormorant Garant', serif",
-                  fontStyle: 'italic',
-                  margin: '0 0 20px',
-                }}>
-                  Earned {new Date(unlockedMap[badge.id]).toLocaleDateString('en-GB', {
-                    day: 'numeric', month: 'long', year: 'numeric',
-                  })}
-                </p>
-              )}
-
-              {/* Close */}
-              <button
-                onClick={() => setSelectedBadge(null)}
-                style={{
-                  background: 'transparent',
-                  border: `0.5px solid ${DIM}`,
-                  borderRadius: 8,
-                  padding: '8px 28px',
-                  color: MUTED,
-                  fontSize: 12,
-                  fontFamily: "'Raleway', sans-serif",
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = GOLD; (e.currentTarget as HTMLButtonElement).style.color = GOLD; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = DIM;  (e.currentTarget as HTMLButtonElement).style.color  = MUTED; }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        );
-      })()}
+      <DetailModal
+        badge={modalBadge}
+        isUnlocked={modalBadge ? !!unlockedMap[modalBadge.id] : false}
+        unlockedAt={modalBadge ? unlockedMap[modalBadge.id] : undefined}
+        progress={modalBadge ? (progressMap[modalBadge.id] ?? 0) : 0}
+        cloaked={modalCloaked}
+        onClose={() => { setModalBadge(null); setModalCloaked(false); }}
+      />
     </div>
   );
 }
