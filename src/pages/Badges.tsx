@@ -2,10 +2,9 @@
 // /badges page for Empire AI — imperial design, progress tracking, XP rewards
 
 import { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
-import { BADGES, Badge, Rarity } from './badgeDefinitions';
-import { useAuth } from './useAuth';
-
+import { supabase } from '@/integrations/supabase/client';
+import { BADGES, Badge, Rarity } from '@/data/badgeDefinitions';
+import { useAuth } from '@/hooks/useAuth';
 // ─────────────────────────────────────────────────────────────
 // GLOBAL KEYFRAMES (injected once)
 // ─────────────────────────────────────────────────────────────
