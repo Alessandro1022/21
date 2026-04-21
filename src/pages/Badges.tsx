@@ -2,15 +2,10 @@
 // /badges — Hall of Honours · Imperial Archive
 // Arcane Codex Edition — luxury dark UI, 3500+ lines
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { BADGES, Badge, Rarity, BadgeCategory, Empire } from '@/data/badgeDefinitions';
+import { BADGES, Badge, Rarity } from '@/data/badgeDefinitions';
 import { useAuth } from '@/hooks/useAuth';
-import { useAchievements } from '@/hooks/useAchievements';
-import { useXP } from '@/hooks/useXP';
-import { useUserStats } from '@/hooks/useUserStats';
-import { useAnalytics } from '@/hooks/useAnalytics';
-import { useNotifications } from '@/hooks/useNotifications';
 
 // ─────────────────────────────────────────────────────────────
 // GLOBAL STYLES — injected once into <head>
