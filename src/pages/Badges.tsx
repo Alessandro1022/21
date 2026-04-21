@@ -16,7 +16,6 @@ import { useNotifications } from '@/hooks/useNotifications';
 
 // ─────────────────────────────────────────────────────────────
 // GLOBAL STYLES — injected once into <head>
-// ─────────────────────────────────────────────────────────────
 const GLOBAL_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English:ital@0;1&family=Raleway:wght@300;400;500;600&display=swap');
 
