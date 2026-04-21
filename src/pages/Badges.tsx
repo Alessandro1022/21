@@ -6,7 +6,6 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { BADGES, Badge, Rarity, BadgeCategory, Empire } from '@/data/badgeDefinitions';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/useToast';
 import { useAchievements } from '@/hooks/useAchievements';
 import { useXP } from '@/hooks/useXP';
 import { useUserStats } from '@/hooks/useUserStats';
