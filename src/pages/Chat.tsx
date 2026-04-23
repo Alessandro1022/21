@@ -4,7 +4,7 @@ import { ChatMessage } from "@/components/ChatMessage";
 import { AppLayout } from "@/components/AppLayout";
 import { useChat, type Conversation } from "@/hooks/useChat";
 import { formatDistanceToNow } from "date-fns";
-import { trackStat, checkAndUnlockBadges } from "@/lib/badgeService";
+import { trackStat, checkAndUnlockBadges } from "@/services/badgeService";
 import { useAuth } from "@/hooks/useAuth";
 
 const LEVELS = [
