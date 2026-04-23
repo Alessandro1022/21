@@ -108,31 +108,40 @@ const currentText = useMemo(
     else { setCurrentIndex((i) => i + 1); setSelectedAnswer(null); setShowResult(false); }
   };
  
-  const finishQuiz = async () => {
-    setFinished(true);
-    const finalScore = score + (selectedAnswer === current?.correct_index ? 1 : 0);
-    let bonusXp = 0;
+const finishQuiz = async () => {
+  setFinished(true);
+
+  const finalScore = score + (selectedAnswer === current?.correct_index ? 1 : 0);
+
+  let bonusXp = 0;
+
+  if (finalScore === questions.length) {
+    bonusXp = 20;
+    await addXp(bonusXp);
+    setTotalXpEarned((prev) => prev + bonusXp);
+  }
+
+  // ✅ DENNA SKA VARA HÄR (INTE UTANFÖR)
+  await recordQuizResult(eId, finalScore, questions.length, totalXpEarned + bonusXp);
+
+  // 👇 DIN BADGE KOD SKA OCKSÅ VARA HÄR
+  if (user) {
+    await trackStat(user.id, "quiz_completed", 1);
+    await trackStat(user.id, "quiz_score_total", finalScore);
+
     if (finalScore === questions.length) {
-      bonusXp = 20;
-      await addXp(bonusXp);
-      setTotalXpEarned((prev) => prev + bonusXp);
+      await trackStat(user.id, "perfect_quiz", 1);
     }
-    await recordQuizResult(eId, finalScore, questions.length, totalXpEarned + bonusXp);
-    for (const medal of MEDALS) {
-      if (finalScore >= medal.score) await awardMedal(medal.name, medal.icon);
+
+    await checkAndUnlockBadges(user.id);
+  }
+
+  for (const medal of MEDALS) {
+    if (finalScore >= medal.score) {
+      await awardMedal(medal.name, medal.icon);
     }
-    if (finalScore === questions.length) {
-      setUnlockedMedal("🥇");
-      setTimeout(() => setUnlockedMedal(null), 3000);
-    }
-  };
-await recordQuizResult(...) 
-  const startQuiz = () => {
-    if (questions.length === 0 || dailyCount >= MAX_DAILY) return;
-    const newCount = incrementDailyCount(eId);
-    setDailyCount(newCount);
-    setStarted(true);
-  };
+  }
+};
  
   const reset = () => {
     setStarted(false); setCurrentIndex(0); setScore(0);
