@@ -4,6 +4,8 @@ import { ChatMessage } from "@/components/ChatMessage";
 import { AppLayout } from "@/components/AppLayout";
 import { useChat, type Conversation } from "@/hooks/useChat";
 import { formatDistanceToNow } from "date-fns";
+import { trackStat, checkAndUnlockBadges } from "@/lib/badgeService";
+import { useAuth } from "@/hooks/useAuth";
 
 const LEVELS = [
   { value: "short", label: "Kort", labelEn: "Brief", labelTr: "Kısa" },
@@ -36,7 +38,19 @@ export default function Chat() {
   const placeholders = config?.chatPlaceholders || { sv: "Ställ en fråga...", en: "Ask a question...", tr: "Bir soru sorun..." };
   const suggestions = config?.chatSuggestions || { sv: [], en: [], tr: [] };
   const empireName = config?.name?.[language] || config?.name?.en || "Empire";
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!input.trim()) return;
 
+  send(input);
+  setInput("");
+
+  // 👇 LÄGG EXAKT HÄR
+  if (user) {
+    await trackStat(user.id, "chat_messages", 1);
+    await checkAndUnlockBadges(user.id);
+  }
+};
   const getLevelLabel = (l: typeof LEVELS[0]) => {
     if (language === "tr") return l.labelTr;
     if (language === "en") return l.labelEn;
