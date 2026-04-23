@@ -27,12 +27,6 @@ export default function Chat() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-    send(input);
-    setInput("");
-  };
 
   const isEmpty = messages.length === 0;
   const placeholders = config?.chatPlaceholders || { sv: "Ställ en fråga...", en: "Ask a question...", tr: "Bir soru sorun..." };
