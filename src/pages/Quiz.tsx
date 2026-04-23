@@ -6,6 +6,7 @@ import { useChat } from "@/hooks/useChat";
 import { useProgress } from "@/hooks/useProgress";
 import { fetchDailyQuiz, getQuestionText, type DBQuizQuestion } from "@/lib/quizPool";
 import { Trophy, Timer, CheckCircle, XCircle, RotateCcw, Zap, Star, TrendingUp, Lock } from "lucide-react";
+import { trackStat, checkAndUnlockBadges } from "@/lib/badgeService";
  
 const MEDALS = [
   { score: 6,  name: "Bronze Scholar",  icon: "🥉" },
@@ -125,7 +126,7 @@ const currentText = useMemo(
       setTimeout(() => setUnlockedMedal(null), 3000);
     }
   };
- 
+await recordQuizResult(...) 
   const startQuiz = () => {
     if (questions.length === 0 || dailyCount >= MAX_DAILY) return;
     const newCount = incrementDailyCount(eId);
