@@ -371,4 +371,58 @@ const badgeService = {
   getUserBadgeXP,
 };
 
+import { supabase } from '@/integrations/supabase/client';
+import { BADGES, Badge } from '@/data/badgeDefinitions';
+
+export type EmpireId = 'ottoman'|'roman'|'mongol'|'egypt'|'british'|'islamic'|'seljuk'|'japanese'|'mali';
+export type StatAction = 'questions_asked'|'quiz_completed'|'profiles_read'|'timeline_views'|'map_opens'|'ranked_plays'|'chat_sessions'|'lineage_views'|'story_completed';
+
+export async function trackStat(userId: string, action: StatAction, empireId?: EmpireId): Promise<void> {
+  const totalCol = `${action}_total`;
+  const empireCol = empireId ? `${action}_${empireId}` : null;
+  const { error } = await supabase.rpc('increment_stat', { p_user_id: userId, p_total_col: totalCol, p_empire_col: empireCol });
+  if (error) console.error('[trackStat] error:', error);
+  await checkAndUnlockBadges(userId, empireId);
+}
+
+export async function checkAndUnlockBadges(userId: string, empireId?: EmpireId): Promise<Badge[]> {
+  const { data: stats, error: statsError } = await supabase.from('user_stats').select('*').eq('user_id', userId).single();
+  if (statsError || !stats) return [];
+  const { data: unlocked } = await supabase.from('user_badges').select('badge_id').eq('user_id', userId);
+  const unlockedIds = new Set((unlocked ?? []).map((u: any) => u.badge_id));
+  const empireBadgeCounts: Record<string, number> = {};
+  for (const badge of BADGES) {
+    if (badge.empire_id && unlockedIds.has(badge.id) && badge.category !== 'mastery') {
+      empireBadgeCounts[badge.empire_id] = (empireBadgeCounts[badge.empire_id] ?? 0) + 1;
+    }
+  }
+  const masteredEmpires = BADGES.filter((b) => b.condition_type === 'empire_badges_count' && unlockedIds.has(b.id)).length;
+  const newlyUnlocked: Badge[] = [];
+  for (const badge of BADGES) {
+    if (unlockedIds.has(badge.id)) continue;
+    const col = badge.empire_id ? `${badge.condition_type}_${badge.empire_id}` : `${badge.condition_type}_total`;
+    const met = (stats[col] ?? 0) >= badge.condition_value;
+    if (!met) continue;
+    const { error } = await supabase.from('user_badges').insert({ user_id: userId, badge_id: badge.id });
+    if (!error) { newlyUnlocked.push(badge); unlockedIds.add(badge.id); }
+  }
+  return newlyUnlocked;
+}
+
+export async function grantAllBadgesToAdmin(userId: string): Promise<void> {
+  const { data: existing } = await supabase.from('user_badges').select('badge_id').eq('user_id', userId);
+  const unlockedIds = new Set((existing ?? []).map((u: any) => u.badge_id));
+  const missing = BADGES.filter((b) => !unlockedIds.has(b.id)).map((b) => ({ user_id: userId, badge_id: b.id }));
+  if (missing.length === 0) return;
+  await supabase.from('user_badges').insert(missing);
+}
+
+export const onChatMessage = (u: string, e: EmpireId) => trackStat(u, 'questions_asked', e);
+export const onQuizCompleted = (u: string, e: EmpireId) => trackStat(u, 'quiz_completed', e);
+export const onProfileRead = (u: string, e: EmpireId) => trackStat(u, 'profiles_read', e);
+export const onTimelineView = (u: string, e: EmpireId) => trackStat(u, 'timeline_views', e);
+export const onMapOpen = (u: string, e: EmpireId) => trackStat(u, 'map_opens', e);
+export const onRankedPlay = (u: string, e: EmpireId) => trackStat(u, 'ranked_plays', e);
+export const onStoryCompleted = (u: string, e: EmpireId) => trackStat(u, 'story_completed', e);
+export const onLineageView = (u: string, e: EmpireId) => trackStat(u, 'lineage_views', e);
 export default badgeService;
