@@ -381,6 +381,17 @@ export default function Admin() {
       }).subscribe();
     return () => { if (realtimeRef.current) supabase.removeChannel(realtimeRef.current); };
   }, [fetchUsers, fetchLeaderboard, addLog]);
+  useEffect(() => {
+  if (!user?.id || !isAdmin) return;
+ 
+  const unlockAll = async () => {
+    await grantAllBadgesToAdmin(user.id);
+    console.log('[Admin] All badges granted/verified');
+  };
+ 
+  unlockAll();
+}, [user?.id, isAdmin]);
+ 
 
   // ── USER ACTIONS ─────────────────────────────────────────
   const deleteUser = async (id: string, email: string) => {
