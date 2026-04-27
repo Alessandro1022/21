@@ -1,7 +1,7 @@
 // badgeService.ts
 // Stat tracking, badge unlock logic, and admin tools
 
-import { supabase } from './supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { BADGES, Badge } from './badgeDefinitions';
 
 // ─────────────────────────────────────────────────────────────
