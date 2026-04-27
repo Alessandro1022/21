@@ -126,12 +126,8 @@ const finishQuiz = async () => {
 
   // 👇 DIN BADGE KOD SKA OCKSÅ VARA HÄR
   if (user) {
-    await trackStat(user.id, "quiz_completed", 1);
-    await trackStat(user.id, "quiz_score_total", finalScore);
-
-    if (finalScore === questions.length) {
-      await trackStat(user.id, "perfect_quiz", 1);
-    }
+    await trackStat(user.id, "quiz_completed", eId as any);
+await checkAndUnlockBadges(user.id);
 
     await checkAndUnlockBadges(user.id);
   }
