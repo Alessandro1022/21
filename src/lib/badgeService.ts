@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { BADGES, Badge } from './badgeDefinitions';
+import { BADGES, Badge } from '@/data/badgeDefinitions';
 
 export type EmpireId = 'ottoman'|'roman'|'mongol'|'egypt'|'british'|'islamic'|'seljuk'|'japanese'|'mali';
 export type StatAction = 'questions_asked'|'quiz_completed'|'profiles_read'|'timeline_views'|'map_opens'|'ranked_plays'|'chat_sessions'|'lineage_views'|'story_completed';
