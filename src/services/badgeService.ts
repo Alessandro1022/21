@@ -1,279 +1,374 @@
-// badgeService.ts
-// Stat tracking, badge unlock logic, and admin tools
+// src/lib/badgeService.ts
+// Badge service — awards badges, tracks progress, checks conditions
+// Imported by Quiz.tsx and other pages
 
 import { supabase } from '@/integrations/supabase/client';
-import { BADGES, Badge } from './badgeDefinitions';
 
 // ─────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────
-export type EmpireId =
-  | 'ottoman' | 'roman' | 'mongol' | 'egypt'
-  | 'british' | 'islamic' | 'seljuk' | 'japanese' | 'mali';
 
-export type StatAction =
-  | 'questions_asked'
-  | 'quiz_completed'
-  | 'profiles_read'
-  | 'timeline_views'
-  | 'map_opens'
-  | 'ranked_plays'
-  | 'chat_sessions'
-  | 'lineage_views'
-  | 'story_completed';
+export interface BadgeAwardResult {
+  awarded: string[];   // badge IDs that were newly unlocked
+  updated: string[];   // badge IDs whose progress was updated
+}
 
-// ─────────────────────────────────────────────────────────────
-// STAT TRACKING
-// Increments both the global total and the per-empire column
-// ─────────────────────────────────────────────────────────────
-export async function trackStat(
-  userId: string,
-  action: StatAction,
-  empireId?: EmpireId
-): Promise<void> {
-  const totalCol = `${action}_total`;
-  const empireCol = empireId ? `${action}_${empireId}` : null;
-
-  // Build the update object dynamically
-  const updates: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-    [totalCol]: (supabase as any).rpc('increment', { x: 1 }), // use supabase increment
-  };
-
-  if (empireCol) {
-    updates[empireCol] = (supabase as any).rpc('increment', { x: 1 });
-  }
-
-  // Use raw SQL increment via RPC to avoid race conditions
-  const { error } = await supabase.rpc('increment_stat', {
-    p_user_id: userId,
-    p_total_col: totalCol,
-    p_empire_col: empireCol,
-  });
-
-  if (error) {
-    console.error('[trackStat] error:', error);
-  }
-
-  // After updating, check for newly unlocked badges
-  await checkAndUnlockBadges(userId, empireId);
+export interface BadgeProgressUpdate {
+  badge_id: string;
+  current_value: number;
 }
 
 // ─────────────────────────────────────────────────────────────
-// SUPABASE RPC (add this function to Supabase SQL editor)
+// CORE SERVICE FUNCTIONS
 // ─────────────────────────────────────────────────────────────
-/*
-create or replace function increment_stat(
-  p_user_id   uuid,
-  p_total_col text,
-  p_empire_col text default null
-) returns void language plpgsql security definer as $$
-begin
-  insert into user_stats (user_id)
-  values (p_user_id)
-  on conflict (user_id) do nothing;
 
-  execute format(
-    'update user_stats set %I = coalesce(%I, 0) + 1, updated_at = now() where user_id = $1',
-    p_total_col, p_total_col
-  ) using p_user_id;
-
-  if p_empire_col is not null then
-    execute format(
-      'update user_stats set %I = coalesce(%I, 0) + 1 where user_id = $1',
-      p_empire_col, p_empire_col
-    ) using p_user_id;
-  end if;
-end;
-$$;
-*/
-
-// ─────────────────────────────────────────────────────────────
-// BADGE UNLOCK CHECK
-// Fetches current stats + already-unlocked badges, then
-// compares against BADGES definitions and inserts new ones.
-// ─────────────────────────────────────────────────────────────
-export async function checkAndUnlockBadges(
+/**
+ * Award a specific badge to a user if they don't already have it.
+ * Returns true if newly awarded, false if already owned.
+ */
+export async function awardBadge(
   userId: string,
-  empireId?: EmpireId
-): Promise<Badge[]> {
-  // 1. Fetch user stats
-  const { data: stats, error: statsError } = await supabase
-    .from('user_stats')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
+  badgeId: string
+): Promise<boolean> {
+  try {
+    // Check if already unlocked
+    const { data: existing } = await supabase
+      .from('user_badges')
+      .select('badge_id')
+      .eq('user_id', userId)
+      .eq('badge_id', badgeId)
+      .maybeSingle();
 
-  if (statsError || !stats) return [];
+    if (existing) return false;
 
-  // 2. Fetch already-unlocked badge IDs
-  const { data: unlocked } = await supabase
-    .from('user_badges')
-    .select('badge_id')
-    .eq('user_id', userId);
-
-  const unlockedIds = new Set((unlocked ?? []).map((u) => u.badge_id));
-
-  // 3. Determine how many empire-specific badges per empire are unlocked
-  const empireBadgeCounts: Record<string, number> = {};
-  for (const badge of BADGES) {
-    if (badge.empire_id && unlockedIds.has(badge.id) && badge.category !== 'mastery') {
-      empireBadgeCounts[badge.empire_id] = (empireBadgeCounts[badge.empire_id] ?? 0) + 1;
-    }
-  }
-
-  // 4. Count how many empire mastery badges are unlocked
-  const masteredEmpires = BADGES.filter(
-    (b) => b.condition_type === 'empire_badges_count' && unlockedIds.has(b.id)
-  ).length;
-
-  // 5. Check each badge
-  const newlyUnlocked: Badge[] = [];
-
-  for (const badge of BADGES) {
-    if (unlockedIds.has(badge.id)) continue; // already unlocked
-
-    const met = isBadgeConditionMet(badge, stats, empireBadgeCounts, masteredEmpires, empireId);
-    if (!met) continue;
-
-    // Insert into user_badges
+    // Award the badge
     const { error } = await supabase
       .from('user_badges')
-      .insert({ user_id: userId, badge_id: badge.id });
+      .insert({
+        user_id: userId,
+        badge_id: badgeId,
+        unlocked_at: new Date().toISOString(),
+      });
 
-    if (!error) {
-      newlyUnlocked.push(badge);
-      unlockedIds.add(badge.id);
+    if (error) {
+      console.error('[badgeService] Error awarding badge:', error);
+      return false;
     }
-  }
 
-  return newlyUnlocked; // return for toast notifications
+    return true;
+  } catch (err) {
+    console.error('[badgeService] awardBadge failed:', err);
+    return false;
+  }
 }
 
-// ─────────────────────────────────────────────────────────────
-// CONDITION EVALUATOR
-// ─────────────────────────────────────────────────────────────
-function isBadgeConditionMet(
-  badge: Badge,
-  stats: Record<string, number>,
-  empireBadgeCounts: Record<string, number>,
-  masteredEmpires: number,
-  activeEmpireId?: EmpireId
-): boolean {
-  const { condition_type, condition_value, empire_id } = badge;
+/**
+ * Award multiple badges at once.
+ * Returns array of badge IDs that were newly awarded.
+ */
+export async function awardBadges(
+  userId: string,
+  badgeIds: string[]
+): Promise<string[]> {
+  const awarded: string[] = [];
 
-  switch (condition_type) {
-    case 'all_empires_mastered':
-      return masteredEmpires >= condition_value;
+  for (const badgeId of badgeIds) {
+    const wasAwarded = await awardBadge(userId, badgeId);
+    if (wasAwarded) awarded.push(badgeId);
+  }
 
-    case 'empire_badges_count':
-      if (!empire_id) return false;
-      return (empireBadgeCounts[empire_id] ?? 0) >= condition_value;
+  return awarded;
+}
 
-    // Per-empire conditions
-    case 'questions_asked':
-    case 'quiz_completed':
-    case 'profiles_read':
-    case 'timeline_views':
-    case 'map_opens':
-    case 'ranked_plays':
-    case 'chat_sessions':
-    case 'lineage_views':
-    case 'story_completed': {
-      if (empire_id) {
-        // Empire-specific: use e.g. questions_asked_ottoman
-        const col = `${condition_type}_${empire_id}`;
-        return (stats[col] ?? 0) >= condition_value;
-      } else {
-        // Global: use e.g. questions_asked_total
-        const col = `${condition_type}_total`;
-        return (stats[col] ?? 0) >= condition_value;
+/**
+ * Update progress toward a badge condition.
+ * If progress meets or exceeds condition_value, badge is auto-awarded.
+ */
+export async function updateBadgeProgress(
+  userId: string,
+  badgeId: string,
+  currentValue: number
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('badge_progress')
+      .upsert(
+        {
+          user_id: userId,
+          badge_id: badgeId,
+          current_value: currentValue,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,badge_id' }
+      );
+
+    if (error) {
+      console.error('[badgeService] Error updating progress:', error);
+    }
+  } catch (err) {
+    console.error('[badgeService] updateBadgeProgress failed:', err);
+  }
+}
+
+/**
+ * Increment progress for a badge by a given amount.
+ */
+export async function incrementBadgeProgress(
+  userId: string,
+  badgeId: string,
+  increment = 1
+): Promise<number> {
+  try {
+    // Get current value
+    const { data: existing } = await supabase
+      .from('badge_progress')
+      .select('current_value')
+      .eq('user_id', userId)
+      .eq('badge_id', badgeId)
+      .maybeSingle();
+
+    const newValue = ((existing as { current_value: number } | null)?.current_value ?? 0) + increment;
+
+    await updateBadgeProgress(userId, badgeId, newValue);
+
+    return newValue;
+  } catch (err) {
+    console.error('[badgeService] incrementBadgeProgress failed:', err);
+    return 0;
+  }
+}
+
+/**
+ * Check and award quiz-related badges based on a quiz result.
+ */
+export async function checkQuizBadges(
+  userId: string,
+  opts: {
+    score: number;           // number correct
+    total: number;           // total questions
+    perfectStreak?: number;  // consecutive perfect scores
+    totalQuizzes?: number;   // all-time quizzes played
+    empire?: string;         // empire category of the quiz
+  }
+): Promise<BadgeAwardResult> {
+  const awarded: string[] = [];
+  const updated: string[] = [];
+
+  const { score, total, perfectStreak = 0, totalQuizzes = 0, empire } = opts;
+  const isPerfect = score === total && total > 0;
+  const pct = total > 0 ? score / total : 0;
+
+  try {
+    // ── Perfect score badges ──
+    if (isPerfect) {
+      const newPerfects = await incrementBadgeProgress(userId, 'quiz_perfect', 1);
+      updated.push('quiz_perfect');
+
+      // First perfect score
+      if (newPerfects === 1) {
+        const a = await awardBadge(userId, 'quiz_first_perfect');
+        if (a) awarded.push('quiz_first_perfect');
+      }
+
+      // 5 perfect scores
+      if (newPerfects >= 5) {
+        const a = await awardBadge(userId, 'quiz_perfectionist');
+        if (a) awarded.push('quiz_perfectionist');
       }
     }
 
-    default:
-      return false;
+    // ── Quiz count badges ──
+    if (totalQuizzes >= 1) {
+      const a = await awardBadge(userId, 'quiz_first_play');
+      if (a) awarded.push('quiz_first_play');
+    }
+
+    if (totalQuizzes >= 10) {
+      const a = await awardBadge(userId, 'quiz_veteran');
+      if (a) awarded.push('quiz_veteran');
+    }
+
+    if (totalQuizzes >= 50) {
+      const a = await awardBadge(userId, 'quiz_master');
+      if (a) awarded.push('quiz_master');
+    }
+
+    // ── Streak badges ──
+    if (perfectStreak >= 3) {
+      const a = await awardBadge(userId, 'quiz_streak_3');
+      if (a) awarded.push('quiz_streak_3');
+    }
+
+    if (perfectStreak >= 7) {
+      const a = await awardBadge(userId, 'quiz_streak_7');
+      if (a) awarded.push('quiz_streak_7');
+    }
+
+    // ── Score threshold badges ──
+    if (pct >= 0.8) {
+      const a = await awardBadge(userId, 'quiz_high_scorer');
+      if (a) awarded.push('quiz_high_scorer');
+    }
+
+    // ── Empire-specific badges ──
+    if (empire) {
+      const empireBadgeId = `quiz_${empire}_expert`;
+      const newCount = await incrementBadgeProgress(userId, empireBadgeId, 1);
+      updated.push(empireBadgeId);
+
+      if (newCount >= 5 && isPerfect) {
+        const a = await awardBadge(userId, empireBadgeId);
+        if (a) awarded.push(empireBadgeId);
+      }
+    }
+
+  } catch (err) {
+    console.error('[badgeService] checkQuizBadges failed:', err);
+  }
+
+  return { awarded, updated };
+}
+
+/**
+ * Check and award chat-related badges.
+ */
+export async function checkChatBadges(
+  userId: string,
+  opts: {
+    totalMessages?: number;
+    emperor?: string;
+    uniqueEmperors?: number;
+  }
+): Promise<BadgeAwardResult> {
+  const awarded: string[] = [];
+  const updated: string[] = [];
+  const { totalMessages = 0, emperor, uniqueEmperors = 0 } = opts;
+
+  try {
+    if (totalMessages >= 1) {
+      const a = await awardBadge(userId, 'chat_first_message');
+      if (a) awarded.push('chat_first_message');
+    }
+    if (totalMessages >= 50) {
+      const a = await awardBadge(userId, 'chat_50_messages');
+      if (a) awarded.push('chat_50_messages');
+    }
+    if (totalMessages >= 200) {
+      const a = await awardBadge(userId, 'chat_200_messages');
+      if (a) awarded.push('chat_200_messages');
+    }
+    if (uniqueEmperors >= 5) {
+      const a = await awardBadge(userId, 'chat_diplomat');
+      if (a) awarded.push('chat_diplomat');
+    }
+    if (uniqueEmperors >= EMPIRES_TOTAL) {
+      const a = await awardBadge(userId, 'chat_all_emperors');
+      if (a) awarded.push('chat_all_emperors');
+    }
+  } catch (err) {
+    console.error('[badgeService] checkChatBadges failed:', err);
+  }
+
+  return { awarded, updated };
+}
+
+/**
+ * Fetch all badge progress for a user as a map.
+ */
+export async function getUserBadgeProgress(
+  userId: string
+): Promise<Record<string, number>> {
+  try {
+    const { data } = await supabase
+      .from('badge_progress')
+      .select('badge_id, current_value')
+      .eq('user_id', userId);
+
+    const map: Record<string, number> = {};
+    (data ?? []).forEach((row: { badge_id: string; current_value: number }) => {
+      map[row.badge_id] = row.current_value;
+    });
+    return map;
+  } catch {
+    return {};
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// ADMIN: GRANT ALL BADGES TO ADMIN USER
-// Call this once after login if user is admin.
-// Safe to call multiple times — uses upsert logic.
-// ─────────────────────────────────────────────────────────────
-export async function grantAllBadgesToAdmin(userId: string): Promise<void> {
-  // Verify the user is actually an admin
-  const { data: adminCheck } = await supabase
-    .from('admin_users')
-    .select('user_id')
-    .eq('user_id', userId)
-    .single();
+/**
+ * Fetch all unlocked badge IDs for a user.
+ */
+export async function getUserUnlockedBadges(
+  userId: string
+): Promise<string[]> {
+  try {
+    const { data } = await supabase
+      .from('user_badges')
+      .select('badge_id')
+      .eq('user_id', userId);
 
-  if (!adminCheck) {
-    console.warn('[grantAllBadgesToAdmin] User is not an admin. Skipping.');
-    return;
-  }
-
-  // Fetch already-unlocked badge IDs
-  const { data: existing } = await supabase
-    .from('user_badges')
-    .select('badge_id')
-    .eq('user_id', userId);
-
-  const unlockedIds = new Set((existing ?? []).map((u) => u.badge_id));
-
-  // Insert all missing badges
-  const missing = BADGES.filter((b) => !unlockedIds.has(b.id)).map((b) => ({
-    user_id: userId,
-    badge_id: b.id,
-  }));
-
-  if (missing.length === 0) {
-    console.log('[grantAllBadgesToAdmin] Admin already has all badges.');
-    return;
-  }
-
-  const { error } = await supabase.from('user_badges').insert(missing);
-
-  if (error) {
-    console.error('[grantAllBadgesToAdmin] Error granting badges:', error);
-  } else {
-    console.log(`[grantAllBadgesToAdmin] Granted ${missing.length} badges to admin.`);
+    return (data ?? []).map((row: { badge_id: string }) => row.badge_id);
+  } catch {
+    return [];
   }
 }
 
+/**
+ * Check if a user has a specific badge unlocked.
+ */
+export async function hasBadge(
+  userId: string,
+  badgeId: string
+): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from('user_badges')
+      .select('badge_id')
+      .eq('user_id', userId)
+      .eq('badge_id', badgeId)
+      .maybeSingle();
+
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get total XP earned from badges for a user.
+ */
+export async function getUserBadgeXP(
+  userId: string,
+  badgeDefinitions: Array<{ id: string; xp_reward: number }>
+): Promise<number> {
+  const unlocked = await getUserUnlockedBadges(userId);
+  const unlockedSet = new Set(unlocked);
+
+  return badgeDefinitions
+    .filter(b => unlockedSet.has(b.id))
+    .reduce((sum, b) => sum + (b.xp_reward ?? 0), 0);
+}
+
 // ─────────────────────────────────────────────────────────────
-// CONVENIENCE WRAPPERS — use these in your page components
+// CONSTANTS
 // ─────────────────────────────────────────────────────────────
 
-/** Call in Chat.tsx when user sends a message */
-export const onChatMessage = (userId: string, empireId: EmpireId) =>
-  trackStat(userId, 'questions_asked', empireId);
+const EMPIRES_TOTAL = 9; // ottoman, roman, mongol, egypt, british, islamic, seljuk, japanese, mali
 
-/** Call in Quiz.tsx when user completes a quiz */
-export const onQuizCompleted = (userId: string, empireId: EmpireId) =>
-  trackStat(userId, 'quiz_completed', empireId);
+// ─────────────────────────────────────────────────────────────
+// DEFAULT EXPORT
+// ─────────────────────────────────────────────────────────────
 
-/** Call in Profiles.tsx when user opens a profile */
-export const onProfileRead = (userId: string, empireId: EmpireId) =>
-  trackStat(userId, 'profiles_read', empireId);
+const badgeService = {
+  awardBadge,
+  awardBadges,
+  updateBadgeProgress,
+  incrementBadgeProgress,
+  checkQuizBadges,
+  checkChatBadges,
+  getUserBadgeProgress,
+  getUserUnlockedBadges,
+  hasBadge,
+  getUserBadgeXP,
+};
 
-/** Call in Timeline.tsx on mount / scroll */
-export const onTimelineView = (userId: string, empireId: EmpireId) =>
-  trackStat(userId, 'timeline_views', empireId);
-
-/** Call in MapPage.tsx on mount */
-export const onMapOpen = (userId: string, empireId: EmpireId) =>
-  trackStat(userId, 'map_opens', empireId);
-
-/** Call in Ranked.tsx when a match ends */
-export const onRankedPlay = (userId: string, empireId: EmpireId) =>
-  trackStat(userId, 'ranked_plays', empireId);
-
-/** Call in StoryMode.tsx when story is completed */
-export const onStoryCompleted = (userId: string, empireId: EmpireId) =>
-  trackStat(userId, 'story_completed', empireId);
-
-/** Call in Lineage.tsx on mount */
-export const onLineageView = (userId: string, empireId: EmpireId) =>
-  trackStat(userId, 'lineage_views', empireId);
+export default badgeService;
